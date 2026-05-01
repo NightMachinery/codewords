@@ -29,7 +29,7 @@ Picture catalog endpoints currently report that no local picture catalog is avai
 
 ## WebSocket API
 
-Room sockets connect at `/ws/rooms/{roomId}` with `authToken` or `migrateId` query parameters. After authentication the server sends a viewer-specific `snapshot` immediately. Supported socket messages are:
+Room sockets connect at `/ws/rooms/{roomId}` with `authToken` or `migrateId` query parameters. After authentication the server sends a viewer-specific `snapshot` immediately, including viewer host context for lobby permissions. HTTP joins and settings changes broadcast fresh lobby snapshots to connected clients. Supported socket messages are:
 
 - `ping` -> `pong`
 - `setTeam` / `assignTeam`

@@ -178,7 +178,11 @@ func (a *app) handleGetRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	viewerID := ""
-	if token := tokenFromRequest(r); token != "" {
+	if migrateID := r.URL.Query().Get("migrateId"); migrateID != "" {
+		if link, err := a.identity.ResolveMigrate(r.Context(), roomID, migrateID); err == nil {
+			viewerID = link.UserID
+		}
+	} else if token := tokenFromRequest(r); token != "" {
 		if user, err := a.authUser(r.Context(), token); err == nil {
 			viewerID = user.ID
 		}
@@ -213,6 +217,7 @@ func (a *app) handleJoinRoom(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		rt.mu.Lock()
 		_, _ = game.Apply(&rt.state, game.AddPlayerCommand{PlayerID: boot.UserID, DisplayName: boot.DisplayName}, boot.UserID)
+		rt.broadcastLocked(snapshotMessage(rt.state, ""))
 		rt.mu.Unlock()
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"room": roomDTO(room), "viewer": viewerDTO(boot.UserID, boot.UserID == room.HostUserID)})
@@ -243,6 +248,7 @@ func (a *app) handleSettings(w http.ResponseWriter, r *http.Request) {
 	rt, _ := a.loadRuntime(r.Context(), roomID)
 	rt.mu.Lock()
 	_, _ = game.Apply(&rt.state, game.UpdateSettingsCommand{Settings: settings}, user.ID)
+	rt.broadcastLocked(snapshotMessage(rt.state, ""))
 	rt.mu.Unlock()
 	writeJSON(w, http.StatusOK, map[string]any{"settings": settings})
 }
@@ -714,7 +720,7 @@ func snapshotDTO(state game.State, viewerID string) map[string]any {
 			remaining[string(c.Color)]++
 		}
 	}
-	return map[string]any{"phase": s.Phase, "players": players, "settings": state.Settings, "currentTeam": s.CurrentTeam, "winner": s.Winner, "actionId": s.ActionID, "cards": cards, "lastSelected": s.LastSelected, "remainingCounts": remaining, "clueLog": s.ClueLog, "viewer": map[string]any{"playerId": viewerID}}
+	return map[string]any{"phase": s.Phase, "players": players, "settings": state.Settings, "currentTeam": s.CurrentTeam, "winner": s.Winner, "actionId": s.ActionID, "cards": cards, "lastSelected": s.LastSelected, "remainingCounts": remaining, "clueLog": s.ClueLog, "viewer": map[string]any{"playerId": viewerID, "userId": viewerID, "isHost": viewerID != "" && viewerID == state.HostID}}
 }
 
 func clueNumber(v any) game.ClueNumber {

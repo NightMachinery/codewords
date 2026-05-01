@@ -14,6 +14,6 @@ The initial schema stores users, rooms, room players, room-scoped migrate links,
 
 Display names are validated as short plain text before persistence. Room migrate ids are random URL-safe tokens scoped to a single room and resolve only through `(roomID, migrateIDHash)`.
 
-## Current boundary
+## Frontend boundary
 
-The persistence and identity packages are now wired into the backend API. Frontend identity flows remain part of Milestone 5, while chat and picture-card behavior remain part of Milestone 7.
+The persistence and identity packages are wired into the backend API and the Milestone 5 frontend now uses them for LocalStorage auth-token bootstrap, server-side display names, room joins, and room-scoped migrate-device links. Chat and picture-card behavior remain part of later milestones.

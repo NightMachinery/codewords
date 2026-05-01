@@ -11,6 +11,7 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@hvniel/svelte-router": "0.0.3",
     "@sveltejs/vite-plugin-svelte": "7.0.0",
     "@tailwindcss/vite": "4.2.4",
     "svelte": "5.55.5",

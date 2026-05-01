@@ -13,6 +13,7 @@ web/.svelte-kit/
 .env
 .env.*
 !.env.example
+.taste-images/
 
 # OS/editor files
 .DS_Store

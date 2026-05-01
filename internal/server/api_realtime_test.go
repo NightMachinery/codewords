@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/NightMachinery/codewords/internal/identity"
 	"github.com/NightMachinery/codewords/internal/storage"
@@ -202,4 +203,60 @@ func TestWebSocketStartGameAndChatMessage(t *testing.T) {
 	if msg["type"] != "chatMessage" || msg["message"].(map[string]any)["body"] != "hello team" {
 		t.Fatalf("expected chat message broadcast, got %#v", msg)
 	}
+}
+
+func TestLobbyWebSocketReceivesJoinAndHostViewerSnapshot(t *testing.T) {
+	h := newTestHandler(t)
+	postJSON(t, h, "/api/identity/bootstrap", map[string]any{"authToken": "host-lobby", "displayName": "Host"}, http.StatusOK)
+	roomResp := postJSON(t, h, "/api/rooms", map[string]any{"authToken": "host-lobby", "settings": map[string]any{"wordpackId": "english", "seed": 21}}, http.StatusCreated)
+	roomID := roomResp["room"].(map[string]any)["id"].(string)
+
+	server := httptest.NewServer(h)
+	defer server.Close()
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws/rooms/" + roomID + "?authToken=host-lobby"
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial websocket: %v", err)
+	}
+	defer conn.Close()
+	if err := conn.SetReadDeadline(testDeadline()); err != nil {
+		t.Fatalf("set read deadline: %v", err)
+	}
+
+	var msg map[string]any
+	if err := conn.ReadJSON(&msg); err != nil {
+		t.Fatalf("read initial snapshot: %v", err)
+	}
+	viewer := msg["snapshot"].(map[string]any)["viewer"].(map[string]any)
+	if viewer["isHost"] != true {
+		t.Fatalf("expected host viewer snapshot, got %#v", viewer)
+	}
+
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "guest-lobby", "displayName": "Guest"}, http.StatusOK)
+	if err := conn.ReadJSON(&msg); err != nil {
+		t.Fatalf("read join broadcast: %v", err)
+	}
+	players := msg["snapshot"].(map[string]any)["players"].([]any)
+	if len(players) != 2 {
+		t.Fatalf("expected join broadcast with both players, got %#v", msg)
+	}
+}
+
+func TestMigrateIdProvidesRoomViewerContext(t *testing.T) {
+	h := newTestHandler(t)
+	boot := postJSON(t, h, "/api/identity/bootstrap", map[string]any{"authToken": "host-migrate", "displayName": "Host"}, http.StatusOK)
+	hostID := boot["userId"].(string)
+	roomResp := postJSON(t, h, "/api/rooms", map[string]any{"authToken": "host-migrate", "settings": map[string]any{"wordpackId": "english"}}, http.StatusCreated)
+	roomID := roomResp["room"].(map[string]any)["id"].(string)
+	link := postJSON(t, h, "/api/rooms/"+roomID+"/migrate-link", map[string]any{"authToken": "host-migrate"}, http.StatusOK)
+
+	room := getJSON(t, h, "/api/rooms/"+roomID+"?migrateId="+link["migrateId"].(string), http.StatusOK)
+	viewer := room["viewer"].(map[string]any)
+	if viewer["userId"] != hostID || viewer["isHost"] != true {
+		t.Fatalf("expected migrate viewer to resolve host, got %#v", viewer)
+	}
+}
+
+func testDeadline() time.Time {
+	return time.Now().Add(2 * time.Second)
 }
