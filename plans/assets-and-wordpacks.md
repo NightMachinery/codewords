@@ -29,3 +29,14 @@ Requirements:
 - Default candidate source can mirror the old convention, but must be configurable.
 - Normalize/cache images server-side if implemented; generated cache files live outside source assets or in a documented cache directory.
 - Expose only safe image ids to clients, not arbitrary filesystem paths.
+
+## What else to copy from the old repo
+
+The wordpack directory is the only required direct copy from the old SecretCodes implementation.
+
+Do **not** directly copy the old React/boardgame.io implementation files, locale directories, tests, or server picture pipeline into the new app. They are useful only as behavioral reference because the new project uses a different stack and English-only UI.
+
+Optional assets:
+
+- `web/src/games/secretcodes/media/thumbnail.jpg` may be copied later if a thumbnail is needed and the image is acceptable for the new Codewords branding.
+- `web/src/games/secretcodes/locales/en.json` may be used as wording reference, but the new UI should define its own English strings without localization infrastructure.
