@@ -36,6 +36,7 @@
   - `startGame`
   - `guessCard`
   - `passTurn`
+  - `submitClue`
   - `sendChat`
   - `ping`
 - Server messages:
@@ -47,7 +48,7 @@
 
 ## Snapshot rules
 
-- Snapshot shape includes room metadata, players, teams, settings, match phase, current team, cards, winner, last action id/type, last selected card, remaining counts, and viewer permissions.
+- Snapshot shape includes room metadata, players, teams, settings, match phase, current team, cards, winner, last action id/type, last selected card, remaining counts, clue log/current clue, and viewer permissions.
 - Hidden card color is present only in spymaster-authorized snapshots or after game over.
 - Non-spymaster snapshots may include remaining counts but not unrevealed card colors.
 
@@ -63,5 +64,7 @@ Room settings include:
 
 - `imageCardCount`: integer 0–25; this is the backend source of truth for words-only, images-only, and mixed boards.
 - `wordpackId`: required whenever `imageCardCount < 25`.
+- `enforceClueGuessLimit`: when true, current-team guessers cannot reveal cards until the current-team spymaster has submitted a clue with a nonblank number, and accepted guesses cannot exceed that number.
+- `allowInfinityClue`: when true, clue submission may use `∞`; when false, infinity clues are rejected.
 
-Settings/start validation must return clear errors for insufficient unique words, insufficient local images, unavailable picture catalog, or invalid image count. Snapshots represent each card with `contentType` plus either `word` or `imageId`/image URL metadata appropriate for that viewer.
+Settings/start validation must return clear errors for insufficient unique words, insufficient local images, unavailable picture catalog, invalid image count, invalid clue number, missing mandatory clue, or exhausted clue guess limit. Snapshots represent each card with `contentType` plus either `word` or `imageId`/image URL metadata appropriate for that viewer.

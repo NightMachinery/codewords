@@ -27,7 +27,7 @@
 
 - Display-name prompt only when server has no saved name for the current effective identity.
 - Lobby: room link copy, migrate-device copy, team columns, role badges, host settings, start button, chat.
-- Game board: responsive 5x5 card grid, current team, remaining counts, pass button, role/view controls, last selected card highlight, chat, game-over summary.
+- Game board: responsive 5x5 card grid, current team, remaining counts, pass button, role/view controls, clue editor/log, last selected card highlight, chat, game-over summary.
 - Settings: card layout preferences, sounds if implemented, confirmation preference, picture/word mode before start.
 - Spectator: read-only board and chat, no move controls, no spymaster toggle.
 
@@ -62,3 +62,11 @@ Pre-game host settings must expose:
 - Mixed images and words.
 
 For mixed/custom mode, show an image-card count control from 0 to 25 and explain that the rest of the 25 cards will be words. Words only sets the count to 0; Images only sets it to 25. Disable or clearly error when the local image catalog or selected wordpack cannot satisfy the requested count. The board renderer must support word cards and image cards in the same 5x5 grid.
+
+## Clue UI
+
+- Show a polished clue log to all players and spectators near the board, with round order, team color, clue text, clue number, status, and subtle current-round emphasis.
+- Current-team spymasters get an inline clue composer while the round is open: clue text input, number control, save/update button, and validation messages.
+- The clue number control supports blank in normal mode, `1..9`, and `∞` only when the room setting allows infinity clues.
+- In enforced clue-limit mode, explain that clue submission is required and that the team may reveal at most the submitted numeric count.
+- Avoid modal-first interactions. Use compact product UI styling, clear focus states, readable dense rows, and restrained team-color accents.

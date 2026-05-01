@@ -2,7 +2,7 @@
 
 ## Backend tests
 
-- Game engine unit tests for setup, two-player auto teams, role validation, host-only assignment, role exclusivity, team-switch role clearing, guesses, pass, action ids, last-selected card tracking, assassin, card-completion wins, and hidden views.
+- Game engine unit tests for setup, two-player auto teams, role validation, host-only assignment, role exclusivity, team-switch role clearing, guesses, pass, action ids, last-selected card tracking, assassin, card-completion wins, hidden views, clue submit/update, `NA` clue rows, clue number validation, mandatory clue mode, infinity clues, and enforced clue guess caps.
 - Property tests for board generation invariants: 25 cards, configured assassin count, correct team counts, no duplicate selected cards.
 - Picture cache tests for source discovery, extensionless sniffing, exact legacy `imageId` compatibility for known source bytes (`legacy-cache-test` -> `93670c3199ed9a9f911da869573fe47af8ec93bfe02516f1cc9ad67ed5a284fe`), duplicate-byte deduplication, cache-hit reuse from an existing `<imageId>.avif`, optional corrupt-cache rebuild, AVIF/content-type metadata, progress counters, and warmup retry after failure.
 - Auth tests for token hashing, display-name persistence, host-only actions, and migrate-link room scoping.
@@ -17,6 +17,7 @@
   - join second player, assign teams/roles, start game.
   - spymaster sees colors; guesser/spectator does not.
   - guess/pass/win flow works.
+  - spymaster can submit/update a clue, all viewers see the clue log, missing clues finalize as `NA`, and enforced clue-limit mode blocks over-guessing.
   - migrate-device link opens same room identity without changing global auth token.
   - HTTP clipboard fallback displays/copies usable links.
 

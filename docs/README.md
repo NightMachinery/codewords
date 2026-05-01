@@ -6,9 +6,12 @@
 
 ## Current implementation status
 
-Milestone 1 scaffold is implemented:
+Milestones 1 and 2 are implemented:
 
 - Go backend module with `GET /healthz`.
 - Svelte 5 + Vite 8 + Tailwind frontend under `web/`.
 - Local asset directories under `assets/wordpacks/` and `assets/pictures/`.
+- Pure Go game engine under `internal/game` for lobby roles, deterministic word boards, clue rounds, turn flow, hidden snapshots, and win conditions.
 - tmux/Caddy-oriented self-host skeleton in `self_host.zsh`.
+
+See `game-engine.md` for the current engine package boundary and behavior.

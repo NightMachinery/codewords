@@ -8,7 +8,7 @@
 
 ## Milestone 2: Game engine
 
-- Implement pure Go game engine for lobby settings, board setup, commands, hidden views, and win conditions.
+- Implement pure Go game engine for lobby settings, wordpack-backed board setup, commands, clue rounds/logs, hidden views, and win conditions.
 - Add comprehensive backend tests before wiring UI.
 
 ## Milestone 3: Persistence and identity
@@ -28,7 +28,7 @@
 
 ## Milestone 6: Frontend gameplay
 
-- Implement Tailwind-styled responsive board, spymaster/non-spymaster/spectator views, pass/guess controls, last-selected card highlight, remaining counts, game-over state, local preferences, and dynamic WebSocket URL handling.
+- Implement Tailwind-styled responsive board, spymaster/non-spymaster/spectator views, clue submit/update controls, polished clue log, pass/guess controls, last-selected card highlight, remaining counts, game-over state, local preferences, and dynamic WebSocket URL handling.
 
 ## Milestone 7: Wordpacks, pictures, and chat
 

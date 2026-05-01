@@ -42,6 +42,20 @@
 - Every accepted guess records the last selected card index and selecting team so the UI can highlight the card and assassin winner resolution can credit the losing team.
 - Commands with invalid card indexes, revealed cards, wrong teams, spectators, or inactive guessers are rejected server-side without mutating state.
 
+## Clue rules
+
+A round is one team turn. It starts when a team becomes current and ends on pass, wrong-color/civilian/assassin reveal, or win. Correct same-team guesses keep the round open.
+
+- Current-team spymasters may submit a clue text and clue number for the open round.
+- Current-team spymasters may update that clue until the round ends, including typo fixes.
+- Clue text is required when submitting a clue.
+- Clue number can be blank in normal mode, numeric `1..9`, or `∞` only when the `allowInfinityClue` setting is enabled.
+- If a round ends without an explicit clue submission, the clue log records `NA`.
+- All players and spectators can see the active clue and finalized clue log.
+- A host setting `enforceClueGuessLimit` makes clue submission mandatory before guessing and rejects guesses beyond the submitted numeric clue number.
+- In enforced mode, blank clue numbers are invalid. `∞` has no guess cap but still requires explicit submission and is available only when `allowInfinityClue` is enabled.
+- In enforced mode, clue updates that lower the clue number below already accepted guesses for the round are rejected.
+
 ## Win conditions
 
 - If assassin is revealed, the opposing team wins.
