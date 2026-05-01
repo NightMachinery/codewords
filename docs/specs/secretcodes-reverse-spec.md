@@ -82,7 +82,9 @@ This document records behaviors observed in the original FreeBoardGames SecretCo
 ### AVIF picture cache pipeline
 
 - Where a source picture is first accepted, the system shall hash the source bytes with SHA-256 and derive an opaque `imageId` by hashing a transform descriptor, not by exposing source filenames or paths. Evidence: `secretcodesPictures.ts:339-387`, `secretcodesPictures.test.ts:56-70`.
-- The transform descriptor shall include source hash, ratio `2:3`, long side `1536`, output `1024x1536`, encoding descriptor `fmt=avif|backend=native|quality=80|speed=6|threads=auto|channels=rgb`, and pipeline version `v1`. Evidence: `secretcodesPictures.ts:17-28`, `358-377`.
+- The `imageId` algorithm is a cross-repository compatibility contract and shall exactly match the legacy TypeScript implementation so existing AVIF cache files can be reused without rebuilding.
+- The exact algorithm shall be: `sourceHash = lowercaseHex(sha256(sourceBytes))`; `transformDescriptor = [\`source=${sourceHash}\`, "ratio=2:3", "long_side=1536", "output=1024x1536", "fmt=avif|backend=native|quality=80|speed=6|threads=auto|channels=rgb", "pipeline=v1"].join("|")`; `imageId = lowercaseHex(sha256(utf8Bytes(transformDescriptor)))`. Evidence: `secretcodesPictures.ts:339-387`, `secretcodesPictures.test.ts:56-70`.
+- As a compatibility test vector, source bytes equal to UTF-8 `legacy-cache-test` shall produce `sourceHash` `22c0f8262d472cc9ee2b4026b0365f4ed1fd0b9a1e50ccb585b67c494e211a97` and `imageId` `93670c3199ed9a9f911da869573fe47af8ec93bfe02516f1cc9ad67ed5a284fe`.
 - The cache file path shall be `<cacheDir>/<imageId>.avif`, and cached responses shall use content type `image/avif`. Evidence: `secretcodesPictures.ts:17-18`, `380-413`.
 - The cache directory shall default to `~/.cache/talespin/cards`, expand `~`, be resolved to an absolute path, and be configurable through `FBG_IMAGES_CACHE_DIR` in the original implementation. Evidence: `secretcodesPictures.ts:14`, `98-130`, `480-482`, `secretcodesPictures.test.ts:148-156`.
 - The source directory shall default to `~/Pictures/SurrealPictures/chosen_2` and be configurable through `CODENAMES_PICTURES_DIR` in the original implementation. Evidence: `secretcodesPictures.ts:13`, `480-482`.
@@ -110,7 +112,7 @@ This document records behaviors observed in the original FreeBoardGames SecretCo
 - Server-side authorization is mandatory because the original client exposed role and view toggles but the move helpers still reject unauthorized host and guess actions.
 - The new implementation should improve validation for card indexes and malformed command payloads; the original helper assumes valid indexes in some paths.
 - Local/offline operation is compatible with the observed picture and wordpack model, provided all picture processing dependencies are local and documented.
-- AVIF caching greatly reduces served payload size and gives stable cacheable image URLs, but requires local native tooling or a Go-native equivalent in the new implementation.
+- AVIF caching greatly reduces served payload size and gives stable cacheable image URLs, but requires local native tooling or a Go-native equivalent in the new implementation. The cache-id algorithm may not change unless the pipeline version intentionally changes and backward-compatible cache reuse is explicitly abandoned.
 - Tailwind must be installed and built as a package dependency, not loaded from a CDN, to preserve intranet/offline behavior.
 
 ## Inferred acceptance criteria
@@ -127,7 +129,7 @@ This document records behaviors observed in the original FreeBoardGames SecretCo
 
 - The original game has a clue-given helper but no explicit clue text in authoritative state; Codewords should decide whether clue text is chat-only or a first-class event before implementation.
 - The original UI allowed host role toggles during active play; Codewords plans should preserve this unless the product owner chooses lobby-only role changes.
-- The original picture cache normalizes to AVIF through a helper script. Codewords may implement a Go-native or simpler local image pipeline, but if it diverges it should explicitly document the output format, id derivation, cache invalidation/versioning, and validation behavior.
+- The original picture cache normalizes to AVIF through a helper script. Codewords may implement a Go-native encoder or different normalizer, but the legacy `imageId` derivation must remain byte-for-byte compatible for the same source bytes and descriptor while pipeline version is `v1`; any intentional divergence requires a new pipeline version and migration/cache-reuse decision.
 - The original online room/auth flow is outside the SecretCodes game directory; Codewords replaces it with local token identities and room-scoped migrate links.
 
 ## Recommendations
