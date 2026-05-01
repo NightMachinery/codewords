@@ -18,6 +18,7 @@ import (
 var ErrNotFound = errors.New("not found")
 
 const RoomStatusLobby = "lobby"
+const RoomStatusActive = "active"
 
 // DB wraps the SQLite connection pool.
 type DB struct{ db *sql.DB }
@@ -311,9 +312,17 @@ func (d *DB) RoomByID(ctx context.Context, id string) (Room, error) {
 }
 
 func (d *DB) SetRoomCurrentMatch(ctx context.Context, roomID, matchID string) error {
-	res, err := d.db.ExecContext(ctx, `UPDATE rooms SET current_match_id = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`, matchID, roomID)
+	res, err := d.db.ExecContext(ctx, `UPDATE rooms SET current_match_id = ?, status = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`, matchID, RoomStatusActive, roomID)
 	if err != nil {
 		return fmt.Errorf("set current match: %w", err)
+	}
+	return requireAffected(res)
+}
+
+func (d *DB) UpdateRoomSettings(ctx context.Context, roomID, settingsJSON string) error {
+	res, err := d.db.ExecContext(ctx, `UPDATE rooms SET settings_json = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`, settingsJSON, roomID)
+	if err != nil {
+		return fmt.Errorf("update room settings: %w", err)
 	}
 	return requireAffected(res)
 }

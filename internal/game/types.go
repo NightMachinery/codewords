@@ -80,40 +80,40 @@ const (
 
 // CardContent is the player-visible content of a card.
 type CardContent struct {
-	Type    ContentType
-	Text    string
-	ImageID string
+	Type    ContentType `json:"type"`
+	Text    string      `json:"text,omitempty"`
+	ImageID string      `json:"imageId,omitempty"`
 }
 
 // Card is an authoritative board card.
 type Card struct {
-	Content  CardContent
-	Color    Color
-	Revealed bool
+	Content  CardContent `json:"content"`
+	Color    Color       `json:"color"`
+	Revealed bool        `json:"revealed"`
 }
 
 // Settings are match/lobby options owned by the engine.
 type Settings struct {
-	Seed                  int64
-	BlackCards            int
-	WordpackID            string
-	EnforceClueGuessLimit bool
-	AllowInfinityClue     bool
+	Seed                  int64  `json:"seed"`
+	BlackCards            int    `json:"blackCards"`
+	WordpackID            string `json:"wordpackId"`
+	EnforceClueGuessLimit bool   `json:"enforceClueGuessLimit"`
+	AllowInfinityClue     bool   `json:"allowInfinityClue"`
 }
 
 // Player is the authoritative per-room player state.
 type Player struct {
-	ID             string
-	DisplayName    string
-	Team           Team
-	Spymaster      bool
-	Representative bool
+	ID             string `json:"id"`
+	DisplayName    string `json:"displayName"`
+	Team           Team   `json:"team"`
+	Spymaster      bool   `json:"spymaster"`
+	Representative bool   `json:"representative"`
 }
 
 // LastSelected records the most recent accepted guess.
 type LastSelected struct {
-	Index int
-	Team  Team
+	Index int  `json:"index"`
+	Team  Team `json:"team"`
 }
 
 // ClueNumberKind identifies clue number variants.
@@ -127,8 +127,8 @@ const (
 
 // ClueNumber is a blank, numeric, or infinity clue count.
 type ClueNumber struct {
-	Kind  ClueNumberKind
-	Value int
+	Kind  ClueNumberKind `json:"kind"`
+	Value int            `json:"value,omitempty"`
 }
 
 // ClueStatus identifies whether a clue row is active, finalized, or absent.
@@ -142,29 +142,29 @@ const (
 
 // ClueEntry is one row in the per-round clue log.
 type ClueEntry struct {
-	Round       int
-	Team        Team
-	Text        string
-	Number      ClueNumber
-	Status      ClueStatus
-	SubmittedBy string
-	UpdatedBy   string
-	Guesses     int
+	Round       int        `json:"round"`
+	Team        Team       `json:"team"`
+	Text        string     `json:"text"`
+	Number      ClueNumber `json:"number"`
+	Status      ClueStatus `json:"status"`
+	SubmittedBy string     `json:"submittedBy,omitempty"`
+	UpdatedBy   string     `json:"updatedBy,omitempty"`
+	Guesses     int        `json:"guesses"`
 }
 
 // State is the authoritative game engine state.
 type State struct {
-	HostID       string
-	Settings     Settings
-	Phase        Phase
-	Players      map[string]Player
-	Cards        []Card
-	CurrentTeam  Team
-	Winner       Team
-	ActionID     int
-	LastSelected *LastSelected
-	ClueLog      []ClueEntry
-	Round        int
+	HostID       string            `json:"hostId"`
+	Settings     Settings          `json:"settings"`
+	Phase        Phase             `json:"phase"`
+	Players      map[string]Player `json:"players"`
+	Cards        []Card            `json:"cards"`
+	CurrentTeam  Team              `json:"currentTeam"`
+	Winner       Team              `json:"winner"`
+	ActionID     int               `json:"actionId"`
+	LastSelected *LastSelected     `json:"lastSelected"`
+	ClueLog      []ClueEntry       `json:"clueLog"`
+	Round        int               `json:"round"`
 }
 
 // Board is a generated board plus starting team.

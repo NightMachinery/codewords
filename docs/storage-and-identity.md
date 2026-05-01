@@ -1,6 +1,6 @@
 # Storage and Identity
 
-Milestone 3 adds local SQLite persistence and server-side identity primitives. The backend still exposes only `GET /healthz`; REST and WebSocket wiring comes in the next milestone.
+Milestone 3 added local SQLite persistence and server-side identity primitives. Milestone 4 now exposes these primitives through REST and WebSocket backend routes.
 
 ## SQLite
 
@@ -16,4 +16,4 @@ Display names are validated as short plain text before persistence. Room migrate
 
 ## Current boundary
 
-This milestone provides tested packages for persistence and identity. HTTP endpoints, WebSocket command persistence, restart restoration, and frontend identity flows are intentionally left for milestones 4 and 5.
+The persistence and identity packages are now wired into the backend API. Frontend identity flows remain part of Milestone 5, while chat and picture-card behavior remain part of Milestone 7.

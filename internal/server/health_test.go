@@ -8,7 +8,10 @@ import (
 )
 
 func TestHealthzReturnsOK(t *testing.T) {
-	handler := NewHandler()
+	handler, err := NewHandler()
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
 	request := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	response := httptest.NewRecorder()
 
