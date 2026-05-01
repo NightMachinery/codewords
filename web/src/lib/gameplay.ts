@@ -1,0 +1,188 @@
+import type { RoomSummary, Settings, Viewer } from './api';
+import type { LobbyPlayer, Team } from './lobby';
+
+export type GameplayPhase = 'lobby' | 'active' | 'game_over';
+export type CardColor = 'blue' | 'red' | 'black' | 'civilian';
+export type VisibleCardColor = CardColor | 'hidden';
+
+export interface ClueNumber {
+  kind: 'blank' | 'numeric' | 'infinity';
+  value?: number;
+}
+
+export interface ClueEntry {
+  round: number;
+  team: 'blue' | 'red';
+  text: string;
+  number: ClueNumber;
+  status: 'active' | 'final' | 'na';
+  submittedBy?: string;
+  updatedBy?: string;
+  guesses: number;
+}
+
+export interface LastSelected {
+  index: number;
+  team: 'blue' | 'red';
+}
+
+export interface RemainingCounts {
+  blue: number;
+  red: number;
+}
+
+export interface GameplayCard {
+  contentType: 'word' | 'image';
+  word?: string;
+  imageId?: string;
+  revealed: boolean;
+  color?: CardColor;
+}
+
+export interface GameplayPreferences {
+  confirmGuesses: boolean;
+  confirmPasses: boolean;
+}
+
+export const gameplayPreferencesStorageKey = 'codewords.gameplayPreferences';
+export const defaultGameplayPreferences: GameplayPreferences = {
+  confirmGuesses: true,
+  confirmPasses: false,
+};
+
+export function viewerId(viewer: Viewer | null | undefined): string {
+  return viewer?.playerId || viewer?.userId || '';
+}
+
+export function findViewerPlayer(players: LobbyPlayer[], viewer: Viewer | null | undefined): LobbyPlayer | undefined {
+  const id = viewerId(viewer);
+  return players.find((player) => player.id === id);
+}
+
+export function isActiveGuesser(players: LobbyPlayer[], playerId: string | undefined, currentTeam: Team): boolean {
+  if (!playerId || (currentTeam !== 'blue' && currentTeam !== 'red')) return false;
+  const player = players.find((candidate) => candidate.id === playerId);
+  if (!player || player.team !== currentTeam) return false;
+
+  const teammates = players.filter((candidate) => candidate.team === currentTeam);
+  if (teammates.length === 0) return false;
+  const representatives = teammates.filter((candidate) => candidate.representative);
+  if (representatives.length > 0) return player.representative;
+  const nonSpymasters = teammates.filter((candidate) => !candidate.spymaster);
+  if (nonSpymasters.length === 0) return true;
+  return !player.spymaster;
+}
+
+export function viewerRole(
+  players: LobbyPlayer[],
+  viewer: Viewer | null | undefined,
+  currentTeam: Team,
+  phase: GameplayPhase = 'active',
+): {
+  kind: 'spectator' | 'player' | 'spymaster';
+  team?: Team;
+  player?: LobbyPlayer;
+  canSeeHiddenColors: boolean;
+  activeGuesser: boolean;
+} {
+  const player = findViewerPlayer(players, viewer);
+  const gameOver = phase === 'game_over';
+  if (!player) {
+    return { kind: 'spectator', canSeeHiddenColors: gameOver, activeGuesser: false };
+  }
+  const activeGuesser = phase === 'active' && isActiveGuesser(players, player.id, currentTeam);
+  return {
+    kind: player.spymaster ? 'spymaster' : 'player',
+    team: player.team,
+    player,
+    canSeeHiddenColors: gameOver || player.spymaster,
+    activeGuesser,
+  };
+}
+
+export function canSubmitClue(
+  players: LobbyPlayer[],
+  viewer: Viewer | null | undefined,
+  currentTeam: Team,
+  phase: GameplayPhase,
+): { allowed: boolean; reason: string } {
+  if (phase === 'game_over') return { allowed: false, reason: 'The match is over.' };
+  if (phase !== 'active') return { allowed: false, reason: 'Clues are available after the match starts.' };
+  const player = findViewerPlayer(players, viewer);
+  if (!player) return { allowed: false, reason: 'Spectators are read-only.' };
+  if (!player.spymaster) return { allowed: false, reason: 'Only spymasters can clue.' };
+  if (player.team !== currentTeam) return { allowed: false, reason: `Only the ${currentTeam} spymaster can clue right now.` };
+  return { allowed: true, reason: '' };
+}
+
+export function parseClueNumber(value: string): ClueNumber {
+  const normalized = value.trim();
+  if (normalized === '∞' || normalized.toLowerCase() === 'infinity') return { kind: 'infinity' };
+  const parsed = Number.parseInt(normalized, 10);
+  if (String(parsed) === normalized && parsed >= 1 && parsed <= 9) return { kind: 'numeric', value: parsed };
+  return { kind: 'blank' };
+}
+
+export function clueNumberValue(number: ClueNumber | undefined): string {
+  if (!number || number.kind === 'blank') return '';
+  if (number.kind === 'infinity') return '∞';
+  return String(number.value ?? '');
+}
+
+export function formatClueNumber(number: ClueNumber | undefined): string {
+  if (!number || number.kind === 'blank') return 'any';
+  if (number.kind === 'infinity') return '∞';
+  return String(number.value ?? '');
+}
+
+export function clueSubmitProblem(text: string, number: ClueNumber, settings: Settings): string {
+  if (!text.trim()) return 'Enter a one-word clue.';
+  if (settings.enforceClueGuessLimit && number.kind === 'blank') return 'Pick a clue number when clue limits are enforced.';
+  if (!settings.allowInfinityClue && number.kind === 'infinity') return 'Infinity clues are disabled for this room.';
+  return '';
+}
+
+export function readGameplayPreferences(storage: Pick<Storage, 'getItem'>): GameplayPreferences {
+  const raw = storage.getItem(gameplayPreferencesStorageKey);
+  if (!raw) return { ...defaultGameplayPreferences };
+  try {
+    const parsed = JSON.parse(raw) as Partial<GameplayPreferences>;
+    return {
+      confirmGuesses: typeof parsed.confirmGuesses === 'boolean' ? parsed.confirmGuesses : defaultGameplayPreferences.confirmGuesses,
+      confirmPasses: typeof parsed.confirmPasses === 'boolean' ? parsed.confirmPasses : defaultGameplayPreferences.confirmPasses,
+    };
+  } catch {
+    return { ...defaultGameplayPreferences };
+  }
+}
+
+export function writeGameplayPreferences(storage: Pick<Storage, 'setItem'>, preferences: GameplayPreferences): void {
+  storage.setItem(gameplayPreferencesStorageKey, JSON.stringify(preferences));
+}
+
+export function shouldAutoJoinRoom(room: RoomSummary, credentialMode: 'auth' | 'migrate' | 'none', displayName: string): boolean {
+  return credentialMode === 'auth' && room.status === 'lobby' && displayName.trim().length > 0;
+}
+
+export function cardViewState(card: GameplayCard, index: number, showHiddenColor: boolean, lastSelected: LastSelected | null | undefined): {
+  visibleColor: VisibleCardColor;
+  label: string;
+  isLastSelected: boolean;
+  classes: string;
+} {
+  const visibleColor: VisibleCardColor = card.revealed || showHiddenColor ? (card.color ?? 'hidden') : 'hidden';
+  const isLastSelected = lastSelected?.index === index;
+  const colorClass = {
+    hidden: 'border-slate-700 bg-slate-900 text-slate-100 hover:border-emerald-200',
+    blue: 'border-blue-300/70 bg-blue-500/25 text-blue-50',
+    red: 'border-red-300/70 bg-red-500/25 text-red-50',
+    black: 'border-zinc-300/60 bg-zinc-950 text-zinc-50',
+    civilian: 'border-amber-100/60 bg-amber-100/20 text-amber-50',
+  }[visibleColor];
+  return {
+    visibleColor,
+    label: visibleColor === 'hidden' ? 'Unrevealed' : visibleColor[0].toUpperCase() + visibleColor.slice(1),
+    isLastSelected,
+    classes: [colorClass, card.revealed ? 'opacity-95' : '', showHiddenColor && !card.revealed ? 'shadow-inner shadow-white/10' : '', isLastSelected ? 'ring-4 ring-emerald-200' : ''].filter(Boolean).join(' '),
+  };
+}

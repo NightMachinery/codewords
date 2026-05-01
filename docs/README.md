@@ -4,11 +4,11 @@
 - Implementation handoff documents live in `../plans/`.
 - `self-hosting.md` documents the current `self_host.zsh` lifecycle script.
 - `http-and-realtime.md` documents the Milestone 4 backend API/WebSocket wiring.
-- `frontend-lobby-and-identity.md` documents the Milestone 5 browser lobby and identity flow.
+- `frontend-lobby-and-identity.md` documents the Milestone 5/6 browser lobby, identity, and gameplay flow.
 
 ## Current implementation status
 
-Milestones 1, 2, 3, 4, and 5 are implemented:
+Milestones 1, 2, 3, 4, 5, and 6 are implemented:
 
 - Go backend module with `GET /healthz`.
 - Svelte 5 + Vite 8 + Tailwind frontend under `web/`.
@@ -18,6 +18,6 @@ Milestones 1, 2, 3, 4, and 5 are implemented:
 - SQLite migration/storage package plus HMAC-hashed identity and room-scoped migrate-link services.
 - JSON REST endpoints for identity, rooms, settings, match start, migrate links, wordpack listing, and picture catalog placeholders.
 - Room WebSocket endpoint with authenticated initial snapshots, ping/pong, engine command handling, persistence, broadcast, and restart restoration from saved snapshots.
-- Svelte/Tailwind frontend for browser identity bootstrap, display-name prompt, room create/join, lobby team/role controls, host settings, start-game action, room-link copy, and migrate-device copy.
+- Svelte/Tailwind frontend for browser identity bootstrap, display-name prompt, room create/join, lobby team/role controls, host settings, start-game action, room-link copy, migrate-device copy, active board play, clue composer/log, guess/pass controls, spectator read-only views, and game-over summary.
 
-See `game-engine.md` for the current engine package boundary and behavior. See `storage-and-identity.md` for persistence and identity details. See `http-and-realtime.md` for the Milestone 4 API and realtime boundary. See `frontend-lobby-and-identity.md` for the Milestone 5 frontend behavior.
+See `game-engine.md` for the current engine package boundary and behavior. See `storage-and-identity.md` for persistence and identity details. See `http-and-realtime.md` for the Milestone 4 API and realtime boundary. See `frontend-lobby-and-identity.md` for the Milestone 5/6 frontend behavior.

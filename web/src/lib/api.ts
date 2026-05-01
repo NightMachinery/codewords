@@ -1,4 +1,5 @@
 import type { LobbyPlayer } from './lobby';
+import type { ClueEntry, GameplayCard, LastSelected, RemainingCounts } from './gameplay';
 
 export interface ApiErrorBody {
   error?: { code?: string; message?: string };
@@ -29,7 +30,13 @@ export interface RoomSnapshot {
   phase: 'lobby' | 'active' | 'game_over';
   players: LobbyPlayer[];
   settings: Settings;
-  currentTeam: string;
+  currentTeam: 'blue' | 'red' | '';
+  winner: 'blue' | 'red' | '';
+  actionId: number;
+  cards: GameplayCard[];
+  lastSelected?: LastSelected | null;
+  remainingCounts: RemainingCounts;
+  clueLog: ClueEntry[];
   viewer: Viewer;
 }
 
