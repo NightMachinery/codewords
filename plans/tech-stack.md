@@ -7,6 +7,7 @@
 - Realtime: WebSockets from Go using a mature lightweight library such as `nhooyr.io/websocket` or `gorilla/websocket`.
 - Storage: SQLite with WAL mode, busy timeout, and migrations.
 - Frontend: Svelte 5 + TypeScript.
+- Styling: Tailwind CSS (local build only, no CDN) with mobile-first utility composition and reusable Svelte components for repeated patterns.
 - Build tooling: Vite 8.
 - Package manager: pnpm only.
 - Static serving: Caddy serves built frontend files directly in production.
@@ -19,6 +20,7 @@
 - Go gives low memory use, quick builds, simple deployment, good concurrency, and mature WebSocket/SQLite support.
 - SQLite avoids Postgres/Redis operational overhead for this single-node self-hosted app.
 - Svelte 5 + Vite 8 minimizes client bundle and development/build overhead.
+- Tailwind keeps styling local, static, and utility-first without adding a runtime UI framework or external stylesheet dependency.
 - Caddy avoids running a separate static file server in production.
 
 ## Rejected for v1

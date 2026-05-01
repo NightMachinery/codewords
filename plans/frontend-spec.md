@@ -4,6 +4,7 @@
 
 - Svelte 5 with TypeScript.
 - Vite 8 build.
+- Tailwind CSS built locally through the frontend toolchain.
 - English UI copy only.
 - No external fonts, icons, CSS frameworks from CDN, analytics, or remote assets.
 
@@ -14,11 +15,19 @@
 - `/room/:roomId?migrate=...` — room-scoped migrated identity view; keep query param across refresh.
 - `/match/:matchId` may exist as an alias if useful, but room URL is sufficient for v1.
 
+## Tailwind styling rules
+
+- Use mobile-first Tailwind utilities as the default styling approach. Add `sm:`, `md:`, and `lg:` variants only where the layout needs to change.
+- Prefer semantic Svelte components with composed Tailwind class strings over global CSS files; extract repeated button, card, chip, panel, and form-control patterns into components.
+- Use Tailwind design tokens for spacing, color, radius, shadows, focus rings, and typography. Use arbitrary values only when a card aspect ratio or board sizing cannot be expressed with tokens.
+- Include visible focus states, disabled states, and sufficient color contrast for all interactive controls.
+- Keep generated CSS local to the build output; no CDN Tailwind script or external stylesheet is allowed.
+
 ## UI screens
 
 - Display-name prompt only when server has no saved name for the current effective identity.
 - Lobby: room link copy, migrate-device copy, team columns, role badges, host settings, start button, chat.
-- Game board: 5x5 card grid, current team, remaining counts, pass button, role/view controls, chat, game-over summary.
+- Game board: responsive 5x5 card grid, current team, remaining counts, pass button, role/view controls, last selected card highlight, chat, game-over summary.
 - Settings: card layout preferences, sounds if implemented, confirmation preference, picture/word mode before start.
 - Spectator: read-only board and chat, no move controls, no spymaster toggle.
 
@@ -38,6 +47,9 @@
 ## Preferences
 
 - Store purely local UI preferences in LocalStorage.
+- Preserve separate card layout preferences for word and picture boards if a cards-per-row control is exposed.
+- Confirmation prompts default to on for mobile-sized/touch contexts and off for desktop contexts unless the user has saved a preference.
+- Optional sound preferences, picture-number badges, and spymaster picture highlights are local-only preferences.
 - Store identity/display name server-side through the auth token flow.
 - Never overwrite global LocalStorage auth token while using a room migrate URL.
 

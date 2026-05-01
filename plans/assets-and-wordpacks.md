@@ -13,6 +13,8 @@ Requirements:
 - Preserve non-empty words/phrases and comments where practical.
 - Include non-English packs such as German, Dutch, Czech, Persian/Farsi, Harry Potter, adult/custom packs, and English variants.
 - UI remains English only; wordpack names can be filenames or simple labels derived from filenames.
+- Parse wordpacks by trimming each line, ignoring blank lines, and ignoring comment lines beginning with `#`.
+- Prefer the mined legacy display order for bundled packs: `english`, `english-alternative`, `dutch`, `czech`, `german`, `persian-1`, `harry-potter-1`, `harry-potter-1-fa`, then any additional packs alphabetically.
 - Do not fetch wordpacks remotely.
 
 ## Static frontend assets
@@ -27,8 +29,10 @@ Requirements:
 - Picture mode must use local files only.
 - Support a configured local source directory and a local cache directory.
 - Default candidate source can mirror the old convention, but must be configurable.
+- Discover common local image types (`.jpg`, `.jpeg`, `.png`, `.webp`) and optionally sniff supported extensionless files.
 - Normalize/cache images server-side if implemented; generated cache files live outside source assets or in a documented cache directory.
 - Expose only safe image ids to clients, not arbitrary filesystem paths.
+- Require at least as many unique catalog images as the requested `imageCardCount`; image-only mode requires 25.
 
 ## What else to copy from the old repo
 
@@ -40,6 +44,10 @@ Optional assets:
 
 - `web/src/games/secretcodes/media/thumbnail.jpg` may be copied later if a thumbnail is needed and the image is acceptable for the new Codewords branding.
 - `web/src/games/secretcodes/locales/en.json` may be used as wording reference, but the new UI should define its own English strings without localization infrastructure.
+
+## Reverse-mined source reference
+
+Detailed behavior mined from the original project is documented in `../docs/specs/secretcodes-reverse-spec.md`. Use that file as behavioral evidence, not as permission to copy the old React/boardgame.io implementation.
 
 ## Mixed card assets
 

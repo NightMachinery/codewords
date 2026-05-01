@@ -14,19 +14,22 @@
 - Players may select/switch teams unless host has locked assignment in future settings.
 - Host may assign teams, toggle spymaster, and toggle representative.
 - Representatives are active guessers for a team when present; otherwise all non-spymasters on the current team are active guessers. If all team members are spymasters, the whole team can guess.
+- In two-player mode, each player starts on a separate team as that team's spymaster and can also act as guesser for that team.
+- A player can never be both spymaster and representative at the same time; assigning one role removes the other.
+- Moving a player between teams clears that player's prior role flags before adding them to the destination team.
 - Spectators do not occupy team seats and cannot move or chat if anonymous.
 
 ## Board setup
 
 - Use 25 cards per match.
 - Choose cards from selected wordpack or picture ids using a deterministic server-side RNG seed.
-- Assign hidden colors:
+- Randomize starting team server-side.
+- Assign hidden colors after selecting contents:
   - `blackCards` assassin cards, clamped from 0 to 8.
   - 8 blue cards.
   - 8 red cards.
-  - 1 extra card for the starting team.
+  - 1 extra card for the starting team, giving the starting team 9 target cards.
   - Remaining cards are civilians.
-- Randomize starting team server-side.
 
 ## Turn rules
 
@@ -36,13 +39,15 @@
 - Revealing any other color, civilian, or assassin passes turn after applying consequences.
 - Active guessers may pass, switching to the other team.
 - Every accepted guess/pass increments an action id for client animation/sound sync.
+- Every accepted guess records the last selected card index and selecting team so the UI can highlight the card and assassin winner resolution can credit the losing team.
+- Commands with invalid card indexes, revealed cards, wrong teams, spectators, or inactive guessers are rejected server-side without mutating state.
 
 ## Win conditions
 
 - If assassin is revealed, the opposing team wins.
 - If all blue cards are revealed, blue wins.
 - If all red cards are revealed, red wins.
-- At game over, full board can be revealed to all viewers.
+- At game over, the full board is revealed to all viewers.
 
 ## Hidden information
 

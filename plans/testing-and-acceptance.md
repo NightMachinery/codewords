@@ -2,7 +2,7 @@
 
 ## Backend tests
 
-- Game engine unit tests for setup, role validation, guesses, pass, assassin, card-completion wins, and hidden views.
+- Game engine unit tests for setup, two-player auto teams, role validation, host-only assignment, role exclusivity, team-switch role clearing, guesses, pass, action ids, last-selected card tracking, assassin, card-completion wins, and hidden views.
 - Property tests for board generation invariants: 25 cards, configured assassin count, correct team counts, no duplicate selected cards.
 - Auth tests for token hashing, display-name persistence, host-only actions, and migrate-link room scoping.
 - Storage tests for migrations, WAL setup, restart restore, chat persistence, and event/snapshot consistency.
@@ -31,7 +31,7 @@
 ## Intranet/offline acceptance
 
 - After dependencies are installed and assets are built, app runs without contacting public internet.
-- No external font/CDN/Firebase/captcha/analytics network requests in browser devtools.
+- No external font, CSS CDN (including Tailwind CDN), Firebase, captcha, or analytics network requests in browser devtools.
 - All wordpacks are listed from local files.
 - Picture mode uses only local configured images/cache.
 
@@ -46,5 +46,5 @@
 - Unit tests for `words`, `images`, and `mixed` board generation.
 - Mixed mode invariant: exactly `imageCardCount` image cards and `25 - imageCardCount` word cards.
 - Validation errors for invalid counts and insufficient local images/words.
-- Browser test that a mixed board renders word and image cards together and all card types can be guessed/revealed.
+- Browser test that a mixed board renders word and image cards together in the Tailwind-styled responsive grid and all card types can be guessed/revealed.
 - Restart/reconnect test proving persisted mixed card contents do not change when the picture catalog later changes.

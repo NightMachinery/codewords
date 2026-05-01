@@ -21,6 +21,7 @@
 - `POST /api/rooms/{roomId}/migrate-bootstrap` — resolves room-scoped migrate id to room-local identity context.
 - `GET /api/wordpacks` — lists bundled wordpacks.
 - `GET /api/pictures/catalog` — lists local picture ids/availability when picture mode is enabled.
+- `GET /api/pictures/{imageId}` — serves a cached/normalized local picture by safe opaque id with cache headers; never accepts filesystem paths.
 
 ## WebSocket
 
@@ -46,7 +47,7 @@
 
 ## Snapshot rules
 
-- Snapshot shape includes room metadata, players, teams, settings, match phase, current team, cards, winner, and viewer permissions.
+- Snapshot shape includes room metadata, players, teams, settings, match phase, current team, cards, winner, last action id/type, last selected card, remaining counts, and viewer permissions.
 - Hidden card color is present only in spymaster-authorized snapshots or after game over.
 - Non-spymaster snapshots may include remaining counts but not unrevealed card colors.
 

@@ -6,7 +6,7 @@ Recommended top-level structure:
 
 - `cmd/server/` — Go server entrypoint.
 - `internal/` — Go packages for config, HTTP handlers, WebSocket hub, game engine, persistence, auth, chat, assets.
-- `web/` — Svelte 5 + Vite frontend.
+- `web/` — Svelte 5 + Vite frontend with Tailwind CSS compiled into the local static build.
 - `assets/wordpacks/` — copied SecretCodes wordpacks.
 - `assets/pictures/` or configured local picture directory support.
 - `migrations/` — SQLite migrations.
@@ -37,6 +37,7 @@ Development:
 - Client opens one WebSocket per room/match for commands and broadcasts.
 - Server validates every command against persisted room/match state.
 - Server broadcasts role-appropriate snapshots; clients never receive hidden card colors unless authorized.
+- Server owns board content generation for words, images, and mixed boards so clients render persisted card contents rather than deriving them locally.
 
 ## URL handling
 

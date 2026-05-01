@@ -13,7 +13,7 @@ Build Codewords: a fast, efficient, standalone, self-hostable SecretCodes-style 
 - Word-card mode with 25 cards.
 - Picture-card mode using local image sources/cache only.
 - 0–8 assassin/black cards configurable before start.
-- Team turn flow, guessing, passing, wrong-guess turn switching, and win/loss detection.
+- Team turn flow, guessing, passing, wrong-guess turn switching, action cues, last-card highlighting, and win/loss detection.
 - Chat for room/match participants and read-only chat for anonymous spectators.
 - Reconnect and page refresh support.
 - Finished-game state with full-board reveal and play-again/new-room affordance.
@@ -23,6 +23,7 @@ Build Codewords: a fast, efficient, standalone, self-hostable SecretCodes-style 
 - UI text is English only.
 - Do not implement runtime UI localization or translation infrastructure for v1.
 - Wordpacks are data, not UI. Copy existing SecretCodes wordpacks directly, including non-English packs.
+- Use Tailwind CSS for all new frontend styling. Tailwind must be installed and built locally; do not load Tailwind, fonts, icons, or component styles from a CDN.
 
 ## Intranet/offline requirements
 

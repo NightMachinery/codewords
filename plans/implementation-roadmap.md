@@ -2,7 +2,7 @@
 
 ## Milestone 1: Scaffold
 
-- Create Go module, Svelte/Vite app, pnpm lockfile, basic build/test scripts, and repo docs.
+- Create Go module, Svelte/Vite/Tailwind app, pnpm lockfile, basic build/test scripts, and repo docs.
 - Add local asset/wordpack directories.
 - Add `GET /healthz` and minimal Caddy/self-host skeleton.
 
@@ -24,11 +24,11 @@
 
 ## Milestone 5: Frontend lobby and identity
 
-- Implement English-only Svelte UI shell, identity bootstrap, display-name prompt, room create/join, lobby/team/role controls, room link copy, and migrate-device copy.
+- Implement English-only Tailwind-styled Svelte UI shell, identity bootstrap, display-name prompt, room create/join, lobby/team/role controls, room link copy, and migrate-device copy.
 
 ## Milestone 6: Frontend gameplay
 
-- Implement board, spymaster/non-spymaster/spectator views, pass/guess controls, remaining counts, game-over state, local preferences, and dynamic WebSocket URL handling.
+- Implement Tailwind-styled responsive board, spymaster/non-spymaster/spectator views, pass/guess controls, last-selected card highlight, remaining counts, game-over state, local preferences, and dynamic WebSocket URL handling.
 
 ## Milestone 7: Wordpacks, pictures, and chat
 

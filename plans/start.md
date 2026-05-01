@@ -20,18 +20,19 @@ This directory is the authoritative handoff for building the greenfield Codeword
 - `identity-and-security.md` — auth token, display name, host controls, spectators, and migrate-device links.
 - `api-and-realtime.md` — HTTP and WebSocket contracts.
 - `storage.md` — SQLite schema, migrations, and persistence rules.
-- `frontend-spec.md` — Svelte UI, routes, preferences, clipboard, and WebSocket behavior.
+- `frontend-spec.md` — Svelte/Tailwind UI, routes, preferences, clipboard, and WebSocket behavior.
 - `assets-and-wordpacks.md` — local assets, copied wordpacks, and picture-card assets.
 - `self-hosting-spec.md` — `docs/self-hosting.md`, `self_host.zsh`, Caddy, tmux, ports, proxy handling.
 - `testing-and-acceptance.md` — required automated and manual acceptance coverage.
 - `implementation-roadmap.md` — milestone order and completion criteria.
+- `../docs/specs/secretcodes-reverse-spec.md` — reverse-mined source behavior and evidence from the original SecretCodes project.
 
 ## Big picture
 
 Build a standalone app at `/home/ubuntu/base/codewords` with:
 
 - Go backend using SQLite WAL for persistence.
-- Svelte 5 + Vite 8 static SPA frontend.
+- Svelte 5 + Vite 8 static SPA frontend styled with locally built Tailwind CSS.
 - Caddy serving frontend static files in production.
 - Go serving only API, WebSocket, health, and local dynamic image endpoints.
 - tmux-managed self-hosting, no Docker.
