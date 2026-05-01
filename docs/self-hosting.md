@@ -43,7 +43,7 @@ Before starting, the script stops known Codewords tmux sessions and then fails c
 
 Runtime data defaults to `.data/` in the repository root. Override with `CODEWORDS_DATA_DIR`.
 
-Milestone 1 does not create persistent game data yet. When SQLite lands, back up this data directory while the app is stopped or by using SQLite-safe backup commands documented with the storage milestone.
+SQLite persistence is available through `CODEWORDS_DATABASE_PATH` and defaults to `./data/codewords.sqlite` when the Go server is run from the repo/app directory. Back up the database while the app is stopped, or use SQLite-safe backup commands that include the main database plus WAL/SHM sidecar files when present.
 
 ## Caddyfile management
 
