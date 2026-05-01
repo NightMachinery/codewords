@@ -1,0 +1,41 @@
+# Product Spec
+
+## Goal
+
+Build Codewords: a fast, efficient, standalone, self-hostable SecretCodes-style game for local networks and private web hosting. It should preserve current FreeBoardGames SecretCodes gameplay while removing legacy framework constraints.
+
+## Supported gameplay
+
+- Online rooms with shareable room links.
+- Lobby with host controls, team assignment, role assignment, and start-game validation.
+- Two teams: blue and red.
+- Roles: spymaster, representative, regular guesser, spectator.
+- Word-card mode with 25 cards.
+- Picture-card mode using local image sources/cache only.
+- 0–8 assassin/black cards configurable before start.
+- Team turn flow, guessing, passing, wrong-guess turn switching, and win/loss detection.
+- Chat for room/match participants and read-only chat for anonymous spectators.
+- Reconnect and page refresh support.
+- Finished-game state with full-board reveal and play-again/new-room affordance.
+
+## UI and language
+
+- UI text is English only.
+- Do not implement runtime UI localization or translation infrastructure for v1.
+- Wordpacks are data, not UI. Copy existing SecretCodes wordpacks directly, including non-English packs.
+
+## Intranet/offline requirements
+
+- App must be usable without public internet after setup.
+- Bundle all fonts, icons, CSS, images, and app assets locally.
+- Do not use Google services, Firebase, captcha, external CDNs, remote analytics, remote image services, donation links, or externally hosted media.
+- The site must work over plain HTTP.
+- Clipboard features must have an HTTP-compatible fallback.
+- WebSockets must dynamically use `ws://` on HTTP pages and `wss://` on HTTPS pages.
+
+## Content cleanup
+
+- Use this project’s own Codewords branding and repository URLs.
+- Remove previous creator names from copied UI/content.
+- Remove donation links.
+- Remove political or religious propaganda if encountered in copied content.
