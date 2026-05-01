@@ -88,5 +88,6 @@ Document:
 - Production lifecycle commands.
 - Development lifecycle command.
 - Data directory and backup/restore notes.
+- Local picture source/cache directory configuration, including AVIF/native-tool requirements if the implementation uses the reverse-mined cache pipeline.
 - Proxy environment variable behavior.
 - No Docker requirement.

@@ -4,6 +4,7 @@
 
 - Game engine unit tests for setup, two-player auto teams, role validation, host-only assignment, role exclusivity, team-switch role clearing, guesses, pass, action ids, last-selected card tracking, assassin, card-completion wins, and hidden views.
 - Property tests for board generation invariants: 25 cards, configured assassin count, correct team counts, no duplicate selected cards.
+- Picture cache tests for source discovery, extensionless sniffing, opaque id stability, duplicate-byte deduplication, cache-hit reuse, optional corrupt-cache rebuild, AVIF/content-type metadata, progress counters, and warmup retry after failure.
 - Auth tests for token hashing, display-name persistence, host-only actions, and migrate-link room scoping.
 - Storage tests for migrations, WAL setup, restart restore, chat persistence, and event/snapshot consistency.
 - WebSocket tests for connect, snapshot, command validation, broadcast, reconnect, and spectator sanitization.

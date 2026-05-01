@@ -22,7 +22,7 @@ This document records behaviors observed in the original FreeBoardGames SecretCo
 | Win conditions | `web/src/games/secretcodes/game.ts:121-142` resolves assassin, blue-complete, and red-complete wins. |
 | Wordpacks | `web/src/games/secretcodes/constants.ts:6-82` parses text files, derives labels, and orders known packs. |
 | Customization | `web/src/games/secretcodes/customization.tsx:143-170` exposes pictures mode, black-card count, predefined words, and custom words. |
-| Picture catalog | `web/server/secretcodesPictures.ts:10-13`, `123-219`, `480-481` discover local images, cache normalized images, and require at least 25 images for availability. |
+| Picture catalog | `web/server/secretcodesPictures.ts:10-28`, `123-230`, `353-447`, `480-482` discover local images, cache normalized AVIF card images, and require at least 25 images for availability. |
 | Picture HTTP | `web/server/web.ts:91-119` exposes picture catalog and image-by-id routes. |
 | UI preferences | `web/src/games/secretcodes/preferences.ts:3-64` stores cards-per-row, picture-number, highlight, confirmation, chat-sound, and card-choice-sound preferences in LocalStorage. |
 
@@ -78,6 +78,21 @@ This document records behaviors observed in the original FreeBoardGames SecretCo
 - Where a local picture source directory is configured, the system shall recursively discover JPG, JPEG, PNG, and WebP files and sniff extensionless supported images. Evidence: `secretcodesPictures.ts:10-13`, `232-288`.
 - Where picture mode is available, the system shall require at least 25 unique normalized images in the catalog. Evidence: `secretcodesPictures.ts:10`, `214-219`.
 - Where picture ids are selected, the legacy system ranks ids with a deterministic FNV-style hash of `seed:imageId` and uses id lexical order as a tie breaker. Evidence: `pictures.ts:34-64`.
+
+### AVIF picture cache pipeline
+
+- Where a source picture is first accepted, the system shall hash the source bytes with SHA-256 and derive an opaque `imageId` by hashing a transform descriptor, not by exposing source filenames or paths. Evidence: `secretcodesPictures.ts:339-387`, `secretcodesPictures.test.ts:56-70`.
+- The transform descriptor shall include source hash, ratio `2:3`, long side `1536`, output `1024x1536`, encoding descriptor `fmt=avif|backend=native|quality=80|speed=6|threads=auto|channels=rgb`, and pipeline version `v1`. Evidence: `secretcodesPictures.ts:17-28`, `358-377`.
+- The cache file path shall be `<cacheDir>/<imageId>.avif`, and cached responses shall use content type `image/avif`. Evidence: `secretcodesPictures.ts:17-18`, `380-413`.
+- The cache directory shall default to `~/.cache/talespin/cards`, expand `~`, be resolved to an absolute path, and be configurable through `FBG_IMAGES_CACHE_DIR` in the original implementation. Evidence: `secretcodesPictures.ts:14`, `98-130`, `480-482`, `secretcodesPictures.test.ts:148-156`.
+- The source directory shall default to `~/Pictures/SurrealPictures/chosen_2` and be configurable through `CODENAMES_PICTURES_DIR` in the original implementation. Evidence: `secretcodesPictures.ts:13`, `480-482`.
+- When normalizing a picture, the helper shall require local `convert`, `identify`, and `avifenc` commands; crop centrally to a 2:3 aspect ratio; resize exactly to 1024x1536; write a temporary PNG; encode AVIF with quality 80 and speed 6; then atomically move the temporary AVIF into the cache path. Evidence: `secretcodesPicturesHelper.sh:4-15`, `17-67`.
+- When a valid cache file already exists and cache-hit validation is disabled, the system shall reuse the cached file without rebuilding. Evidence: `secretcodesPictures.ts:389-405`, `secretcodesPictures.test.ts:236-259`.
+- When `FBG_VALIDATE_CACHE_HITS_P` is set to `y`, `yes`, `true`, or `1`, the system shall validate cache-hit dimensions as 1024x1536 and rebuild corrupt or wrong-size cache files. Evidence: `secretcodesPictures.ts:353-355`, `394-428`, `secretcodesPicturesHelper.sh:69-80`, `secretcodesPictures.test.ts:285-310`.
+- When cache-hit validation is disabled, the original system does not validate existing cache bytes and will continue to serve a corrupted cache file for the same image id. Evidence: `secretcodesPictures.test.ts:261-283`.
+- When multiple source files have identical source bytes and transform descriptor, the system shall deduplicate them to one image id and one cache entry. Evidence: `secretcodesPictures.ts:183-189`, `secretcodesPictures.test.ts:216-234`.
+- When processing images, the system shall emit progress events for start, discovery, each image action (`cache-hit`, `built`, `rebuilt`, `duplicate`, `skipped`), and summary counters. Evidence: `secretcodesPictures.ts:50-70`, `191-230`, `503-527`, `secretcodesPictures.test.ts:332-389`.
+- When catalog warmup fails, the shared catalog promise shall be reset so a later warmup can retry. Evidence: `secretcodesPictures.ts:473-491`, `secretcodesPictures.test.ts:391-436`.
 - Codewords shall move picture and mixed board generation to the server so concrete card contents are persisted in match snapshots and survive reconnect/restart/catalog changes.
 - Codewords shall generalize the legacy boolean `picturesMode` into canonical `imageCardCount` from 0 to 25: `0` words-only, `25` images-only, and `1..24` mixed.
 
@@ -95,6 +110,7 @@ This document records behaviors observed in the original FreeBoardGames SecretCo
 - Server-side authorization is mandatory because the original client exposed role and view toggles but the move helpers still reject unauthorized host and guess actions.
 - The new implementation should improve validation for card indexes and malformed command payloads; the original helper assumes valid indexes in some paths.
 - Local/offline operation is compatible with the observed picture and wordpack model, provided all picture processing dependencies are local and documented.
+- AVIF caching greatly reduces served payload size and gives stable cacheable image URLs, but requires local native tooling or a Go-native equivalent in the new implementation.
 - Tailwind must be installed and built as a package dependency, not loaded from a CDN, to preserve intranet/offline behavior.
 
 ## Inferred acceptance criteria
@@ -111,7 +127,7 @@ This document records behaviors observed in the original FreeBoardGames SecretCo
 
 - The original game has a clue-given helper but no explicit clue text in authoritative state; Codewords should decide whether clue text is chat-only or a first-class event before implementation.
 - The original UI allowed host role toggles during active play; Codewords plans should preserve this unless the product owner chooses lobby-only role changes.
-- The original picture cache normalizes to AVIF through a helper script. Codewords may implement a simpler local image pipeline if it preserves safe ids, local-only behavior, and documented cache paths.
+- The original picture cache normalizes to AVIF through a helper script. Codewords may implement a Go-native or simpler local image pipeline, but if it diverges it should explicitly document the output format, id derivation, cache invalidation/versioning, and validation behavior.
 - The original online room/auth flow is outside the SecretCodes game directory; Codewords replaces it with local token identities and room-scoped migrate links.
 
 ## Recommendations

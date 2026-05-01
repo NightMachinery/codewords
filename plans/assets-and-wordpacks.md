@@ -31,6 +31,8 @@ Requirements:
 - Default candidate source can mirror the old convention, but must be configurable.
 - Discover common local image types (`.jpg`, `.jpeg`, `.png`, `.webp`) and optionally sniff supported extensionless files.
 - Normalize/cache images server-side if implemented; generated cache files live outside source assets or in a documented cache directory.
+- Prefer the reverse-mined AVIF cache semantics unless there is a deliberate documented simplification: stable opaque ids from source bytes plus transform/version descriptor, central crop to 2:3, normalized 1024x1536 output, content type `image/avif`, and cache files under a configurable local cache directory.
+- If cache-hit validation is implemented, make it explicit and testable; the legacy trigger was `FBG_VALIDATE_CACHE_HITS_P` and rebuilt bad cache entries only when enabled.
 - Expose only safe image ids to clients, not arbitrary filesystem paths.
 - Require at least as many unique catalog images as the requested `imageCardCount`; image-only mode requires 25.
 
