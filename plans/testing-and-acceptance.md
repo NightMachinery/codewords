@@ -40,3 +40,11 @@
 - `plans/start.md` references every plan file.
 - `docs/self-hosting.md` matches `self_host.zsh` behavior.
 - Public URLs are dynamic or user supplied; no stale FreeBoardGames/current-running-server URLs are hardcoded.
+
+## Mixed image/word tests
+
+- Unit tests for `words`, `images`, and `mixed` board generation.
+- Mixed mode invariant: exactly `imageCardCount` image cards and `25 - imageCardCount` word cards.
+- Validation errors for invalid counts and insufficient local images/words.
+- Browser test that a mixed board renders word and image cards together and all card types can be guessed/revealed.
+- Restart/reconnect test proving persisted mixed card contents do not change when the picture catalog later changes.

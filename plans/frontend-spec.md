@@ -40,3 +40,13 @@
 - Store purely local UI preferences in LocalStorage.
 - Store identity/display name server-side through the auth token flow.
 - Never overwrite global LocalStorage auth token while using a room migrate URL.
+
+## Card content mode UI
+
+Pre-game host settings must expose:
+
+- Words only.
+- Images only.
+- Mixed images and words.
+
+For mixed/custom mode, show an image-card count control from 0 to 25 and explain that the rest of the 25 cards will be words. Words only sets the count to 0; Images only sets it to 25. Disable or clearly error when the local image catalog or selected wordpack cannot satisfy the requested count. The board renderer must support word cards and image cards in the same 5x5 grid.

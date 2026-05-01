@@ -40,3 +40,7 @@ Optional assets:
 
 - `web/src/games/secretcodes/media/thumbnail.jpg` may be copied later if a thumbnail is needed and the image is acceptable for the new Codewords branding.
 - `web/src/games/secretcodes/locales/en.json` may be used as wording reference, but the new UI should define its own English strings without localization infrastructure.
+
+## Mixed card assets
+
+Mixed mode uses the same bundled wordpacks and local picture catalog as the dedicated modes. No external image lookup or remote asset service is allowed. The server chooses the exact mix at match start and persists concrete card contents in the match snapshot.

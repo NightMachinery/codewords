@@ -49,3 +49,20 @@
 - Spymasters see all hidden colors during active play.
 - Non-spymaster players and spectators see only revealed colors and remaining counts if useful.
 - Anonymous spectators always receive a non-spymaster view and can never enable spymaster view.
+
+## Card content mode rules
+
+Each match has an `imageCardCount` setting from 0 to 25:
+
+- `0`: all cards have `contentType = word`.
+- `25`: all cards have `contentType = image`.
+- `1..24`: exactly that many cards have `contentType = image`; all remaining cards have `contentType = word`.
+
+Board generation order:
+
+1. Validate enough unique words/images exist for the requested mode.
+2. Deterministically select the requested number of image ids and word entries from the match seed.
+3. Combine them into 25 card contents and deterministically shuffle their positions.
+4. Assign hidden colors independently of content type using the normal color setup rules.
+
+Words and images are gameplay-equivalent after board generation: guessing, revealing, turn switching, and win conditions depend only on hidden color, not content type.

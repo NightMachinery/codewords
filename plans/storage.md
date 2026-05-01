@@ -39,3 +39,13 @@ Add indexes for:
 - Migrate link lookup by room and hash.
 - Game events by match and sequence.
 - Chat messages by room and timestamp.
+
+## Card content settings persistence
+
+Persist room/match settings with explicit card content fields:
+
+- `imageCardCount`: 0–25 numeric source of truth for words-only, images-only, and mixed boards.
+- `wordpackId`: selected bundled wordpack when `imageCardCount < 25`.
+- `pictureCatalogVersion` or equivalent cache/version marker when `imageCardCount > 0`, so restored matches continue to reference the same image ids.
+
+Match snapshots must store the concrete 25 generated card contents, not just settings, so later picture catalog changes do not alter an existing match.

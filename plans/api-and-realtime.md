@@ -55,3 +55,12 @@
 - Page refresh reconnects using LocalStorage auth token or migrate id from URL.
 - Server treats duplicate connections for the same room identity as allowed; newest connection may become primary for presence.
 - WebSocket commands are idempotent where reasonable and reject stale/invalid commands with error codes.
+
+## Card content settings API
+
+Room settings include:
+
+- `imageCardCount`: integer 0–25; this is the backend source of truth for words-only, images-only, and mixed boards.
+- `wordpackId`: required whenever `imageCardCount < 25`.
+
+Settings/start validation must return clear errors for insufficient unique words, insufficient local images, unavailable picture catalog, or invalid image count. Snapshots represent each card with `contentType` plus either `word` or `imageId`/image URL metadata appropriate for that viewer.

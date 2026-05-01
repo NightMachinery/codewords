@@ -48,3 +48,7 @@
 - Verify no external services/assets are referenced.
 - Remove inherited creator names, donation links, propaganda, and stale URLs.
 - Commit final working app in logical atomic commits.
+
+## Mixed mode addition
+
+Implement mixed image/word cards as part of the wordpacks/pictures milestone, before final acceptance testing. Treat it as a first-class card mode, not a later plugin: backend settings, board generation, snapshots, frontend settings UI, and tests must all support it.

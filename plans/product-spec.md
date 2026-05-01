@@ -39,3 +39,13 @@ Build Codewords: a fast, efficient, standalone, self-hostable SecretCodes-style 
 - Remove previous creator names from copied UI/content.
 - Remove donation links.
 - Remove political or religious propaganda if encountered in copied content.
+
+## Card content modes
+
+The app supports a single canonical pre-game setting, `imageCardCount`, from 0 to 25:
+
+- `0`: words-only board; all 25 cards come from the selected wordpack.
+- `25`: images-only board; all 25 cards come from the local picture catalog.
+- `1..24`: mixed board; exactly `imageCardCount` cards are images and the remaining `25 - imageCardCount` cards are words.
+
+The UI may present Words only, Images only, and Mixed presets, but the backend source of truth is the numeric image-card count. If fewer unique images or words are available than requested, the server rejects settings/start with a clear error instead of silently changing the count. All modes use deterministic server-side selection from the match seed so reconnects and restarts preserve the same board.
