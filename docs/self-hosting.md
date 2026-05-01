@@ -1,0 +1,63 @@
+# Codewords Self-Hosting
+
+Codewords is designed to run on one self-hosted machine without Docker, hosted realtime services, external fonts, CDNs, captcha, or analytics.
+
+## Requirements
+
+- Go `1.22.2` or the compatible Go version already installed on the host.
+- Node available through the host shell; `self_host.zsh` loads `nvm-load` and `nvm use ${CODEWORDS_NODE_VERSION:-24.14.1}` when `nvm-load` exists.
+- pnpm `8.15.9`.
+- tmux for process management.
+- Caddy for production static serving and reverse proxying.
+
+## Commands
+
+Run commands from the repository root:
+
+```zsh
+./self_host.zsh setup [url]
+./self_host.zsh redeploy [url]
+./self_host.zsh start [url]
+./self_host.zsh stop
+./self_host.zsh dev-start [url]
+```
+
+The default URL is `http://codewords.pinky.lilf.ir`.
+
+- `setup` stops existing Codewords tmux sessions, installs locked dependencies, builds frontend and backend, updates the managed Codewords block in `~/Caddyfile`, reloads or starts Caddy, and starts production.
+- `redeploy` performs the same build, Caddy update, and production restart flow for local changes.
+- `start` starts only the production Go backend in tmux, building it first when `bin/codewords` is missing.
+- `stop` stops Codewords production and development tmux sessions.
+- `dev-start` starts the Go backend and Vite dev server in separate tmux sessions.
+
+## Ports and URLs
+
+- Backend: `127.0.0.1:7878` by default; override with `CODEWORDS_ADDR`.
+- Frontend dev server: `127.0.0.1:5173` by default; override the port with `CODEWORDS_DEV_PORT`.
+- Caddy serves `web/dist` directly in production and reverse-proxies `/api/*`, `/ws/*`, and `/healthz` to the Go backend.
+- The app supports HTTP; HTTPS is not required for intranet use.
+
+Before starting, the script stops known Codewords tmux sessions and then fails clearly if required ports remain occupied by another process.
+
+## Data and backups
+
+Runtime data defaults to `.data/` in the repository root. Override with `CODEWORDS_DATA_DIR`.
+
+Milestone 1 does not create persistent game data yet. When SQLite lands, back up this data directory while the app is stopped or by using SQLite-safe backup commands documented with the storage milestone.
+
+## Caddyfile management
+
+`self_host.zsh` updates a managed block in `${CODEWORDS_CADDYFILE:-$HOME/Caddyfile}`. Content outside these markers is preserved:
+
+```text
+# BEGIN CODEWORDS MANAGED BLOCK
+# END CODEWORDS MANAGED BLOCK
+```
+
+## Proxy environment
+
+The script does not hardcode proxy hosts or ports. Existing proxy environment variables such as `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY` remain available to dependency installation and build commands through the shell environment.
+
+## Local pictures
+
+Milestone 1 only creates the local asset directories. Picture catalog, cache, AVIF normalization, and image source configuration will be documented when the picture milestone is implemented.
