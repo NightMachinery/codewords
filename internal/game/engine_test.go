@@ -180,6 +180,57 @@ func TestNewTwoPlayerLobbySeatsBothPlayersAsSpymasters(t *testing.T) {
 	}
 }
 
+func TestHostIsModAndModsCanManageLobby(t *testing.T) {
+	state := NewLobby("host", Settings{Seed: 7})
+	mustApply(t, &state, AddPlayerCommand{PlayerID: "host", DisplayName: "Host"}, "host")
+	mustApply(t, &state, AddPlayerCommand{PlayerID: "guest", DisplayName: "Guest"}, "guest")
+	mustApply(t, &state, AddPlayerCommand{PlayerID: "third", DisplayName: "Third"}, "third")
+
+	if !state.Players["host"].Mod {
+		t.Fatalf("room creator should be a mod by default: %#v", state.Players["host"])
+	}
+	if _, err := Apply(&state, ToggleModCommand{PlayerID: "third"}, "guest"); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("non-mod mod toggle should be forbidden, got %v", err)
+	}
+	mustApply(t, &state, ToggleModCommand{PlayerID: "guest"}, "host")
+	if !state.Players["guest"].Mod {
+		t.Fatalf("host should be able to promote guests: %#v", state.Players["guest"])
+	}
+	mustApply(t, &state, AssignTeamCommand{PlayerID: "third", Team: TeamRed}, "guest")
+	if state.Players["third"].Team != TeamRed {
+		t.Fatalf("promoted mod should assign teams manually: %#v", state.Players["third"])
+	}
+	if _, err := Apply(&state, ToggleModCommand{PlayerID: "host"}, "guest"); !errors.Is(err, ErrInvalidCommand) {
+		t.Fatalf("host mod status should not be mutable, got %v", err)
+	}
+}
+
+func TestRandomizedTeamAssignmentBalancesNewPlayers(t *testing.T) {
+	state := NewLobby("host", Settings{Seed: 7, RandomizeTeams: true})
+	for _, id := range []string{"host", "p1", "p2", "p3", "p4"} {
+		mustApply(t, &state, AddPlayerCommand{PlayerID: id, DisplayName: id}, id)
+	}
+
+	blue := 0
+	red := 0
+	for _, player := range state.Players {
+		if player.Team == TeamBlue {
+			blue++
+		}
+		if player.Team == TeamRed {
+			red++
+		}
+	}
+	if blue+red != 5 || blue-red > 1 || red-blue > 1 {
+		t.Fatalf("expected balanced randomized assignments, blue=%d red=%d players=%#v", blue, red, state.Players)
+	}
+
+	mustApply(t, &state, AssignTeamCommand{PlayerID: "p4", Team: TeamBlue}, "host")
+	if state.Players["p4"].Team != TeamBlue {
+		t.Fatalf("manual assignment should still be allowed with randomize enabled")
+	}
+}
+
 func TestLobbyRoleValidationAndActiveGuessers(t *testing.T) {
 	state := NewLobby("host", Settings{Seed: 7, BlackCards: 1})
 	mustApply(t, &state, AddPlayerCommand{PlayerID: "host", DisplayName: "Host"}, "host")

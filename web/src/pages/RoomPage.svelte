@@ -9,6 +9,7 @@
     cardImageUrl,
     cardModeFromImageCount,
     cardViewState,
+    cardWordTextClasses,
     clueSubmitProblem,
     defaultGameplayPreferences,
     findViewerPlayer,
@@ -62,7 +63,11 @@
   let error = $state('');
   let copyStatus = $state('');
   let migrateUrl = $state('');
+  let cueNotice = $state('');
   let socket: RoomSocket | null = null;
+  let sawSnapshot = false;
+  let lastActionId = 0;
+  let lastClueSignature = '';
 
   let buckets = $derived(playerBuckets(players));
   let startState = $derived(startReadiness(players));
@@ -167,6 +172,17 @@
 
   function handleSocketMessage(message: RoomSocketMessage) {
     if (message.type === 'snapshot') {
+      const nextActionId = message.snapshot.actionId ?? 0;
+      const nextClueSignature = clueSignature(message.snapshot.clueLog ?? []);
+      if (sawSnapshot && nextActionId > lastActionId) {
+        emitCue('cardChoice', 'A card was revealed.');
+      }
+      if (sawSnapshot && nextClueSignature && nextClueSignature !== lastClueSignature) {
+        emitCue('clue', 'New clue received.');
+      }
+      sawSnapshot = true;
+      lastActionId = nextActionId;
+      lastClueSignature = nextClueSignature;
       players = message.snapshot.players;
       settings = { ...defaultSettings, ...message.snapshot.settings };
       viewer = message.snapshot.viewer;
@@ -180,6 +196,7 @@
     }
     if (message.type === 'chatMessage') {
       chatMessages = [...chatMessages, message.message].slice(-50);
+      emitCue('chat', 'New chat message.');
     }
     if (message.type === 'error') {
       error = message.message;
@@ -196,6 +213,10 @@
 
   function toggleRepresentative(playerId: string) {
     socket?.send({ type: 'toggleRepresentative', playerId });
+  }
+
+  function toggleMod(playerId: string) {
+    socket?.send({ type: 'toggleMod', playerId });
   }
 
   async function saveSettings() {
@@ -287,6 +308,44 @@
   function updatePreferences(next: Partial<GameplayPreferences>) {
     preferences = { ...preferences, ...next };
     writeGameplayPreferences(localStorage, preferences);
+  }
+
+  function emitCue(kind: 'chat' | 'cardChoice' | 'clue', notice: string) {
+    const soundEnabled = kind === 'chat' ? preferences.chatSound : kind === 'cardChoice' ? preferences.cardChoiceSound : preferences.clueSound;
+    const visualEnabled = kind === 'chat' ? preferences.chatVisualCue : kind === 'cardChoice' ? preferences.cardChoiceVisualCue : preferences.clueVisualCue;
+    if (visualEnabled) {
+      cueNotice = notice;
+      window.setTimeout(() => {
+        if (cueNotice === notice) cueNotice = '';
+      }, 2400);
+    }
+    if (soundEnabled) {
+      playCue();
+    }
+  }
+
+  function playCue() {
+    try {
+      const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
+      oscillator.frequency.value = 660;
+      gain.gain.value = 0.035;
+      oscillator.connect(gain);
+      gain.connect(ctx.destination);
+      oscillator.start();
+      oscillator.stop(ctx.currentTime + 0.08);
+      oscillator.onended = () => void ctx.close();
+    } catch {
+      // Browsers may block audio until a user gesture; local visual cues still work.
+    }
+  }
+
+  function clueSignature(entries: ClueEntry[]) {
+    const latest = entries.at(-1);
+    return latest ? `${latest.round}:${latest.team}:${latest.status}:${latest.text}:${formatClueNumber(latest.number)}:${latest.guesses}` : '';
   }
 
   function sendChat() {
@@ -387,15 +446,15 @@
       <section class="grid gap-6 lg:grid-cols-[1fr_22rem]">
         <div class="space-y-6">
           <div class="grid grid-flow-dense gap-6 md:grid-cols-2">
-            {@render TeamColumn('Blue team', 'blue', buckets.blue, viewer, hostControls, assignTeam, toggleSpymaster, toggleRepresentative)}
-            {@render TeamColumn('Red team', 'red', buckets.red, viewer, hostControls, assignTeam, toggleSpymaster, toggleRepresentative)}
+            {@render TeamColumn('Blue team', 'blue', buckets.blue, viewer, hostControls, assignTeam, toggleSpymaster, toggleRepresentative, toggleMod)}
+            {@render TeamColumn('Red team', 'red', buckets.red, viewer, hostControls, assignTeam, toggleSpymaster, toggleRepresentative, toggleMod)}
           </div>
 
           <section class="rounded-[2rem] border border-slate-700/70 bg-slate-900/70 p-5">
             <h2 class="text-xl font-black tracking-tight">Unassigned</h2>
             <div class="mt-4 grid gap-3 sm:grid-cols-2">
               {#each buckets.unassigned as player (player.id)}
-                {@render PlayerCard(player, viewer, hostControls, assignTeam, toggleSpymaster, toggleRepresentative)}
+                {@render PlayerCard(player, viewer, hostControls, assignTeam, toggleSpymaster, toggleRepresentative, toggleMod)}
               {:else}
                 <p class="text-sm text-slate-400">No unassigned players.</p>
               {/each}
@@ -454,6 +513,10 @@
                 <input type="checkbox" bind:checked={settings.allowInfinityClue} onchange={saveSettings} />
                 <span class="text-sm text-slate-200">Allow infinity clues</span>
               </label>
+              <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
+                <input type="checkbox" bind:checked={settings.randomizeTeams} onchange={saveSettings} />
+                <span class="text-sm text-slate-200">Randomize new players onto balanced teams</span>
+              </label>
             </fieldset>
           </section>
 
@@ -495,20 +558,20 @@
                 </div>
               </div>
 
-              <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5 md:gap-3">
+              <div class="grid gap-2 md:gap-3" style={`grid-template-columns: repeat(${preferences.cardsPerRow}, minmax(0, 1fr));`}>
                 {#each cards as card, index (`${card.word ?? card.imageId ?? 'card'}-${index}`)}
                   {@const view = cardViewState(card, index, role.canSeeHiddenColors, lastSelected)}
                   <button
-                    class={['group min-h-28 rounded-[1.35rem] border p-3 text-left shadow-xl shadow-slate-950/25 transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', view.classes, !role.activeGuesser || card.revealed || phase !== 'active' ? 'disabled:opacity-80' : ''].join(' ')}
+                    class={['group rounded-[1.35rem] border p-3 text-left shadow-xl shadow-slate-950/25 transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', card.contentType === 'image' ? 'aspect-[2/3]' : 'min-h-28', view.classes, !role.activeGuesser || card.revealed || phase !== 'active' ? 'disabled:opacity-80' : ''].join(' ')}
                     disabled={Boolean(guessDisabledReason(card))}
                     title={guessDisabledReason(card) || `Reveal ${cardContentLabel(card)}`}
                     onclick={() => guessCard(index, card)}
                   >
                     <span class="block text-[0.65rem] font-black uppercase tracking-[0.18em] opacity-70">{view.label}</span>
                     {#if card.contentType === 'image'}
-                      <img class="mt-3 aspect-[2/3] w-full rounded-2xl object-cover" src={cardImageUrl(card)} alt="Card illustration" loading="lazy" />
+                      <img class="mt-2 aspect-[2/3] max-h-[82%] w-full rounded-2xl object-cover" src={cardImageUrl(card)} alt="Card illustration" loading="lazy" />
                     {:else}
-                      <span class="mt-4 block break-words text-xl font-black uppercase tracking-[0.04em] sm:text-2xl">{card.word ?? 'Card'}</span>
+                      <span class={cardWordTextClasses(card.word)}>{card.word ?? 'Card'}</span>
                     {/if}
                     {#if view.isLastSelected}
                       <span class="mt-3 inline-flex rounded-full bg-emerald-200 px-2.5 py-1 text-xs font-black text-slate-950">Last pick</span>
@@ -582,6 +645,36 @@
                 <input type="checkbox" checked={preferences.confirmPasses} onchange={(event) => updatePreferences({ confirmPasses: event.currentTarget.checked })} />
                 <span class="text-sm text-slate-200">Confirm before passing</span>
               </label>
+              <label class="mt-3 block rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
+                <span class="text-sm text-slate-200">Cards per row: {preferences.cardsPerRow}</span>
+                <input class="mt-2 w-full" type="range" min="2" max="7" value={preferences.cardsPerRow} oninput={(event) => updatePreferences({ cardsPerRow: Number.parseInt(event.currentTarget.value, 10) })} />
+              </label>
+              <div class="mt-3 grid gap-2 text-sm text-slate-200">
+                <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
+                  <input type="checkbox" checked={preferences.chatSound} onchange={(event) => updatePreferences({ chatSound: event.currentTarget.checked })} />
+                  Chat sound
+                </label>
+                <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
+                  <input type="checkbox" checked={preferences.chatVisualCue} onchange={(event) => updatePreferences({ chatVisualCue: event.currentTarget.checked })} />
+                  Chat visual cue
+                </label>
+                <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
+                  <input type="checkbox" checked={preferences.cardChoiceSound} onchange={(event) => updatePreferences({ cardChoiceSound: event.currentTarget.checked })} />
+                  Card-choice sound
+                </label>
+                <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
+                  <input type="checkbox" checked={preferences.cardChoiceVisualCue} onchange={(event) => updatePreferences({ cardChoiceVisualCue: event.currentTarget.checked })} />
+                  Card-choice visual cue
+                </label>
+                <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
+                  <input type="checkbox" checked={preferences.clueSound} onchange={(event) => updatePreferences({ clueSound: event.currentTarget.checked })} />
+                  Incoming clue sound
+                </label>
+                <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
+                  <input type="checkbox" checked={preferences.clueVisualCue} onchange={(event) => updatePreferences({ clueVisualCue: event.currentTarget.checked })} />
+                  Incoming clue visual cue
+                </label>
+              </div>
             </section>
 
             {@render ChatPanel(chatMessages, chatDraft, currentPlayer, sendChat)}
@@ -611,6 +704,11 @@
     {#if error}
       <p class="mt-6 rounded-2xl border border-red-400/40 bg-red-400/10 px-4 py-3 text-sm text-red-100">{error}</p>
     {/if}
+    {#if cueNotice}
+      <p class="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-full border border-emerald-200/60 bg-emerald-300 px-5 py-3 text-sm font-black text-slate-950 shadow-2xl shadow-emerald-950/40">
+        {cueNotice}
+      </p>
+    {/if}
   </div>
 </main>
 
@@ -621,9 +719,12 @@
   {#if player.representative}
     <span class="rounded-full bg-amber-200 px-2.5 py-1 text-xs font-black text-slate-950">Representative</span>
   {/if}
+  {#if player.mod}
+    <span class="rounded-full bg-emerald-200 px-2.5 py-1 text-xs font-black text-slate-950">Mod</span>
+  {/if}
 {/snippet}
 
-{#snippet PlayerCard(player: LobbyPlayer, viewer: Viewer | null, hostControls: boolean, onassign: (id: string, team: 'blue' | 'red') => void, ontoggleSpy: (id: string) => void, ontoggleRep: (id: string) => void)}
+{#snippet PlayerCard(player: LobbyPlayer, viewer: Viewer | null, hostControls: boolean, onassign: (id: string, team: 'blue' | 'red') => void, ontoggleSpy: (id: string) => void, ontoggleRep: (id: string) => void, ontoggleMod: (id: string) => void)}
   <article class="group rounded-2xl border border-slate-700 bg-slate-950 p-4 transition duration-300 hover:-translate-y-0.5 hover:border-slate-500">
     <div class="flex items-start justify-between gap-3">
       <div>
@@ -640,6 +741,11 @@
       {#if hostControls && player.team}
         <button class="rounded-full border border-slate-600 px-3 py-1.5 text-xs font-bold text-slate-200 hover:border-slate-300" onclick={() => ontoggleSpy(player.id)}>Spy</button>
         <button class="rounded-full border border-slate-600 px-3 py-1.5 text-xs font-bold text-slate-200 hover:border-slate-300" onclick={() => ontoggleRep(player.id)}>Rep</button>
+      {/if}
+      {#if hostControls && player.id !== roomHostId}
+        <button class="rounded-full border border-emerald-400/60 px-3 py-1.5 text-xs font-bold text-emerald-100 hover:bg-emerald-400/15" onclick={() => ontoggleMod(player.id)}>
+          {player.mod ? 'Demote mod' : 'Promote mod'}
+        </button>
       {/if}
     </div>
   </article>
@@ -680,12 +786,12 @@
   </section>
 {/snippet}
 
-{#snippet TeamColumn(title: string, tone: 'blue' | 'red', players: LobbyPlayer[], viewer: Viewer | null, hostControls: boolean, onassign: (id: string, team: 'blue' | 'red') => void, ontoggleSpy: (id: string) => void, ontoggleRep: (id: string) => void)}
+{#snippet TeamColumn(title: string, tone: 'blue' | 'red', players: LobbyPlayer[], viewer: Viewer | null, hostControls: boolean, onassign: (id: string, team: 'blue' | 'red') => void, ontoggleSpy: (id: string) => void, ontoggleRep: (id: string) => void, ontoggleMod: (id: string) => void)}
   <section class={['rounded-[2rem] border p-5 shadow-2xl shadow-slate-950/25', tone === 'blue' ? 'border-blue-300/30 bg-blue-400/10' : 'border-red-300/30 bg-red-400/10']}>
     <h2 class="text-xl font-black tracking-tight">{title}</h2>
     <div class="mt-4 grid gap-3">
       {#each players as player (player.id)}
-        {@render PlayerCard(player, viewer, hostControls, onassign, ontoggleSpy, ontoggleRep)}
+        {@render PlayerCard(player, viewer, hostControls, onassign, ontoggleSpy, ontoggleRep, ontoggleMod)}
       {:else}
         <p class="rounded-2xl border border-slate-700/70 bg-slate-950/70 px-4 py-6 text-center text-sm text-slate-400">Waiting for players.</p>
       {/each}

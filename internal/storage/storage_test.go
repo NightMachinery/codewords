@@ -86,14 +86,17 @@ func TestUsersRoomsMatchesSnapshotsEventsAndChatPersist(t *testing.T) {
 	if len(players) != 1 || players[0].UserID != user.ID {
 		t.Fatalf("expected host membership, got %#v", players)
 	}
-	if err := db.UpsertRoomPlayer(ctx, storage.RoomPlayer{RoomID: room.ID, UserID: user.ID, Team: "blue", Spymaster: true}); err != nil {
+	if !players[0].Mod {
+		t.Fatalf("expected room creator membership to be a mod, got %#v", players[0])
+	}
+	if err := db.UpsertRoomPlayer(ctx, storage.RoomPlayer{RoomID: room.ID, UserID: user.ID, Team: "blue", Spymaster: true, Mod: true}); err != nil {
 		t.Fatalf("upsert room player: %v", err)
 	}
 	players, err = db.RoomPlayers(ctx, room.ID)
 	if err != nil {
 		t.Fatalf("room players after update: %v", err)
 	}
-	if players[0].Team != "blue" || !players[0].Spymaster {
+	if players[0].Team != "blue" || !players[0].Spymaster || !players[0].Mod {
 		t.Fatalf("expected updated role fields, got %#v", players[0])
 	}
 

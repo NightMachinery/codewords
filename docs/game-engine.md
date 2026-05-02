@@ -1,12 +1,12 @@
 # Game Engine
 
-Milestone 2 adds a pure Go game engine under `internal/game`. The package owns lobby validation, deterministic word-board setup, command validation, clue rounds, hidden-information snapshots, turn flow, and win conditions. It does not depend on HTTP, WebSockets, SQLite, Svelte, or process-global state.
+Milestone 2 adds a pure Go game engine under `internal/game`. The package owns lobby validation, balanced randomized team assignment, deterministic word/image/mixed board setup, command validation, clue rounds, hidden-information snapshots, turn flow, and win conditions. It does not depend on HTTP, WebSockets, SQLite, Svelte, or process-global state.
 
 ## Command flow
 
 Callers create a lobby with `game.NewLobby(hostID, settings)` and apply typed commands through `game.Apply(&state, command, actorID)`. Accepted commands mutate only the supplied `State` and return a typed `Event`; rejected commands return stable sentinel errors such as `ErrForbidden`, `ErrCannotStart`, `ErrClueRequired`, or `ErrGuessLimitReached`.
 
-Milestone 2 commands cover player seating, team assignment, host role toggles, settings updates, match start, clue submit/update, guesses, and passes. The reducer-style API is designed to map directly to later persistence events without adding storage in this milestone.
+Engine commands cover player seating, team assignment, moderator promotion/demotion, moderator role toggles, settings updates, match start, clue submit/update, guesses, and passes. The reducer-style API is designed to map directly to later persistence events without adding storage in this milestone.
 
 ## Wordpacks and boards
 

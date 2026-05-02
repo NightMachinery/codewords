@@ -20,11 +20,13 @@ import (
 
 // Options wires the HTTP/API handler to persistence, identity, and local assets.
 type Options struct {
-	Store        *storage.DB
-	Identity     *identity.Service
-	WordpacksDir string
-	PicturesDir  string
-	BaseURL      string
+	Store         *storage.DB
+	Identity      *identity.Service
+	WordpacksDir  string
+	ImageDir      string
+	ImageCacheDir string
+	AVIFProcess   bool
+	BaseURL       string
 }
 
 type app struct {
@@ -57,7 +59,7 @@ func NewHandler(options ...Options) (http.Handler, error) {
 		}
 		packs = loaded
 	}
-	pictures, err := loadPictureCatalog(opts.PicturesDir)
+	pictures, err := loadPictureCatalog(pictureCatalogOptions{ImageDir: opts.ImageDir, ImageCacheDir: opts.ImageCacheDir, ProcessAVIF: opts.AVIFProcess})
 	if err != nil {
 		return nil, err
 	}
@@ -164,8 +166,9 @@ func (a *app) handleCreateRoom(w http.ResponseWriter, r *http.Request) {
 	rt := a.runtime(room.ID)
 	rt.mu.Lock()
 	rt.state = state
+	_ = a.syncRoomPlayers(r.Context(), room.ID, rt.state)
 	rt.mu.Unlock()
-	writeJSON(w, http.StatusCreated, map[string]any{"room": roomDTO(room), "settings": settings, "roomLink": a.roomLink(r, room.ID), "viewer": viewerDTO(user.ID, true)})
+	writeJSON(w, http.StatusCreated, map[string]any{"room": roomDTO(room), "settings": settings, "roomLink": a.roomLink(r, room.ID), "viewer": viewerDTO(user.ID, true, true)})
 }
 
 func (a *app) handleGetRoom(w http.ResponseWriter, r *http.Request) {
@@ -194,7 +197,7 @@ func (a *app) handleGetRoom(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	chats, _ := a.store.ChatMessages(r.Context(), roomID, 50)
-	writeJSON(w, http.StatusOK, map[string]any{"room": roomDTO(room), "players": playerDTOs(players), "settings": mustSettings(room.SettingsJSON), "viewer": viewerDTO(viewerID, viewerID == room.HostUserID), "chatMessages": chatDTOs(chats)})
+	writeJSON(w, http.StatusOK, map[string]any{"room": roomDTO(room), "players": playerDTOs(players), "settings": mustSettings(room.SettingsJSON), "viewer": viewerDTO(viewerID, viewerID == room.HostUserID, viewerIsMod(players, room.HostUserID, viewerID)), "chatMessages": chatDTOs(chats)})
 }
 
 func (a *app) handleJoinRoom(w http.ResponseWriter, r *http.Request) {
@@ -224,10 +227,12 @@ func (a *app) handleJoinRoom(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		rt.mu.Lock()
 		_, _ = game.Apply(&rt.state, game.AddPlayerCommand{PlayerID: boot.UserID, DisplayName: boot.DisplayName}, boot.UserID)
+		_ = a.syncRoomPlayers(r.Context(), roomID, rt.state)
 		rt.broadcastLocked(snapshotMessage(rt.state, ""))
 		rt.mu.Unlock()
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"room": roomDTO(room), "viewer": viewerDTO(boot.UserID, boot.UserID == room.HostUserID)})
+	players, _ := a.store.RoomPlayers(r.Context(), roomID)
+	writeJSON(w, http.StatusOK, map[string]any{"room": roomDTO(room), "viewer": viewerDTO(boot.UserID, boot.UserID == room.HostUserID, viewerIsMod(players, room.HostUserID, boot.UserID))})
 }
 
 func (a *app) handleSettings(w http.ResponseWriter, r *http.Request) {
@@ -242,7 +247,7 @@ func (a *app) handleSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	roomID := r.PathValue("roomId")
-	room, user, ok := a.requireHost(w, r.Context(), roomID, req.AuthToken)
+	room, user, ok := a.requireMod(w, r.Context(), roomID, req.AuthToken)
 	if !ok {
 		return
 	}
@@ -255,6 +260,7 @@ func (a *app) handleSettings(w http.ResponseWriter, r *http.Request) {
 	rt, _ := a.loadRuntime(r.Context(), roomID)
 	rt.mu.Lock()
 	_, _ = game.Apply(&rt.state, game.UpdateSettingsCommand{Settings: settings}, user.ID)
+	_ = a.syncRoomPlayers(r.Context(), roomID, rt.state)
 	rt.broadcastLocked(snapshotMessage(rt.state, ""))
 	rt.mu.Unlock()
 	writeJSON(w, http.StatusOK, map[string]any{"settings": settings})
@@ -269,7 +275,7 @@ func (a *app) handleStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	roomID := r.PathValue("roomId")
-	room, user, ok := a.requireHost(w, r.Context(), roomID, req.AuthToken)
+	room, user, ok := a.requireMod(w, r.Context(), roomID, req.AuthToken)
 	if !ok {
 		return
 	}
@@ -366,7 +372,7 @@ func (a *app) handlePicture(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", asset.ContentType)
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-	http.ServeFile(w, r, asset.Path)
+	http.ServeFile(w, r, asset.CachePath)
 }
 
 func (a *app) handleWS(w http.ResponseWriter, r *http.Request) {
@@ -452,6 +458,8 @@ func (a *app) handleWSMessage(ctx context.Context, roomID string, rt *roomRuntim
 	room, err := a.store.RoomByID(ctx, roomID)
 	if err == nil && room.CurrentMatchID != "" {
 		_ = a.persistState(ctx, room.CurrentMatchID, viewerID, string(event.Type), rt.state)
+	} else if err == nil {
+		_ = a.syncRoomPlayers(ctx, roomID, rt.state)
 	}
 	rt.broadcastLocked(snapshotMessage(rt.state, ""))
 }
@@ -529,6 +537,9 @@ func commandFromMessage(t string, msg map[string]any) (game.Command, error) {
 	case "toggleRepresentative":
 		playerID, _ := msg["playerId"].(string)
 		return game.ToggleRepresentativeCommand{PlayerID: playerID}, nil
+	case "toggleMod":
+		playerID, _ := msg["playerId"].(string)
+		return game.ToggleModCommand{PlayerID: playerID}, nil
 	case "guessCard":
 		idx := int(number(msg["index"]))
 		return game.GuessCommand{Index: idx}, nil
@@ -587,7 +598,7 @@ func (a *app) loadRuntime(ctx context.Context, roomID string) (*roomRuntime, err
 	players, _ := a.store.RoomPlayers(ctx, roomID)
 	for _, p := range players {
 		u, _ := a.store.UserByID(ctx, p.UserID)
-		state.Players[p.UserID] = game.Player{ID: p.UserID, DisplayName: u.DisplayName, Team: game.Team(p.Team), Spymaster: p.Spymaster, Representative: p.Representative}
+		state.Players[p.UserID] = game.Player{ID: p.UserID, DisplayName: u.DisplayName, Team: game.Team(p.Team), Spymaster: p.Spymaster, Representative: p.Representative, Mod: p.Mod || p.UserID == room.HostUserID}
 	}
 	rt.state = state
 	return rt, nil
@@ -606,6 +617,22 @@ func (a *app) persistState(ctx context.Context, matchID, actorID, eventType stri
 	return a.store.SaveSnapshot(ctx, storage.SaveSnapshotParams{MatchID: matchID, LatestSequence: event.Sequence, StateJSON: string(stateJSON)})
 }
 
+func (a *app) syncRoomPlayers(ctx context.Context, roomID string, state game.State) error {
+	for _, player := range state.Players {
+		if err := a.store.UpsertRoomPlayer(ctx, storage.RoomPlayer{
+			RoomID:         roomID,
+			UserID:         player.ID,
+			Team:           string(player.Team),
+			Spymaster:      player.Spymaster,
+			Representative: player.Representative,
+			Mod:            player.Mod || player.ID == state.HostID,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (a *app) ensureMinimalRoles(state *game.State, hostID string) {
 	if len(state.Players) == 2 {
 		ids := make([]string, 0, 2)
@@ -621,8 +648,8 @@ func (a *app) ensureMinimalRoles(state *game.State, hostID string) {
 			}
 		}
 		if second != "" {
-			state.Players[first] = game.Player{ID: first, DisplayName: state.Players[first].DisplayName, Team: game.TeamBlue, Spymaster: true}
-			state.Players[second] = game.Player{ID: second, DisplayName: state.Players[second].DisplayName, Team: game.TeamRed, Spymaster: true}
+			state.Players[first] = game.Player{ID: first, DisplayName: state.Players[first].DisplayName, Team: game.TeamBlue, Spymaster: true, Mod: state.Players[first].Mod || first == hostID}
+			state.Players[second] = game.Player{ID: second, DisplayName: state.Players[second].DisplayName, Team: game.TeamRed, Spymaster: true, Mod: state.Players[second].Mod}
 		}
 	}
 }
@@ -641,6 +668,22 @@ func (a *app) requireHost(w http.ResponseWriter, ctx context.Context, roomID, to
 	}
 	if room.HostUserID != user.ID {
 		writeError(w, http.StatusForbidden, "forbidden", "host only")
+		return room, user, false
+	}
+	return room, user, true
+}
+func (a *app) requireMod(w http.ResponseWriter, ctx context.Context, roomID, token string) (storage.Room, storage.User, bool) {
+	room, user, ok := a.requireMember(w, ctx, roomID, token)
+	if !ok {
+		return room, user, false
+	}
+	players, err := a.store.RoomPlayers(ctx, roomID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "players_failed", err.Error())
+		return room, user, false
+	}
+	if !viewerIsMod(players, room.HostUserID, user.ID) {
+		writeError(w, http.StatusForbidden, "forbidden", "moderator only")
 		return room, user, false
 	}
 	return room, user, true
@@ -718,15 +761,29 @@ func (a *app) roomLink(r *http.Request, roomID string) string {
 func roomDTO(r storage.Room) map[string]any {
 	return map[string]any{"id": r.ID, "hostUserId": r.HostUserID, "status": r.Status, "currentMatchId": r.CurrentMatchID}
 }
-func viewerDTO(userID string, host bool) map[string]any {
-	return map[string]any{"userId": userID, "isHost": host}
+func viewerDTO(userID string, host bool, mod bool) map[string]any {
+	return map[string]any{"userId": userID, "isHost": host, "isMod": mod || host}
 }
 func playerDTOs(players []storage.RoomPlayer) []map[string]any {
 	out := make([]map[string]any, len(players))
 	for i, p := range players {
-		out[i] = map[string]any{"userId": p.UserID, "team": p.Team, "spymaster": p.Spymaster, "representative": p.Representative}
+		out[i] = map[string]any{"userId": p.UserID, "id": p.UserID, "team": p.Team, "spymaster": p.Spymaster, "representative": p.Representative, "mod": p.Mod}
 	}
 	return out
+}
+func viewerIsMod(players []storage.RoomPlayer, hostID, viewerID string) bool {
+	if viewerID == "" {
+		return false
+	}
+	if viewerID == hostID {
+		return true
+	}
+	for _, p := range players {
+		if p.UserID == viewerID {
+			return p.Mod
+		}
+	}
+	return false
 }
 func chatDTO(m storage.ChatMessage) map[string]any {
 	return map[string]any{"id": m.ID, "roomId": m.RoomID, "matchId": m.MatchID, "senderUserId": m.SenderUserID, "displayName": m.DisplayName, "body": m.Body, "createdAt": m.CreatedAt}
@@ -757,7 +814,7 @@ func snapshotDTO(state game.State, viewerID string) map[string]any {
 	s := state.SnapshotFor(game.Viewer{PlayerID: viewerID})
 	players := make([]map[string]any, 0, len(state.Players))
 	for _, p := range state.Players {
-		players = append(players, map[string]any{"id": p.ID, "displayName": p.DisplayName, "team": p.Team, "spymaster": p.Spymaster, "representative": p.Representative})
+		players = append(players, map[string]any{"id": p.ID, "displayName": p.DisplayName, "team": p.Team, "spymaster": p.Spymaster, "representative": p.Representative, "mod": p.Mod || p.ID == state.HostID})
 	}
 	sort.Slice(players, func(i, j int) bool { return players[i]["id"].(string) < players[j]["id"].(string) })
 	cards := make([]map[string]any, len(s.Cards))
@@ -779,7 +836,7 @@ func snapshotDTO(state game.State, viewerID string) map[string]any {
 			remaining[string(c.Color)]++
 		}
 	}
-	return map[string]any{"phase": s.Phase, "players": players, "settings": state.Settings, "currentTeam": s.CurrentTeam, "winner": s.Winner, "actionId": s.ActionID, "cards": cards, "lastSelected": s.LastSelected, "remainingCounts": remaining, "clueLog": s.ClueLog, "viewer": map[string]any{"playerId": viewerID, "userId": viewerID, "isHost": viewerID != "" && viewerID == state.HostID}}
+	return map[string]any{"phase": s.Phase, "players": players, "settings": state.Settings, "currentTeam": s.CurrentTeam, "winner": s.Winner, "actionId": s.ActionID, "cards": cards, "lastSelected": s.LastSelected, "remainingCounts": remaining, "clueLog": s.ClueLog, "viewer": map[string]any{"playerId": viewerID, "userId": viewerID, "isHost": viewerID != "" && viewerID == state.HostID, "isMod": state.CanManage(viewerID)}}
 }
 
 func clueNumber(v any) game.ClueNumber {

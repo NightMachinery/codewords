@@ -6,7 +6,7 @@ Milestone 3 added local SQLite persistence and server-side identity primitives. 
 
 `internal/storage` opens the configured database path, enables SQLite WAL mode, foreign keys, and a 5 second busy timeout, then applies SQL migrations from `migrations/` idempotently. The default development database path is `./data/codewords.sqlite`; override it with `CODEWORDS_DATABASE_PATH`.
 
-The initial schema stores users, rooms, room players, room-scoped migrate links, matches, ordered game events, latest authoritative snapshots, chat messages, and optional wordpack metadata. Match snapshots store concrete state JSON so future asset or wordpack changes do not rewrite existing matches.
+The schema stores users, rooms, room players (including moderator status), room-scoped migrate links, matches, ordered game events, latest authoritative snapshots, chat messages, and optional wordpack metadata. Match snapshots store concrete state JSON so future asset or wordpack changes do not rewrite existing matches.
 
 ## Identities
 
@@ -16,4 +16,4 @@ Display names are validated as short plain text before persistence. Room migrate
 
 ## Frontend boundary
 
-The persistence and identity packages are wired into the backend API and the Milestone 5 frontend now uses them for LocalStorage auth-token bootstrap, server-side display names, room joins, and room-scoped migrate-device links. Chat and picture-card behavior remain part of later milestones.
+The persistence and identity packages are wired into the backend API and frontend for LocalStorage auth-token bootstrap, server-side display names, room joins, room-scoped migrate-device links, lobby moderator state, chat history, and persisted match snapshots. Picture-card catalogs use safe cache ids; existing matches keep their concrete card contents after reconnects/restarts.

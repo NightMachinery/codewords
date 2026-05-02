@@ -42,12 +42,26 @@ export interface GameplayCard {
 export interface GameplayPreferences {
   confirmGuesses: boolean;
   confirmPasses: boolean;
+  cardsPerRow: number;
+  chatSound: boolean;
+  chatVisualCue: boolean;
+  cardChoiceSound: boolean;
+  cardChoiceVisualCue: boolean;
+  clueSound: boolean;
+  clueVisualCue: boolean;
 }
 
 export const gameplayPreferencesStorageKey = 'codewords.gameplayPreferences';
 export const defaultGameplayPreferences: GameplayPreferences = {
   confirmGuesses: true,
   confirmPasses: false,
+  cardsPerRow: 5,
+  chatSound: true,
+  chatVisualCue: true,
+  cardChoiceSound: true,
+  cardChoiceVisualCue: true,
+  clueSound: true,
+  clueVisualCue: true,
 };
 
 export function viewerId(viewer: Viewer | null | undefined): string {
@@ -150,10 +164,23 @@ export function readGameplayPreferences(storage: Pick<Storage, 'getItem'>): Game
     return {
       confirmGuesses: typeof parsed.confirmGuesses === 'boolean' ? parsed.confirmGuesses : defaultGameplayPreferences.confirmGuesses,
       confirmPasses: typeof parsed.confirmPasses === 'boolean' ? parsed.confirmPasses : defaultGameplayPreferences.confirmPasses,
+      cardsPerRow: clampCardsPerRow(parsed.cardsPerRow),
+      chatSound: typeof parsed.chatSound === 'boolean' ? parsed.chatSound : defaultGameplayPreferences.chatSound,
+      chatVisualCue: typeof parsed.chatVisualCue === 'boolean' ? parsed.chatVisualCue : defaultGameplayPreferences.chatVisualCue,
+      cardChoiceSound: typeof parsed.cardChoiceSound === 'boolean' ? parsed.cardChoiceSound : defaultGameplayPreferences.cardChoiceSound,
+      cardChoiceVisualCue: typeof parsed.cardChoiceVisualCue === 'boolean' ? parsed.cardChoiceVisualCue : defaultGameplayPreferences.cardChoiceVisualCue,
+      clueSound: typeof parsed.clueSound === 'boolean' ? parsed.clueSound : defaultGameplayPreferences.clueSound,
+      clueVisualCue: typeof parsed.clueVisualCue === 'boolean' ? parsed.clueVisualCue : defaultGameplayPreferences.clueVisualCue,
     };
   } catch {
     return { ...defaultGameplayPreferences };
   }
+}
+
+export function clampCardsPerRow(value: unknown): number {
+  const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+  if (!Number.isFinite(parsed)) return defaultGameplayPreferences.cardsPerRow;
+  return Math.min(7, Math.max(2, Math.round(parsed)));
 }
 
 export function writeGameplayPreferences(storage: Pick<Storage, 'setItem'>, preferences: GameplayPreferences): void {
@@ -171,6 +198,12 @@ export function cardContentLabel(card: GameplayCard): string {
 
 export function cardImageUrl(card: GameplayCard): string {
   return card.contentType === 'image' && card.imageId ? `/api/pictures/${encodeURIComponent(card.imageId)}` : '';
+}
+
+export function cardWordTextClasses(word: string | undefined): string {
+  const length = [...(word ?? '')].length;
+  const size = length > 28 ? 'text-sm sm:text-base' : length > 18 ? 'text-base sm:text-lg' : 'text-xl sm:text-2xl';
+  return ['mt-4 block overflow-hidden break-normal hyphens-auto text-balance font-black uppercase tracking-[0.04em]', size].join(' ');
 }
 
 export function cardModeFromImageCount(imageCardCount: number): 'words' | 'images' | 'mixed' {

@@ -53,6 +53,7 @@ type RoomPlayer struct {
 	Team           string
 	Spymaster      bool
 	Representative bool
+	Mod            bool
 	JoinedAt       time.Time
 	LastSeenAt     time.Time
 }
@@ -289,7 +290,7 @@ func (d *DB) CreateRoom(ctx context.Context, p CreateRoomParams) (Room, error) {
 		_ = tx.Rollback()
 		return Room{}, fmt.Errorf("insert room: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO room_players(room_id, user_id) VALUES (?, ?)`, p.ID, p.HostUserID); err != nil {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO room_players(room_id, user_id, mod) VALUES (?, ?, 1)`, p.ID, p.HostUserID); err != nil {
 		_ = tx.Rollback()
 		return Room{}, fmt.Errorf("insert host membership: %w", err)
 	}
@@ -329,8 +330,8 @@ func (d *DB) UpdateRoomSettings(ctx context.Context, roomID, settingsJSON string
 
 func (d *DB) UpsertRoomPlayer(ctx context.Context, p RoomPlayer) error {
 	_, err := d.db.ExecContext(ctx, `
-INSERT INTO room_players(room_id, user_id, team, spymaster, representative) VALUES (?, ?, ?, ?, ?)
-ON CONFLICT(room_id, user_id) DO UPDATE SET team = excluded.team, spymaster = excluded.spymaster, representative = excluded.representative, last_seen_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`, p.RoomID, p.UserID, p.Team, boolInt(p.Spymaster), boolInt(p.Representative))
+INSERT INTO room_players(room_id, user_id, team, spymaster, representative, mod) VALUES (?, ?, ?, ?, ?, ?)
+ON CONFLICT(room_id, user_id) DO UPDATE SET team = excluded.team, spymaster = excluded.spymaster, representative = excluded.representative, mod = excluded.mod, last_seen_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`, p.RoomID, p.UserID, p.Team, boolInt(p.Spymaster), boolInt(p.Representative), boolInt(p.Mod))
 	if err != nil {
 		return fmt.Errorf("upsert room player: %w", err)
 	}
@@ -338,7 +339,7 @@ ON CONFLICT(room_id, user_id) DO UPDATE SET team = excluded.team, spymaster = ex
 }
 
 func (d *DB) RoomPlayers(ctx context.Context, roomID string) ([]RoomPlayer, error) {
-	rows, err := d.db.QueryContext(ctx, `SELECT room_id, user_id, team, spymaster, representative, joined_at, last_seen_at FROM room_players WHERE room_id = ? ORDER BY joined_at, user_id`, roomID)
+	rows, err := d.db.QueryContext(ctx, `SELECT room_id, user_id, team, spymaster, representative, mod, joined_at, last_seen_at FROM room_players WHERE room_id = ? ORDER BY joined_at, user_id`, roomID)
 	if err != nil {
 		return nil, fmt.Errorf("query room players: %w", err)
 	}
@@ -346,13 +347,14 @@ func (d *DB) RoomPlayers(ctx context.Context, roomID string) ([]RoomPlayer, erro
 	var players []RoomPlayer
 	for rows.Next() {
 		var p RoomPlayer
-		var spy, rep int
+		var spy, rep, mod int
 		var joined, seen string
-		if err := rows.Scan(&p.RoomID, &p.UserID, &p.Team, &spy, &rep, &joined, &seen); err != nil {
+		if err := rows.Scan(&p.RoomID, &p.UserID, &p.Team, &spy, &rep, &mod, &joined, &seen); err != nil {
 			return nil, fmt.Errorf("scan room player: %w", err)
 		}
 		p.Spymaster = spy == 1
 		p.Representative = rep == 1
+		p.Mod = mod == 1
 		p.JoinedAt = parseTime(joined)
 		p.LastSeenAt = parseTime(seen)
 		players = append(players, p)

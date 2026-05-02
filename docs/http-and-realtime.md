@@ -25,7 +25,7 @@ Implemented JSON endpoints:
 
 Authentication uses explicit bearer/query/body auth tokens from browser storage. Migrate bootstrap accepts only room-scoped migrate ids and never exposes the global auth token. Error responses contain stable `error.code` and English `error.message` fields.
 
-Picture catalog endpoints list safe opaque ids for local `.jpg`, `.jpeg`, `.png`, and `.webp` files and serve those files with long-lived cache headers. File paths are never exposed to clients. The current implementation serves source images directly; AVIF normalization/cache reuse remains future hardening work.
+Picture catalog endpoints list safe opaque ids for cached local `.jpg`, `.jpeg`, `.png`, `.webp`, and sniffed extensionless source files. The backend serves `<imageId>.avif` cache files with long-lived cache headers; file paths are never exposed to clients. AVIF cache generation/checking runs on backend startup only when `CODEWORDS_AVIF_PROCESS_P` is truthy, or manually through `codewords avif-cache gen`.
 
 ## WebSocket API
 

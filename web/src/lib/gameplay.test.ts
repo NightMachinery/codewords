@@ -6,6 +6,7 @@ import {
   cardContentLabel,
   defaultGameplayPreferences,
   formatClueNumber,
+  cardWordTextClasses,
   isActiveGuesser,
   parseClueNumber,
   readGameplayPreferences,
@@ -29,12 +30,12 @@ class MemoryStorage {
 }
 
 const players: LobbyPlayer[] = [
-  { id: 'blueSpy', displayName: 'Blue Spy', team: 'blue', spymaster: true, representative: false },
-  { id: 'blueGuess', displayName: 'Blue Guess', team: 'blue', spymaster: false, representative: false },
-  { id: 'redSpy', displayName: 'Red Spy', team: 'red', spymaster: true, representative: false },
-  { id: 'redGuess', displayName: 'Red Guess', team: 'red', spymaster: false, representative: false },
+  { id: 'blueSpy', displayName: 'Blue Spy', team: 'blue', spymaster: true, representative: false, mod: false },
+  { id: 'blueGuess', displayName: 'Blue Guess', team: 'blue', spymaster: false, representative: false, mod: false },
+  { id: 'redSpy', displayName: 'Red Spy', team: 'red', spymaster: true, representative: false, mod: false },
+  { id: 'redGuess', displayName: 'Red Guess', team: 'red', spymaster: false, representative: false, mod: false },
 ];
-const settings: Settings = { seed: 1, blackCards: 1, wordpackId: 'english', enforceClueGuessLimit: false, allowInfinityClue: false, imageCardCount: 0 };
+const settings: Settings = { seed: 1, blackCards: 1, wordpackId: 'english', enforceClueGuessLimit: false, allowInfinityClue: false, imageCardCount: 0, randomizeTeams: true };
 
 function viewer(userId: string): Viewer {
   return { userId, playerId: userId, isHost: false };
@@ -54,8 +55,8 @@ describe('gameplay permissions', () => {
     expect(isActiveGuesser(representativePlayers, 'blueSpy', 'blue')).toBe(false);
 
     const twoSpies: LobbyPlayer[] = [
-      { id: 'spy1', displayName: 'Spy 1', team: 'blue', spymaster: true, representative: false },
-      { id: 'spy2', displayName: 'Spy 2', team: 'blue', spymaster: true, representative: false },
+      { id: 'spy1', displayName: 'Spy 1', team: 'blue', spymaster: true, representative: false, mod: false },
+      { id: 'spy2', displayName: 'Spy 2', team: 'blue', spymaster: true, representative: false, mod: false },
     ];
     expect(isActiveGuesser(twoSpies, 'spy1', 'blue')).toBe(true);
     expect(isActiveGuesser(twoSpies, 'spy2', 'blue')).toBe(true);
@@ -91,16 +92,16 @@ describe('clue number helpers', () => {
 });
 
 describe('local gameplay preferences', () => {
-  it('defaults confirmation preferences and persists partial updates', () => {
+  it('defaults local cue/layout preferences and persists partial updates', () => {
     const storage = new MemoryStorage();
     expect(readGameplayPreferences(storage)).toEqual(defaultGameplayPreferences);
 
-    const saved: GameplayPreferences = { confirmGuesses: false, confirmPasses: true };
+    const saved: GameplayPreferences = { confirmGuesses: false, confirmPasses: true, cardsPerRow: 4, chatSound: false, chatVisualCue: false, cardChoiceSound: false, cardChoiceVisualCue: true, clueSound: true, clueVisualCue: false };
     writeGameplayPreferences(storage, saved);
     expect(readGameplayPreferences(storage)).toEqual(saved);
 
     storage.setItem('codewords.gameplayPreferences', JSON.stringify({ confirmGuesses: false }));
-    expect(readGameplayPreferences(storage)).toEqual({ confirmGuesses: false, confirmPasses: defaultGameplayPreferences.confirmPasses });
+    expect(readGameplayPreferences(storage)).toEqual({ ...defaultGameplayPreferences, confirmGuesses: false });
   });
 });
 
@@ -112,6 +113,11 @@ describe('board card state', () => {
   it('formats image card content labels for confirmations and fallbacks', () => {
     expect(cardContentLabel({ contentType: 'image', imageId: 'abc123', revealed: false })).toBe('Picture card');
     expect(cardContentLabel({ contentType: 'word', word: 'river', revealed: false })).toBe('river');
+  });
+
+  it('uses non-breaking text classes and shrinks long words to fit cards', () => {
+    expect(cardWordTextClasses('short word')).toContain('break-normal');
+    expect(cardWordTextClasses('exceptionally-long-unbroken-card-word')).toContain('text-sm');
   });
 
   it('derives visible color, labels, classes, and last-selected state', () => {

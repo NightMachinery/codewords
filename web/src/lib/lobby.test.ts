@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { canManageLobby, playerBuckets, startReadiness, type LobbyPlayer } from './lobby';
 
 const players: LobbyPlayer[] = [
-  { id: 'host', displayName: 'Host', team: 'blue', spymaster: true, representative: false },
-  { id: 'guest', displayName: 'Guest', team: 'red', spymaster: true, representative: false },
-  { id: 'floater', displayName: 'Floater', team: '', spymaster: false, representative: false },
+  { id: 'host', displayName: 'Host', team: 'blue', spymaster: true, representative: false, mod: true },
+  { id: 'guest', displayName: 'Guest', team: 'red', spymaster: true, representative: false, mod: false },
+  { id: 'floater', displayName: 'Floater', team: '', spymaster: false, representative: false, mod: false },
 ];
 
 describe('lobby helpers', () => {
@@ -17,9 +17,10 @@ describe('lobby helpers', () => {
     });
   });
 
-  it('allows only the host to manage settings and roles', () => {
-    expect(canManageLobby({ userId: 'host', isHost: true })).toBe(true);
-    expect(canManageLobby({ userId: 'guest', isHost: false })).toBe(false);
+  it('allows hosts and promoted mods to manage settings and roles', () => {
+    expect(canManageLobby({ userId: 'host', isHost: true, isMod: true })).toBe(true);
+    expect(canManageLobby({ userId: 'guest', isHost: false, isMod: true })).toBe(true);
+    expect(canManageLobby({ userId: 'guest', isHost: false, isMod: false })).toBe(false);
   });
 
   it('explains what prevents the host from starting', () => {

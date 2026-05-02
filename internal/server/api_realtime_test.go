@@ -268,11 +268,17 @@ func testDeadline() time.Time {
 
 func TestPictureCatalogListsAndServesLocalImages(t *testing.T) {
 	imageDir := t.TempDir()
+	cacheDir := t.TempDir()
 	pngBytes := []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n', 0, 0, 0, 0}
 	if err := os.WriteFile(filepath.Join(imageDir, "card one.png"), pngBytes, 0o644); err != nil {
 		t.Fatalf("write image fixture: %v", err)
 	}
-	h := newTestHandlerWithPictures(t, imageDir)
+	expectedID := legacyImageID(pngBytes)
+	avifBytes := []byte("cached avif")
+	if err := os.WriteFile(filepath.Join(cacheDir, expectedID+".avif"), avifBytes, 0o644); err != nil {
+		t.Fatalf("write cache fixture: %v", err)
+	}
+	h := newTestHandlerWithPictures(t, imageDir, cacheDir, false)
 
 	catalog := getJSON(t, h, "/api/pictures/catalog", http.StatusOK)
 	if catalog["available"] != true {
@@ -286,12 +292,37 @@ func TestPictureCatalogListsAndServesLocalImages(t *testing.T) {
 	if imageID == "" || strings.Contains(imageID, "card one") {
 		t.Fatalf("image id should be opaque and non-empty, got %q", imageID)
 	}
+	if imageID != expectedID {
+		t.Fatalf("expected legacy-compatible image id %s, got %s", expectedID, imageID)
+	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/pictures/"+imageID, nil)
 	res := httptest.NewRecorder()
 	h.ServeHTTP(res, req)
-	if res.Code != http.StatusOK || res.Header().Get("Content-Type") != "image/png" || !bytes.Equal(res.Body.Bytes(), pngBytes) {
+	if res.Code != http.StatusOK || res.Header().Get("Content-Type") != "image/avif" || !bytes.Equal(res.Body.Bytes(), avifBytes) {
 		t.Fatalf("unexpected image response code=%d type=%q body=%#v", res.Code, res.Header().Get("Content-Type"), res.Body.Bytes())
+	}
+}
+
+func TestPictureCatalogDisabledWithoutCacheWhenProcessingOff(t *testing.T) {
+	imageDir := t.TempDir()
+	cacheDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(imageDir, "card one.png"), []byte("not-cached"), 0o644); err != nil {
+		t.Fatalf("write image fixture: %v", err)
+	}
+	h := newTestHandlerWithPictures(t, imageDir, cacheDir, false)
+
+	catalog := getJSON(t, h, "/api/pictures/catalog", http.StatusOK)
+	if catalog["available"].(bool) || len(catalog["images"].([]any)) != 0 {
+		t.Fatalf("expected uncached pictures to stay disabled while AVIF processing is off, got %#v", catalog)
+	}
+}
+
+func TestLegacyImageIDVector(t *testing.T) {
+	got := legacyImageID([]byte("legacy-cache-test"))
+	const want = "93670c3199ed9a9f911da869573fe47af8ec93bfe02516f1cc9ad67ed5a284fe"
+	if got != want {
+		t.Fatalf("legacy id mismatch: got %s want %s", got, want)
 	}
 }
 
@@ -346,7 +377,7 @@ func TestSnapshotIncludesChatHistoryAndSpectatorCannotSendChat(t *testing.T) {
 	}
 }
 
-func newTestHandlerWithPictures(t *testing.T, picturesDir string) http.Handler {
+func newTestHandlerWithPictures(t *testing.T, picturesDir, cacheDir string, process bool) http.Handler {
 	t.Helper()
 	db, err := storage.Open(context.Background(), filepath.Join(t.TempDir(), "codewords.sqlite"))
 	if err != nil {
@@ -354,7 +385,7 @@ func newTestHandlerWithPictures(t *testing.T, picturesDir string) http.Handler {
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	ids := identity.NewService(db, identity.Options{HashKey: []byte("test-key"), MigrateIDBytes: 8})
-	h, err := NewHandler(Options{Store: db, Identity: ids, WordpacksDir: filepath.Join("..", "..", "assets", "wordpacks"), PicturesDir: picturesDir, BaseURL: "http://example.test"})
+	h, err := NewHandler(Options{Store: db, Identity: ids, WordpacksDir: filepath.Join("..", "..", "assets", "wordpacks"), ImageDir: picturesDir, ImageCacheDir: cacheDir, AVIFProcess: process, BaseURL: "http://example.test"})
 	if err != nil {
 		t.Fatalf("new handler: %v", err)
 	}

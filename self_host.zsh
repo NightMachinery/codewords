@@ -13,6 +13,9 @@ DEV_BACKEND_SESSION="codewords-dev-backend"
 DEV_FRONTEND_SESSION="codewords-dev-frontend"
 BIN_PATH="$ROOT_DIR/bin/codewords"
 DATA_DIR="${CODEWORDS_DATA_DIR:-$ROOT_DIR/.data}"
+DATABASE_PATH="${CODEWORDS_DATABASE_PATH:-$DATA_DIR/codewords.sqlite}"
+IMAGE_DIR="${CODEWORDS_IMAGE_DIR:-$HOME/Pictures/SurrealPictures/chosen_2}"
+IMAGE_CACHE_DIR="${CODEWORDS_IMAGE_CACHE_DIR:-$HOME/.cache/talespin/cards}"
 CADDYFILE="${CODEWORDS_CADDYFILE:-$HOME/Caddyfile}"
 
 usage() {
@@ -138,7 +141,7 @@ start_prod() {
   if [[ ! -x "$BIN_PATH" ]]; then
     build_all
   fi
-  tmuxnew "$PROD_SESSION" -c "$ROOT_DIR" -e "CODEWORDS_ADDR=$BACKEND_ADDR" -e "CODEWORDS_DATA_DIR=$DATA_DIR" -- "$BIN_PATH"
+  tmuxnew "$PROD_SESSION" -c "$ROOT_DIR" -e "CODEWORDS_ADDR=$BACKEND_ADDR" -e "CODEWORDS_DATA_DIR=$DATA_DIR" -e "CODEWORDS_DATABASE_PATH=$DATABASE_PATH" -e "CODEWORDS_IMAGE_DIR=$IMAGE_DIR" -e "CODEWORDS_IMAGE_CACHE_DIR=$IMAGE_CACHE_DIR" -e "CODEWORDS_AVIF_PROCESS_P=${CODEWORDS_AVIF_PROCESS_P:-n}" -- "$BIN_PATH"
   echo "Codewords production started at $url with backend $BACKEND_ADDR"
 }
 
@@ -152,7 +155,7 @@ start_dev() {
   check_port_free "$BACKEND_PORT"
   check_port_free "$DEV_PORT"
   mkdir -p "$DATA_DIR"
-  tmuxnew "$DEV_BACKEND_SESSION" -c "$ROOT_DIR" -e "CODEWORDS_ADDR=$BACKEND_ADDR" -e "CODEWORDS_DATA_DIR=$DATA_DIR" -- "go run ./cmd/server"
+  tmuxnew "$DEV_BACKEND_SESSION" -c "$ROOT_DIR" -e "CODEWORDS_ADDR=$BACKEND_ADDR" -e "CODEWORDS_DATA_DIR=$DATA_DIR" -e "CODEWORDS_DATABASE_PATH=$DATABASE_PATH" -e "CODEWORDS_IMAGE_DIR=$IMAGE_DIR" -e "CODEWORDS_IMAGE_CACHE_DIR=$IMAGE_CACHE_DIR" -e "CODEWORDS_AVIF_PROCESS_P=${CODEWORDS_AVIF_PROCESS_P:-n}" -- "go run ./cmd/server"
   tmuxnew "$DEV_FRONTEND_SESSION" -c "$ROOT_DIR" -- "pnpm --dir web exec vite --host 127.0.0.1 --port $DEV_PORT"
   echo "Codewords development started for $url: backend $BACKEND_ADDR, frontend 127.0.0.1:$DEV_PORT"
 }

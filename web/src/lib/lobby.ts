@@ -6,11 +6,13 @@ export interface LobbyPlayer {
   team: Team;
   spymaster: boolean;
   representative: boolean;
+  mod: boolean;
 }
 
 export interface ViewerContext {
   userId: string;
   isHost: boolean;
+  isMod?: boolean;
 }
 
 export function playerBuckets(players: LobbyPlayer[]): {
@@ -26,7 +28,7 @@ export function playerBuckets(players: LobbyPlayer[]): {
 }
 
 export function canManageLobby(viewer: ViewerContext | null | undefined): boolean {
-  return Boolean(viewer?.isHost);
+  return Boolean(viewer?.isHost || viewer?.isMod);
 }
 
 export function startReadiness(players: LobbyPlayer[]): { ready: boolean; reason: string } {

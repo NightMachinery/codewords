@@ -1,7 +1,10 @@
 // Package game contains the pure Codewords game engine.
 package game
 
-import "errors"
+import (
+	"encoding/json"
+	"errors"
+)
 
 const (
 	// BoardSize is the number of cards in a Codewords match.
@@ -102,6 +105,19 @@ type Settings struct {
 	EnforceClueGuessLimit bool   `json:"enforceClueGuessLimit"`
 	AllowInfinityClue     bool   `json:"allowInfinityClue"`
 	ImageCardCount        int    `json:"imageCardCount"`
+	RandomizeTeams        bool   `json:"randomizeTeams"`
+}
+
+// UnmarshalJSON gives API/DB payloads the product default for randomized team
+// assignment while still allowing clients to explicitly save false.
+func (s *Settings) UnmarshalJSON(data []byte) error {
+	type settingsAlias Settings
+	next := settingsAlias{RandomizeTeams: true}
+	if err := json.Unmarshal(data, &next); err != nil {
+		return err
+	}
+	*s = Settings(next)
+	return nil
 }
 
 // Player is the authoritative per-room player state.
@@ -111,6 +127,7 @@ type Player struct {
 	Team           Team   `json:"team"`
 	Spymaster      bool   `json:"spymaster"`
 	Representative bool   `json:"representative"`
+	Mod            bool   `json:"mod"`
 }
 
 // LastSelected records the most recent accepted guess.
@@ -184,6 +201,7 @@ const (
 	EventTeamAssigned    EventType = "team_assigned"
 	EventRoleChanged     EventType = "role_changed"
 	EventSettingsUpdated EventType = "settings_updated"
+	EventModChanged      EventType = "mod_changed"
 	EventMatchStarted    EventType = "match_started"
 	EventGuessAccepted   EventType = "guess_accepted"
 	EventPassAccepted    EventType = "pass_accepted"

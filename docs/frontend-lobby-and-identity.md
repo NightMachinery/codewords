@@ -61,3 +61,8 @@ Local-only confirmation preferences are stored in LocalStorage under `codewords.
 Milestone 7 adds room chat to the lobby and gameplay sidebars. Seated players can send messages; spectators can read the log but see the composer disabled. The room load response includes recent chat history, and live WebSocket `chatMessage` events append new messages.
 
 Picture mode uses the local server catalog only. Hosts can choose words-only (`imageCardCount=0`), images-only (`imageCardCount=25`), or mixed boards (`1..24` image cards). Image cards render with `/api/pictures/{imageId}` URLs; clients never receive local filesystem paths.
+
+
+## Final local preferences and moderator controls
+
+LocalStorage gameplay preferences include confirmations, cards per row, and separate sound/visual cue toggles for chat, card reveals, and incoming clues. Room creators are moderators by default; moderators can promote/demote other players, update room settings, assign teams/roles manually, and use the default-on balanced random assignment for new players.

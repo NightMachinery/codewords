@@ -2,6 +2,7 @@ package game
 
 import (
 	"fmt"
+	"hash/fnv"
 	"math/rand"
 	"strings"
 )
@@ -30,6 +31,11 @@ type ToggleSpymasterCommand struct {
 
 // ToggleRepresentativeCommand toggles representative status for a player.
 type ToggleRepresentativeCommand struct {
+	PlayerID string
+}
+
+// ToggleModCommand promotes or demotes a lobby moderator.
+type ToggleModCommand struct {
 	PlayerID string
 }
 
@@ -66,7 +72,7 @@ func NewLobby(hostID string, settings Settings) State {
 // NewTwoPlayerLobby creates a legacy-compatible two-player lobby.
 func NewTwoPlayerLobby(firstPlayerID string, secondPlayerID string, settings Settings) State {
 	state := NewLobby(firstPlayerID, settings)
-	state.Players[firstPlayerID] = Player{ID: firstPlayerID, Team: TeamBlue, Spymaster: true}
+	state.Players[firstPlayerID] = Player{ID: firstPlayerID, Team: TeamBlue, Spymaster: true, Mod: true}
 	state.Players[secondPlayerID] = Player{ID: secondPlayerID, Team: TeamRed, Spymaster: true}
 	return state
 }
@@ -159,12 +165,18 @@ func (c AddPlayerCommand) apply(state *State, actorID string) (Event, error) {
 	player := state.Players[c.PlayerID]
 	player.ID = c.PlayerID
 	player.DisplayName = c.DisplayName
+	if c.PlayerID == state.HostID {
+		player.Mod = true
+	}
+	if player.Team == "" && state.Settings.RandomizeTeams {
+		player.Team = state.nextBalancedTeam(c.PlayerID)
+	}
 	state.Players[c.PlayerID] = player
 	return Event{Type: EventPlayerAdded}, nil
 }
 
 func (c AssignTeamCommand) apply(state *State, actorID string) (Event, error) {
-	if actorID != state.HostID && actorID != c.PlayerID {
+	if !state.CanManage(actorID) && actorID != c.PlayerID {
 		return Event{}, ErrForbidden
 	}
 	if c.Team != TeamBlue && c.Team != TeamRed {
@@ -184,7 +196,7 @@ func (c AssignTeamCommand) apply(state *State, actorID string) (Event, error) {
 }
 
 func (c ToggleSpymasterCommand) apply(state *State, actorID string) (Event, error) {
-	if actorID != state.HostID {
+	if !state.CanManage(actorID) {
 		return Event{}, ErrForbidden
 	}
 	player, ok := state.Players[c.PlayerID]
@@ -200,7 +212,7 @@ func (c ToggleSpymasterCommand) apply(state *State, actorID string) (Event, erro
 }
 
 func (c ToggleRepresentativeCommand) apply(state *State, actorID string) (Event, error) {
-	if actorID != state.HostID {
+	if !state.CanManage(actorID) {
 		return Event{}, ErrForbidden
 	}
 	player, ok := state.Players[c.PlayerID]
@@ -215,17 +227,41 @@ func (c ToggleRepresentativeCommand) apply(state *State, actorID string) (Event,
 	return Event{Type: EventRoleChanged}, nil
 }
 
+func (c ToggleModCommand) apply(state *State, actorID string) (Event, error) {
+	if !state.CanManage(actorID) {
+		return Event{}, ErrForbidden
+	}
+	if c.PlayerID == state.HostID {
+		return Event{}, fmt.Errorf("%w: host mod status cannot change", ErrInvalidCommand)
+	}
+	player, ok := state.Players[c.PlayerID]
+	if !ok {
+		return Event{}, fmt.Errorf("%w: unknown player", ErrInvalidCommand)
+	}
+	player.Mod = !player.Mod
+	state.Players[c.PlayerID] = player
+	return Event{Type: EventModChanged}, nil
+}
+
 func (c UpdateSettingsCommand) apply(state *State, actorID string) (Event, error) {
-	if actorID != state.HostID {
+	if !state.CanManage(actorID) {
 		return Event{}, ErrForbidden
 	}
 	c.Settings.BlackCards = clamp(c.Settings.BlackCards, 0, MaxBlackCards)
 	state.Settings = c.Settings
+	if state.Settings.RandomizeTeams {
+		for id, player := range state.Players {
+			if player.Team == "" {
+				player.Team = state.nextBalancedTeam(id)
+				state.Players[id] = player
+			}
+		}
+	}
 	return Event{Type: EventSettingsUpdated}, nil
 }
 
 func (c StartCommand) apply(state *State, actorID string) (Event, error) {
-	if actorID != state.HostID {
+	if !state.CanManage(actorID) {
 		return Event{}, ErrForbidden
 	}
 	if !state.canStart() {
@@ -244,6 +280,17 @@ func (c StartCommand) apply(state *State, actorID string) (Event, error) {
 	state.ClueLog = nil
 	state.Round = state.startRound(board.StartingTeam)
 	return Event{Type: EventMatchStarted}, nil
+}
+
+// CanManage reports whether playerID can administer the lobby.
+func (s State) CanManage(playerID string) bool {
+	if playerID == "" {
+		return false
+	}
+	if playerID == s.HostID {
+		return true
+	}
+	return s.Players[playerID].Mod
 }
 
 func (c SubmitClueCommand) apply(state *State, actorID string) (Event, error) {
@@ -529,4 +576,29 @@ func clamp(value, minValue, maxValue int) int {
 		return maxValue
 	}
 	return value
+}
+
+func (s State) nextBalancedTeam(playerID string) Team {
+	blue := 0
+	red := 0
+	for _, player := range s.Players {
+		switch player.Team {
+		case TeamBlue:
+			blue++
+		case TeamRed:
+			red++
+		}
+	}
+	if blue < red {
+		return TeamBlue
+	}
+	if red < blue {
+		return TeamRed
+	}
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(fmt.Sprintf("%d:%s", s.Settings.Seed, playerID)))
+	if h.Sum64()%2 == 0 {
+		return TeamBlue
+	}
+	return TeamRed
 }

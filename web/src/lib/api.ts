@@ -12,12 +12,14 @@ export interface Settings {
   enforceClueGuessLimit: boolean;
   allowInfinityClue: boolean;
   imageCardCount: number;
+  randomizeTeams: boolean;
 }
 
 export interface Viewer {
   userId: string;
   playerId?: string;
   isHost: boolean;
+  isMod?: boolean;
 }
 
 export interface RoomSummary {
@@ -145,6 +147,7 @@ export const defaultSettings: Settings = {
   enforceClueGuessLimit: false,
   allowInfinityClue: false,
   imageCardCount: 0,
+  randomizeTeams: true,
 };
 
 export const api = new ApiClient();
