@@ -164,6 +164,27 @@ export function shouldAutoJoinRoom(room: RoomSummary, credentialMode: 'auth' | '
   return credentialMode === 'auth' && room.status === 'lobby' && displayName.trim().length > 0;
 }
 
+export function cardContentLabel(card: GameplayCard): string {
+  if (card.contentType === 'image') return 'Picture card';
+  return card.word || 'Card';
+}
+
+export function cardImageUrl(card: GameplayCard): string {
+  return card.contentType === 'image' && card.imageId ? `/api/pictures/${encodeURIComponent(card.imageId)}` : '';
+}
+
+export function cardModeFromImageCount(imageCardCount: number): 'words' | 'images' | 'mixed' {
+  if (imageCardCount <= 0) return 'words';
+  if (imageCardCount >= 25) return 'images';
+  return 'mixed';
+}
+
+export function imageCountForMode(mode: 'words' | 'images' | 'mixed', currentMixedCount: number): number {
+  if (mode === 'words') return 0;
+  if (mode === 'images') return 25;
+  return Math.min(24, Math.max(1, currentMixedCount || 8));
+}
+
 export function cardViewState(card: GameplayCard, index: number, showHiddenColor: boolean, lastSelected: LastSelected | null | undefined): {
   visibleColor: VisibleCardColor;
   label: string;

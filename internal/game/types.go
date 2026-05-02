@@ -17,6 +17,8 @@ var (
 	ErrInvalidCommand = errors.New("invalid command")
 	// ErrNotEnoughWords means a wordpack cannot provide enough unique words.
 	ErrNotEnoughWords = errors.New("not enough unique words")
+	// ErrNotEnoughImages means the local picture catalog cannot provide enough unique images.
+	ErrNotEnoughImages = errors.New("not enough unique images")
 	// ErrCannotStart means lobby requirements are not satisfied.
 	ErrCannotStart = errors.New("cannot start match")
 	// ErrInvalidClueNumber means a clue number is not valid for current settings.
@@ -99,6 +101,7 @@ type Settings struct {
 	WordpackID            string `json:"wordpackId"`
 	EnforceClueGuessLimit bool   `json:"enforceClueGuessLimit"`
 	AllowInfinityClue     bool   `json:"allowInfinityClue"`
+	ImageCardCount        int    `json:"imageCardCount"`
 }
 
 // Player is the authoritative per-room player state.

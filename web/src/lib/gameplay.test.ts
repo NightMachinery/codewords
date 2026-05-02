@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   canSubmitClue,
   cardViewState,
+  cardContentLabel,
   defaultGameplayPreferences,
   formatClueNumber,
   isActiveGuesser,
@@ -33,7 +34,7 @@ const players: LobbyPlayer[] = [
   { id: 'redSpy', displayName: 'Red Spy', team: 'red', spymaster: true, representative: false },
   { id: 'redGuess', displayName: 'Red Guess', team: 'red', spymaster: false, representative: false },
 ];
-const settings: Settings = { seed: 1, blackCards: 1, wordpackId: 'english', enforceClueGuessLimit: false, allowInfinityClue: false };
+const settings: Settings = { seed: 1, blackCards: 1, wordpackId: 'english', enforceClueGuessLimit: false, allowInfinityClue: false, imageCardCount: 0 };
 
 function viewer(userId: string): Viewer {
   return { userId, playerId: userId, isHost: false };
@@ -107,6 +108,11 @@ describe('board card state', () => {
   const hiddenBlue: GameplayCard = { contentType: 'word', word: 'river', revealed: false, color: 'blue' };
   const revealedRed: GameplayCard = { contentType: 'word', word: 'castle', revealed: true, color: 'red' };
   const hiddenUnknown: GameplayCard = { contentType: 'word', word: 'orbit', revealed: false };
+
+  it('formats image card content labels for confirmations and fallbacks', () => {
+    expect(cardContentLabel({ contentType: 'image', imageId: 'abc123', revealed: false })).toBe('Picture card');
+    expect(cardContentLabel({ contentType: 'word', word: 'river', revealed: false })).toBe('river');
+  });
 
   it('derives visible color, labels, classes, and last-selected state', () => {
     expect(cardViewState(hiddenUnknown, 0, false, undefined)).toMatchObject({ visibleColor: 'hidden', label: 'Unrevealed', isLastSelected: false });

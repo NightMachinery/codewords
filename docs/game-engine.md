@@ -10,7 +10,7 @@ Milestone 2 commands cover player seating, team assignment, host role toggles, s
 
 ## Wordpacks and boards
 
-`game.LoadWordpacks` reads bundled `.txt` files from `assets/wordpacks`. `game.ParseWordpack` trims whitespace and skips empty or `#` comment lines. Board generation requires at least 25 unique words, selects 25 words deterministically from the match seed, randomizes the starting team, assigns hidden colors, and clamps assassin cards to `0..8`.
+`game.LoadWordpacks` reads bundled `.txt` files from `assets/wordpacks`. `game.ParseWordpack` trims whitespace and skips empty or `#` comment lines. Board generation supports words-only, images-only, and mixed boards through `Settings.ImageCardCount` (`0..25`). It requires enough unique words for the non-image cards and enough unique local image ids for the image cards, selects content deterministically from the match seed, randomizes the starting team, assigns hidden colors, and clamps assassin cards to `0..8`.
 
 ## Clues
 

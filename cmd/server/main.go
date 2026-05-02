@@ -20,7 +20,7 @@ func main() {
 	defer db.Close()
 
 	identityService := identity.NewService(db, identity.Options{})
-	handler, err := server.NewHandler(server.Options{Store: db, Identity: identityService, WordpacksDir: "assets/wordpacks"})
+	handler, err := server.NewHandler(server.Options{Store: db, Identity: identityService, WordpacksDir: "assets/wordpacks", PicturesDir: cfg.PicturesDir})
 	if err != nil {
 		log.Fatalf("configure server: %v", err)
 	}

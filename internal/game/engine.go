@@ -38,9 +38,10 @@ type UpdateSettingsCommand struct {
 	Settings Settings
 }
 
-// StartCommand starts a match using supplied parsed wordpack words.
+// StartCommand starts a match using supplied parsed wordpack words and local image ids.
 type StartCommand struct {
-	Words []string
+	Words    []string
+	ImageIDs []string
 }
 
 // SubmitClueCommand submits or updates the current team's clue for this round.
@@ -80,15 +81,36 @@ func Apply(state *State, command Command, actorID string) (Event, error) {
 
 // GenerateWordBoard generates a deterministic 25-card word board.
 func GenerateWordBoard(settings Settings, words []string) (Board, error) {
-	unique := uniqueWords(words)
-	if len(unique) < BoardSize {
+	settings.ImageCardCount = 0
+	return GenerateBoard(settings, words, nil)
+}
+
+// GenerateBoard generates a deterministic board with words, images, or a mix of both.
+func GenerateBoard(settings Settings, words []string, imageIDs []string) (Board, error) {
+	imageCount := clamp(settings.ImageCardCount, 0, BoardSize)
+	wordCount := BoardSize - imageCount
+	uniqueWords := uniqueWords(words)
+	uniqueImages := uniqueImageIDs(imageIDs)
+	if len(uniqueWords) < wordCount {
 		return Board{}, ErrNotEnoughWords
 	}
+	if len(uniqueImages) < imageCount {
+		return Board{}, ErrNotEnoughImages
+	}
 	rng := rand.New(rand.NewSource(settings.Seed))
-	perm := rng.Perm(len(unique))
-	cards := make([]Card, BoardSize)
-	for i := 0; i < BoardSize; i++ {
-		cards[i] = Card{Content: CardContent{Type: ContentWord, Text: unique[perm[i]]}}
+	cards := make([]Card, 0, BoardSize)
+	wordPerm := rng.Perm(len(uniqueWords))
+	for i := 0; i < wordCount; i++ {
+		cards = append(cards, Card{Content: CardContent{Type: ContentWord, Text: uniqueWords[wordPerm[i]]}})
+	}
+	imagePerm := rng.Perm(len(uniqueImages))
+	for i := 0; i < imageCount; i++ {
+		cards = append(cards, Card{Content: CardContent{Type: ContentImage, ImageID: uniqueImages[imagePerm[i]]}})
+	}
+	contentPerm := rng.Perm(BoardSize)
+	mixed := make([]Card, BoardSize)
+	for i, contentIndex := range contentPerm {
+		mixed[i] = cards[contentIndex]
 	}
 	startingTeam := TeamBlue
 	if rng.Intn(2) == 1 {
@@ -97,9 +119,9 @@ func GenerateWordBoard(settings Settings, words []string) (Board, error) {
 	colors := colorsFor(settings, startingTeam)
 	colorPerm := rng.Perm(BoardSize)
 	for i, colorIndex := range colorPerm {
-		cards[i].Color = colors[colorIndex]
+		mixed[i].Color = colors[colorIndex]
 	}
-	return Board{Cards: cards, StartingTeam: startingTeam}, nil
+	return Board{Cards: mixed, StartingTeam: startingTeam}, nil
 }
 
 func colorsFor(settings Settings, startingTeam Team) []Color {
@@ -209,7 +231,7 @@ func (c StartCommand) apply(state *State, actorID string) (Event, error) {
 	if !state.canStart() {
 		return Event{}, ErrCannotStart
 	}
-	board, err := GenerateWordBoard(state.Settings, c.Words)
+	board, err := GenerateBoard(state.Settings, c.Words, c.ImageIDs)
 	if err != nil {
 		return Event{}, err
 	}

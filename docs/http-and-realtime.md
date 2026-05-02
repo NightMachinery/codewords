@@ -4,7 +4,7 @@ Milestone 4 wires the persistence, identity, wordpack, and game-engine packages 
 
 ## Runtime wiring
 
-`cmd/server` now opens the configured SQLite database (`CODEWORDS_DATABASE_PATH`, default `./data/codewords.sqlite`), creates the identity service, loads bundled wordpacks from `assets/wordpacks`, and serves API/WebSocket routes on `CODEWORDS_ADDR`.
+`cmd/server` opens the configured SQLite database (`CODEWORDS_DATABASE_PATH`, default `./data/codewords.sqlite`), creates the identity service, loads bundled wordpacks from `assets/wordpacks`, discovers local pictures from `CODEWORDS_PICTURES_DIR` (default `./assets/pictures`), and serves API/WebSocket routes on `CODEWORDS_ADDR`.
 
 ## HTTP API
 
@@ -25,11 +25,11 @@ Implemented JSON endpoints:
 
 Authentication uses explicit bearer/query/body auth tokens from browser storage. Migrate bootstrap accepts only room-scoped migrate ids and never exposes the global auth token. Error responses contain stable `error.code` and English `error.message` fields.
 
-Picture catalog endpoints currently report that no local picture catalog is available; the picture-card implementation remains part of the later wordpacks/pictures milestone.
+Picture catalog endpoints list safe opaque ids for local `.jpg`, `.jpeg`, `.png`, and `.webp` files and serve those files with long-lived cache headers. File paths are never exposed to clients. The current implementation serves source images directly; AVIF normalization/cache reuse remains future hardening work.
 
 ## WebSocket API
 
-Room sockets connect at `/ws/rooms/{roomId}` with `authToken` or `migrateId` query parameters. After authentication the server sends a viewer-specific `snapshot` immediately, including viewer host context for lobby permissions. HTTP joins and settings changes broadcast fresh lobby snapshots to connected clients. Supported socket messages are:
+Room sockets connect at `/ws/rooms/{roomId}` with `authToken`, `migrateId`, or `spectator=1` query parameters. After authentication the server sends a viewer-specific `snapshot` immediately, including viewer host context for lobby permissions. HTTP joins and settings changes broadcast fresh lobby snapshots to connected clients. Supported socket messages are:
 
 - `ping` -> `pong`
 - `setTeam` / `assignTeam`
@@ -41,7 +41,7 @@ Room sockets connect at `/ws/rooms/{roomId}` with `authToken` or `migrateId` que
 - `submitClue`
 - `sendChat`
 
-Accepted game commands are applied through `internal/game`, persisted as ordered events plus latest authoritative snapshot when a match is active, and broadcast as sanitized viewer-specific snapshots to connected clients. `startGame` can be sent over the socket or via `POST /api/rooms/{roomId}/start`. `sendChat` stores the message in SQLite and broadcasts a `chatMessage` event; the fuller chat UI remains part of the later frontend/chat milestone.
+Accepted game commands are applied through `internal/game`, persisted as ordered events plus latest authoritative snapshot when a match is active, and broadcast as sanitized viewer-specific snapshots to connected clients. `startGame` can be sent over the socket or via `POST /api/rooms/{roomId}/start`. `sendChat` is accepted only from seated room members, stores the message in SQLite, and broadcasts a `chatMessage` event. Anonymous spectators and authenticated non-members receive snapshots but cannot write chat.
 
 ## Restart restoration
 

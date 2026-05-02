@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -62,8 +63,12 @@ func TestIdentityRoomLifecycleREST(t *testing.T) {
 	}
 
 	packs := getJSON(t, h, "/api/wordpacks", http.StatusOK)
-	if len(packs["wordpacks"].([]any)) == 0 {
+	wordpacks := packs["wordpacks"].([]any)
+	if len(wordpacks) == 0 {
 		t.Fatalf("expected bundled wordpacks, got %#v", packs)
+	}
+	if wordpacks[0].(map[string]any)["id"] != "english" || wordpacks[1].(map[string]any)["id"] != "english-alternative" {
+		t.Fatalf("expected mined legacy wordpack order first, got %#v", wordpacks[:2])
 	}
 	pictures := getJSON(t, h, "/api/pictures/catalog", http.StatusOK)
 	if pictures["available"].(bool) {
@@ -259,4 +264,99 @@ func TestMigrateIdProvidesRoomViewerContext(t *testing.T) {
 
 func testDeadline() time.Time {
 	return time.Now().Add(2 * time.Second)
+}
+
+func TestPictureCatalogListsAndServesLocalImages(t *testing.T) {
+	imageDir := t.TempDir()
+	pngBytes := []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n', 0, 0, 0, 0}
+	if err := os.WriteFile(filepath.Join(imageDir, "card one.png"), pngBytes, 0o644); err != nil {
+		t.Fatalf("write image fixture: %v", err)
+	}
+	h := newTestHandlerWithPictures(t, imageDir)
+
+	catalog := getJSON(t, h, "/api/pictures/catalog", http.StatusOK)
+	if catalog["available"] != true {
+		t.Fatalf("expected picture catalog to be available, got %#v", catalog)
+	}
+	images := catalog["images"].([]any)
+	if len(images) != 1 {
+		t.Fatalf("expected one image, got %#v", catalog)
+	}
+	imageID := images[0].(map[string]any)["id"].(string)
+	if imageID == "" || strings.Contains(imageID, "card one") {
+		t.Fatalf("image id should be opaque and non-empty, got %q", imageID)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/pictures/"+imageID, nil)
+	res := httptest.NewRecorder()
+	h.ServeHTTP(res, req)
+	if res.Code != http.StatusOK || res.Header().Get("Content-Type") != "image/png" || !bytes.Equal(res.Body.Bytes(), pngBytes) {
+		t.Fatalf("unexpected image response code=%d type=%q body=%#v", res.Code, res.Header().Get("Content-Type"), res.Body.Bytes())
+	}
+}
+
+func TestSnapshotIncludesChatHistoryAndSpectatorCannotSendChat(t *testing.T) {
+	h := newTestHandler(t)
+	postJSON(t, h, "/api/identity/bootstrap", map[string]any{"authToken": "host-chat", "displayName": "Host"}, http.StatusOK)
+	roomResp := postJSON(t, h, "/api/rooms", map[string]any{"authToken": "host-chat", "settings": map[string]any{"wordpackId": "english", "seed": 12}}, http.StatusCreated)
+	roomID := roomResp["room"].(map[string]any)["id"].(string)
+
+	server := httptest.NewServer(h)
+	defer server.Close()
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws/rooms/" + roomID + "?authToken=host-chat"
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial websocket: %v", err)
+	}
+	defer conn.Close()
+	var msg map[string]any
+	if err := conn.ReadJSON(&msg); err != nil {
+		t.Fatalf("read initial: %v", err)
+	}
+	if err := conn.WriteJSON(map[string]any{"type": "sendChat", "body": "hello lobby"}); err != nil {
+		t.Fatalf("write chat: %v", err)
+	}
+	if err := conn.ReadJSON(&msg); err != nil {
+		t.Fatalf("read chat: %v", err)
+	}
+
+	snap := getJSON(t, h, "/api/rooms/"+roomID+"?authToken=host-chat", http.StatusOK)
+	messages := snap["chatMessages"].([]any)
+	if len(messages) != 1 || messages[0].(map[string]any)["body"] != "hello lobby" {
+		t.Fatalf("expected chat history on room payload, got %#v", snap)
+	}
+
+	spectatorURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws/rooms/" + roomID + "?spectator=1"
+	spectator, _, err := websocket.DefaultDialer.Dial(spectatorURL, nil)
+	if err != nil {
+		t.Fatalf("dial spectator websocket: %v", err)
+	}
+	defer spectator.Close()
+	if err := spectator.ReadJSON(&msg); err != nil {
+		t.Fatalf("read spectator snapshot: %v", err)
+	}
+	if err := spectator.WriteJSON(map[string]any{"type": "sendChat", "body": "anonymous write"}); err != nil {
+		t.Fatalf("write spectator chat: %v", err)
+	}
+	if err := spectator.ReadJSON(&msg); err != nil {
+		t.Fatalf("read spectator error: %v", err)
+	}
+	if msg["type"] != "error" || msg["code"] != "chat_rejected" {
+		t.Fatalf("expected spectator chat rejection, got %#v", msg)
+	}
+}
+
+func newTestHandlerWithPictures(t *testing.T, picturesDir string) http.Handler {
+	t.Helper()
+	db, err := storage.Open(context.Background(), filepath.Join(t.TempDir(), "codewords.sqlite"))
+	if err != nil {
+		t.Fatalf("open test db: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	ids := identity.NewService(db, identity.Options{HashKey: []byte("test-key"), MigrateIDBytes: 8})
+	h, err := NewHandler(Options{Store: db, Identity: ids, WordpacksDir: filepath.Join("..", "..", "assets", "wordpacks"), PicturesDir: picturesDir, BaseURL: "http://example.test"})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+	return h
 }

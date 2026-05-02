@@ -1,8 +1,9 @@
-import type { RoomSnapshot } from './api';
+import type { ChatMessage, RoomSnapshot } from './api';
 
 export type RoomSocketMessage =
   | { type: 'snapshot'; snapshot: RoomSnapshot }
   | { type: 'error'; code: string; message: string }
+  | { type: 'chatMessage'; message: ChatMessage }
   | { type: 'pong' };
 
 export interface RoomSocketHandlers {

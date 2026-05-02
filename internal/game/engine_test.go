@@ -97,6 +97,75 @@ func TestGenerateBoardClampsBlackCardsAndRejectsSmallWordpacks(t *testing.T) {
 	}
 }
 
+func TestGenerateMixedBoardUsesRequestedImageCountAndWords(t *testing.T) {
+	settings := Settings{Seed: 99, BlackCards: 1, WordpackID: "test", ImageCardCount: 7}
+	board, err := GenerateBoard(settings, makeWords(40), makeImageIDs(10))
+	if err != nil {
+		t.Fatalf("generate mixed board: %v", err)
+	}
+	counts := map[ContentType]int{}
+	seenWords := map[string]bool{}
+	seenImages := map[string]bool{}
+	for _, card := range board.Cards {
+		counts[card.Content.Type]++
+		switch card.Content.Type {
+		case ContentWord:
+			if card.Content.Text == "" {
+				t.Fatalf("word card has empty text: %#v", card)
+			}
+			if seenWords[card.Content.Text] {
+				t.Fatalf("duplicate word %q", card.Content.Text)
+			}
+			seenWords[card.Content.Text] = true
+		case ContentImage:
+			if card.Content.ImageID == "" {
+				t.Fatalf("image card has empty id: %#v", card)
+			}
+			if seenImages[card.Content.ImageID] {
+				t.Fatalf("duplicate image %q", card.Content.ImageID)
+			}
+			seenImages[card.Content.ImageID] = true
+		default:
+			t.Fatalf("unexpected content type %q", card.Content.Type)
+		}
+	}
+	if counts[ContentImage] != 7 || counts[ContentWord] != 18 {
+		t.Fatalf("expected 7 images and 18 words, got %#v", counts)
+	}
+
+	again, err := GenerateBoard(settings, makeWords(40), makeImageIDs(10))
+	if err != nil {
+		t.Fatalf("generate second mixed board: %v", err)
+	}
+	for i := range board.Cards {
+		if board.Cards[i] != again.Cards[i] {
+			t.Fatalf("card %d not deterministic: %#v vs %#v", i, board.Cards[i], again.Cards[i])
+		}
+	}
+}
+
+func TestGenerateBoardValidatesImageAndWordCounts(t *testing.T) {
+	_, err := GenerateBoard(Settings{Seed: 1, ImageCardCount: 25}, makeWords(0), makeImageIDs(24))
+	if !errors.Is(err, ErrNotEnoughImages) {
+		t.Fatalf("expected ErrNotEnoughImages for image-only board, got %v", err)
+	}
+
+	_, err = GenerateBoard(Settings{Seed: 1, ImageCardCount: 24}, makeWords(0), makeImageIDs(24))
+	if !errors.Is(err, ErrNotEnoughWords) {
+		t.Fatalf("expected ErrNotEnoughWords for missing remaining word, got %v", err)
+	}
+
+	board, err := GenerateBoard(Settings{Seed: 1, ImageCardCount: 30}, makeWords(40), makeImageIDs(30))
+	if err != nil {
+		t.Fatalf("expected high image count to clamp to image-only: %v", err)
+	}
+	for _, card := range board.Cards {
+		if card.Content.Type != ContentImage {
+			t.Fatalf("expected image-only card, got %#v", card)
+		}
+	}
+}
+
 func TestNewTwoPlayerLobbySeatsBothPlayersAsSpymasters(t *testing.T) {
 	state := NewTwoPlayerLobby("p0", "p1", Settings{Seed: 3})
 
@@ -346,4 +415,12 @@ func mapsKeys[K comparable, V any](m map[K]V) []K {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+func makeImageIDs(n int) []string {
+	ids := make([]string, n)
+	for i := 0; i < n; i++ {
+		ids[i] = "image-" + strings.Repeat("x", i+1)
+	}
+	return ids
 }

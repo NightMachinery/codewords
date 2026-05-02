@@ -1,15 +1,19 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
 
-  import { api, defaultSettings, type Settings, type Viewer, type Wordpack } from '../lib/api';
+  import { api, defaultSettings, type ChatMessage, type PictureAsset, type Settings, type Viewer, type Wordpack } from '../lib/api';
   import { copyText } from '../lib/clipboard';
   import {
     canSubmitClue,
+    cardContentLabel,
+    cardImageUrl,
+    cardModeFromImageCount,
     cardViewState,
     clueSubmitProblem,
     defaultGameplayPreferences,
     findViewerPlayer,
     formatClueNumber,
+    imageCountForMode,
     parseClueNumber,
     readGameplayPreferences,
     shouldAutoJoinRoom,
@@ -38,6 +42,8 @@
   let viewer = $state<Viewer | null>(null);
   let settings = $state<Settings>({ ...defaultSettings });
   let wordpacks = $state<Wordpack[]>([]);
+  let pictures = $state<PictureAsset[]>([]);
+  let pictureCatalogAvailable = $state(false);
   let phase = $state<'lobby' | 'active' | 'game_over'>('lobby');
   let currentTeam = $state<'blue' | 'red' | ''>('');
   let winner = $state<'blue' | 'red' | ''>('');
@@ -47,6 +53,8 @@
   let clueLog = $state<ClueEntry[]>([]);
   let clueText = $state('');
   let clueNumber = $state('');
+  let chatMessages = $state<ChatMessage[]>([]);
+  let chatDraft = $state('');
   let preferences = $state<GameplayPreferences>({ ...defaultGameplayPreferences });
   let loading = $state(true);
   let savingName = $state(false);
@@ -60,7 +68,7 @@
   let startState = $derived(startReadiness(players));
   let hostControls = $derived(canManageLobby(viewer));
   let currentPlayer = $derived(findViewerPlayer(players, viewer));
-  let needsName = $derived(Boolean(credentialMode === 'auth' && !displayName));
+  let needsName = $derived(Boolean(credentialMode === 'auth' && !displayName && roomStatus === 'lobby'));
   let role = $derived(viewerRole(players, viewer, currentTeam, phase));
   let cluePermission = $derived(canSubmitClue(players, viewer, currentTeam, phase));
   let clueNumberParsed = $derived(parseClueNumber(clueNumber));
@@ -68,6 +76,7 @@
   let currentClue = $derived(clueLog.slice().reverse().find((entry) => entry.status === 'active') ?? null);
   let guessProblem = $derived(guessDisabledReason());
   let passProblem = $derived(passDisabledReason());
+  let cardMode = $derived(cardModeFromImageCount(settings.imageCardCount ?? 0));
 
   onMount(() => {
     void boot();
@@ -85,6 +94,9 @@
       credentialMode = credential.mode;
       const packs = await api.wordpacks();
       wordpacks = packs.wordpacks;
+      const pictureCatalog = await api.pictureCatalog();
+      pictureCatalogAvailable = pictureCatalog.available;
+      pictures = pictureCatalog.images;
 
       if (credential.mode === 'migrate') {
         const migrated = await api.migrateBootstrap(roomId, credential.migrateId);
@@ -101,6 +113,7 @@
       roomHostId = room.room.hostUserId;
       viewer = room.viewer;
       settings = { ...defaultSettings, ...room.settings };
+      chatMessages = room.chatMessages ?? [];
       if (shouldAutoJoinRoom(room.room, credential.mode, displayName)) {
         await api.joinRoom(roomId, authToken, displayName);
       }
@@ -165,6 +178,9 @@
       remainingCounts = message.snapshot.remainingCounts ?? { blue: 0, red: 0 };
       clueLog = message.snapshot.clueLog ?? [];
     }
+    if (message.type === 'chatMessage') {
+      chatMessages = [...chatMessages, message.message].slice(-50);
+    }
     if (message.type === 'error') {
       error = message.message;
     }
@@ -197,6 +213,17 @@
     socket?.send({ type: 'startGame' });
   }
 
+  function setCardMode(mode: 'words' | 'images' | 'mixed') {
+    settings = { ...settings, imageCardCount: imageCountForMode(mode, settings.imageCardCount) };
+    void saveSettings();
+  }
+
+  function setMixedImageCount(value: string) {
+    const parsed = Number.parseInt(value, 10);
+    settings = { ...settings, imageCardCount: Math.min(24, Math.max(1, Number.isFinite(parsed) ? parsed : 8)) };
+    void saveSettings();
+  }
+
   function submitClue() {
     error = '';
     if (!cluePermission.allowed) {
@@ -217,7 +244,7 @@
       error = reason;
       return;
     }
-    if (preferences.confirmGuesses && !window.confirm(`Reveal ${card.word ?? card.imageId ?? 'this card'}?`)) {
+    if (preferences.confirmGuesses && !window.confirm(`Reveal ${cardContentLabel(card)}?`)) {
       return;
     }
     socket?.send({ type: 'guessCard', index });
@@ -260,6 +287,17 @@
   function updatePreferences(next: Partial<GameplayPreferences>) {
     preferences = { ...preferences, ...next };
     writeGameplayPreferences(localStorage, preferences);
+  }
+
+  function sendChat() {
+    const body = chatDraft.trim();
+    if (!body) return;
+    if (!currentPlayer) {
+      error = 'Anonymous spectators can read chat but cannot send messages.';
+      return;
+    }
+    socket?.send({ type: 'sendChat', body });
+    chatDraft = '';
   }
 
   async function copyRoomLink() {
@@ -377,6 +415,33 @@
                   {/each}
                 </select>
               </label>
+              <section class="rounded-2xl border border-slate-700 bg-slate-950 p-4">
+                <span class="text-sm font-semibold text-slate-200">Card content</span>
+                <div class="mt-3 grid gap-2">
+                  <label class="flex items-center gap-3 text-sm text-slate-200">
+                    <input type="radio" name="card-mode" checked={cardMode === 'words'} onchange={() => setCardMode('words')} />
+                    Words only
+                  </label>
+                  <label class="flex items-center gap-3 text-sm text-slate-200">
+                    <input type="radio" name="card-mode" checked={cardMode === 'images'} disabled={!pictureCatalogAvailable} onchange={() => setCardMode('images')} />
+                    Images only {pictureCatalogAvailable ? `(${pictures.length} available)` : '(no local pictures)'}
+                  </label>
+                  <label class="flex items-center gap-3 text-sm text-slate-200">
+                    <input type="radio" name="card-mode" checked={cardMode === 'mixed'} disabled={!pictureCatalogAvailable} onchange={() => setCardMode('mixed')} />
+                    Mixed images and words
+                  </label>
+                </div>
+                {#if cardMode === 'mixed'}
+                  <label class="mt-3 block">
+                    <span class="text-xs font-semibold text-slate-400">Image cards: {settings.imageCardCount}</span>
+                    <input class="mt-2 w-full" type="range" min="1" max="24" value={settings.imageCardCount} oninput={(event) => setMixedImageCount(event.currentTarget.value)} />
+                  </label>
+                {/if}
+                {#if settings.imageCardCount > pictures.length}
+                  <p class="mt-3 text-xs text-amber-100">This server only has {pictures.length} local pictures. Add files to the configured pictures directory or choose fewer image cards.</p>
+                {/if}
+              </section>
+
               <label class="block">
                 <span class="text-sm font-semibold text-slate-200">Black cards</span>
                 <input class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" type="number" min="0" max="8" bind:value={settings.blackCards} onchange={saveSettings} />
@@ -391,6 +456,8 @@
               </label>
             </fieldset>
           </section>
+
+          {@render ChatPanel(chatMessages, chatDraft, currentPlayer, sendChat)}
 
           <section class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5">
             <h2 class="text-xl font-black tracking-tight">Start match</h2>
@@ -434,11 +501,15 @@
                   <button
                     class={['group min-h-28 rounded-[1.35rem] border p-3 text-left shadow-xl shadow-slate-950/25 transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', view.classes, !role.activeGuesser || card.revealed || phase !== 'active' ? 'disabled:opacity-80' : ''].join(' ')}
                     disabled={Boolean(guessDisabledReason(card))}
-                    title={guessDisabledReason(card) || `Reveal ${card.word ?? 'card'}`}
+                    title={guessDisabledReason(card) || `Reveal ${cardContentLabel(card)}`}
                     onclick={() => guessCard(index, card)}
                   >
                     <span class="block text-[0.65rem] font-black uppercase tracking-[0.18em] opacity-70">{view.label}</span>
-                    <span class="mt-4 block break-words text-xl font-black uppercase tracking-[0.04em] sm:text-2xl">{card.word ?? card.imageId ?? 'Card'}</span>
+                    {#if card.contentType === 'image'}
+                      <img class="mt-3 aspect-[2/3] w-full rounded-2xl object-cover" src={cardImageUrl(card)} alt="Card illustration" loading="lazy" />
+                    {:else}
+                      <span class="mt-4 block break-words text-xl font-black uppercase tracking-[0.04em] sm:text-2xl">{card.word ?? 'Card'}</span>
+                    {/if}
                     {#if view.isLastSelected}
                       <span class="mt-3 inline-flex rounded-full bg-emerald-200 px-2.5 py-1 text-xs font-black text-slate-950">Last pick</span>
                     {/if}
@@ -513,6 +584,8 @@
               </label>
             </section>
 
+            {@render ChatPanel(chatMessages, chatDraft, currentPlayer, sendChat)}
+
             <section class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5">
               <h2 class="text-xl font-black tracking-tight">Clue log</h2>
               <div class="mt-4 space-y-3">
@@ -570,6 +643,41 @@
       {/if}
     </div>
   </article>
+{/snippet}
+
+
+{#snippet ChatPanel(messages: ChatMessage[], draft: string, currentPlayer: LobbyPlayer | undefined, onsend: () => void)}
+  <section class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5">
+    <div class="flex items-center justify-between gap-3">
+      <h2 class="text-xl font-black tracking-tight">Chat</h2>
+      {#if !currentPlayer}
+        <span class="rounded-full border border-slate-600 px-2.5 py-1 text-xs font-bold text-slate-300">read-only spectator</span>
+      {/if}
+    </div>
+    <div class="mt-4 max-h-72 space-y-3 overflow-y-auto pr-1">
+      {#each messages as message (message.id)}
+        <article class="rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3">
+          <p class="text-xs font-black text-emerald-200">{message.displayName || 'Player'}</p>
+          <p class="mt-1 break-words text-sm leading-6 text-slate-100">{message.body}</p>
+        </article>
+      {:else}
+        <p class="text-sm text-slate-400">No chat messages yet.</p>
+      {/each}
+    </div>
+    <div class="mt-4 grid grid-cols-[1fr_auto] gap-2">
+      <input
+        class="rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50 outline-none ring-emerald-300 transition focus:ring-2 disabled:opacity-60"
+        bind:value={chatDraft}
+        maxlength="1000"
+        placeholder={currentPlayer ? 'Message the room' : 'Spectators are read-only'}
+        disabled={!currentPlayer}
+        onkeydown={(event) => {
+          if (event.key === 'Enter') onsend();
+        }}
+      />
+      <button class="rounded-2xl bg-emerald-300 px-4 py-3 font-black text-slate-950 transition hover:bg-emerald-200 disabled:opacity-50" disabled={!currentPlayer || !draft.trim()} onclick={onsend}>Send</button>
+    </div>
+  </section>
 {/snippet}
 
 {#snippet TeamColumn(title: string, tone: 'blue' | 'red', players: LobbyPlayer[], viewer: Viewer | null, hostControls: boolean, onassign: (id: string, team: 'blue' | 'red') => void, ontoggleSpy: (id: string) => void, ontoggleRep: (id: string) => void)}

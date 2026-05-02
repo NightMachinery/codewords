@@ -23,6 +23,7 @@ type Options struct {
 	Store        *storage.DB
 	Identity     *identity.Service
 	WordpacksDir string
+	PicturesDir  string
 	BaseURL      string
 }
 
@@ -31,6 +32,7 @@ type app struct {
 	identity *identity.Service
 	packs    map[string]game.Wordpack
 	baseURL  string
+	pictures *pictureCatalog
 	rooms    map[string]*roomRuntime
 	mu       sync.Mutex
 }
@@ -55,7 +57,11 @@ func NewHandler(options ...Options) (http.Handler, error) {
 		}
 		packs = loaded
 	}
-	a := &app{store: opts.Store, identity: opts.Identity, packs: packs, baseURL: strings.TrimRight(opts.BaseURL, "/"), rooms: map[string]*roomRuntime{}}
+	pictures, err := loadPictureCatalog(opts.PicturesDir)
+	if err != nil {
+		return nil, err
+	}
+	a := &app{store: opts.Store, identity: opts.Identity, packs: packs, baseURL: strings.TrimRight(opts.BaseURL, "/"), pictures: pictures, rooms: map[string]*roomRuntime{}}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", healthz)
 	mux.HandleFunc("POST /api/identity/bootstrap", a.handleBootstrap)
@@ -187,7 +193,8 @@ func (a *app) handleGetRoom(w http.ResponseWriter, r *http.Request) {
 			viewerID = user.ID
 		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"room": roomDTO(room), "players": playerDTOs(players), "settings": mustSettings(room.SettingsJSON), "viewer": viewerDTO(viewerID, viewerID == room.HostUserID)})
+	chats, _ := a.store.ChatMessages(r.Context(), roomID, 50)
+	writeJSON(w, http.StatusOK, map[string]any{"room": roomDTO(room), "players": playerDTOs(players), "settings": mustSettings(room.SettingsJSON), "viewer": viewerDTO(viewerID, viewerID == room.HostUserID), "chatMessages": chatDTOs(chats)})
 }
 
 func (a *app) handleJoinRoom(w http.ResponseWriter, r *http.Request) {
@@ -331,15 +338,35 @@ func (a *app) handleWordpacks(w http.ResponseWriter, r *http.Request) {
 	for _, p := range a.packs {
 		packs = append(packs, map[string]any{"id": p.ID, "label": p.Label, "wordCount": len(p.Words)})
 	}
-	sort.Slice(packs, func(i, j int) bool { return packs[i]["id"].(string) < packs[j]["id"].(string) })
+	sort.Slice(packs, func(i, j int) bool {
+		return wordpackSortKey(packs[i]["id"].(string)) < wordpackSortKey(packs[j]["id"].(string))
+	})
 	writeJSON(w, http.StatusOK, map[string]any{"wordpacks": packs})
 }
 
+func wordpackSortKey(id string) string {
+	preferred := []string{"english", "english-alternative", "dutch", "czech", "german", "persian-1", "harry-potter-1", "harry-potter-1-fa"}
+	for i, candidate := range preferred {
+		if id == candidate {
+			return fmt.Sprintf("%02d", i)
+		}
+	}
+	return "99-" + strings.ToLower(id)
+}
+
 func (a *app) handlePictureCatalog(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"available": false, "images": []any{}})
+	images := a.pictures.listDTO(r)
+	writeJSON(w, http.StatusOK, map[string]any{"available": len(images) > 0, "images": images})
 }
 func (a *app) handlePicture(w http.ResponseWriter, r *http.Request) {
-	writeError(w, http.StatusNotFound, "picture_not_found", "local picture catalog is not available")
+	asset, ok := a.pictures.images[r.PathValue("imageId")]
+	if !ok {
+		writeError(w, http.StatusNotFound, "picture_not_found", "local picture not found")
+		return
+	}
+	w.Header().Set("Content-Type", asset.ContentType)
+	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	http.ServeFile(w, r, asset.Path)
 }
 
 func (a *app) handleWS(w http.ResponseWriter, r *http.Request) {
@@ -437,7 +464,7 @@ func (a *app) startMatchLocked(ctx context.Context, room storage.Room, rt *roomR
 	}
 	a.ensureMinimalRoles(&rt.state, room.HostUserID)
 	pack := a.packs[rt.state.Settings.WordpackID]
-	event, err := game.Apply(&rt.state, game.StartCommand{Words: pack.Words}, actorID)
+	event, err := game.Apply(&rt.state, game.StartCommand{Words: pack.Words, ImageIDs: a.pictureIDs()}, actorID)
 	if err != nil {
 		return storage.Match{}, err
 	}
@@ -465,6 +492,20 @@ func (a *app) addChatMessage(ctx context.Context, roomID, viewerID, body string)
 	user, err := a.store.UserByID(ctx, viewerID)
 	if err != nil {
 		return storage.ChatMessage{}, err
+	}
+	members, err := a.store.RoomPlayers(ctx, roomID)
+	if err != nil {
+		return storage.ChatMessage{}, err
+	}
+	isMember := false
+	for _, member := range members {
+		if member.UserID == viewerID {
+			isMember = true
+			break
+		}
+	}
+	if !isMember {
+		return storage.ChatMessage{}, fmt.Errorf("chat requires room membership")
 	}
 	room, err := a.store.RoomByID(ctx, roomID)
 	if err != nil {
@@ -618,6 +659,9 @@ func (a *app) requireMember(w http.ResponseWriter, ctx context.Context, roomID, 
 	return room, user, true
 }
 func (a *app) viewerID(ctx context.Context, roomID string, r *http.Request) (string, error) {
+	if r.URL.Query().Get("spectator") == "1" {
+		return "", nil
+	}
 	if m := r.URL.Query().Get("migrateId"); m != "" {
 		link, err := a.identity.ResolveMigrate(ctx, roomID, m)
 		if err != nil {
@@ -686,6 +730,21 @@ func playerDTOs(players []storage.RoomPlayer) []map[string]any {
 }
 func chatDTO(m storage.ChatMessage) map[string]any {
 	return map[string]any{"id": m.ID, "roomId": m.RoomID, "matchId": m.MatchID, "senderUserId": m.SenderUserID, "displayName": m.DisplayName, "body": m.Body, "createdAt": m.CreatedAt}
+}
+func chatDTOs(messages []storage.ChatMessage) []map[string]any {
+	out := make([]map[string]any, len(messages))
+	for i, message := range messages {
+		out[i] = chatDTO(message)
+	}
+	return out
+}
+func (a *app) pictureIDs() []string {
+	if a.pictures == nil {
+		return nil
+	}
+	ids := make([]string, len(a.pictures.ids))
+	copy(ids, a.pictures.ids)
+	return ids
 }
 func snapshotMessage(state game.State, viewerID string) map[string]any {
 	return map[string]any{"type": "snapshot", "snapshot": snapshotDTO(state, viewerID)}

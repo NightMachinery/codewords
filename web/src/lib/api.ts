@@ -11,6 +11,7 @@ export interface Settings {
   wordpackId: string;
   enforceClueGuessLimit: boolean;
   allowInfinityClue: boolean;
+  imageCardCount: number;
 }
 
 export interface Viewer {
@@ -46,6 +47,21 @@ export interface Wordpack {
   wordCount: number;
 }
 
+export interface PictureAsset {
+  id: string;
+  url: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  roomId: string;
+  matchId: string;
+  senderUserId: string;
+  displayName: string;
+  body: string;
+  createdAt: string;
+}
+
 export interface Credential {
   authToken?: string;
   migrateId?: string;
@@ -67,7 +83,7 @@ export class ApiClient {
   async getRoom(
     roomId: string,
     credential: Credential,
-  ): Promise<{ room: RoomSummary; players: LobbyPlayer[]; settings: Settings; viewer: Viewer }> {
+  ): Promise<{ room: RoomSummary; players: LobbyPlayer[]; settings: Settings; viewer: Viewer; chatMessages?: ChatMessage[] }> {
     const params = credential.migrateId ? `migrateId=${encodeURIComponent(credential.migrateId)}` : `authToken=${encodeURIComponent(credential.authToken ?? '')}`;
     return this.get(`/api/rooms/${encodeURIComponent(roomId)}?${params}`);
   }
@@ -94,6 +110,10 @@ export class ApiClient {
 
   async wordpacks(): Promise<{ wordpacks: Wordpack[] }> {
     return this.get('/api/wordpacks');
+  }
+
+  async pictureCatalog(): Promise<{ available: boolean; images: PictureAsset[] }> {
+    return this.get('/api/pictures/catalog');
   }
 
   private async get<T>(path: string): Promise<T> {
@@ -124,6 +144,7 @@ export const defaultSettings: Settings = {
   wordpackId: 'english',
   enforceClueGuessLimit: false,
   allowInfinityClue: false,
+  imageCardCount: 0,
 };
 
 export const api = new ApiClient();

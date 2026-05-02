@@ -19,7 +19,7 @@ Room migrate links call `/api/rooms/{roomId}/migrate-bootstrap` and connect with
 
 ## Lobby
 
-The lobby opens a room WebSocket after the viewer has an identity. Snapshots drive team columns, role badges, settings, host permissions, and start readiness. Hosts can update wordpack, black-card count, enforced clue mode, infinity clues, roles, and team assignments. Non-host players can assign their own team.
+The lobby opens a room WebSocket after the viewer has an identity. Snapshots drive team columns, role badges, settings, host permissions, and start readiness. Hosts can update wordpack, card content mode (words only, images only, or mixed image count), black-card count, enforced clue mode, infinity clues, roles, and team assignments. Non-host players can assign their own team.
 
 Clipboard actions first use `navigator.clipboard`, then fall back to a temporary textarea plus `document.execCommand('copy')`, and finally show the raw link for manual copy.
 
@@ -29,7 +29,7 @@ Named browser identities auto-join only while a room is still in `lobby` status.
 
 When a room snapshot is `active` or `game_over`, the room route switches from lobby controls to gameplay:
 
-- responsive 5x5 board with word cards;
+- responsive 5x5 board with word cards, image cards, or a mixed board;
 - revealed card colors for all viewers, hidden-color tinting for spymasters, and all colors revealed after game over;
 - last-selected card highlighting;
 - current-team banner and remaining blue/red counts;
@@ -38,7 +38,7 @@ When a room snapshot is `active` or `game_over`, the room route switches from lo
 - guess-by-card-click and pass controls for the active guesser;
 - game-over winner summary.
 
-Spectators are authenticated browser identities that are not seated in the match. They receive the same safe snapshots as non-spymaster players and cannot submit clues, reveal cards, or pass.
+Spectators are authenticated browser identities that are not seated in the match, or anonymous `spectator=1` socket viewers. They receive the same safe snapshots as non-spymaster players and cannot submit clues, reveal cards, pass, or write chat.
 
 ## Gameplay permissions and local preferences
 
@@ -56,4 +56,8 @@ Local-only confirmation preferences are stored in LocalStorage under `codewords.
 - `confirmGuesses` defaults to `true`;
 - `confirmPasses` defaults to `false`.
 
-Chat remains deferred to Milestone 7.
+## Chat and picture cards
+
+Milestone 7 adds room chat to the lobby and gameplay sidebars. Seated players can send messages; spectators can read the log but see the composer disabled. The room load response includes recent chat history, and live WebSocket `chatMessage` events append new messages.
+
+Picture mode uses the local server catalog only. Hosts can choose words-only (`imageCardCount=0`), images-only (`imageCardCount=25`), or mixed boards (`1..24` image cards). Image cards render with `/api/pictures/{imageId}` URLs; clients never receive local filesystem paths.
