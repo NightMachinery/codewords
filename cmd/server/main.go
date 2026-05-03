@@ -30,9 +30,12 @@ func runServer() {
 	defer db.Close()
 
 	identityService := identity.NewService(db, identity.Options{})
-	handler, err := server.NewHandler(server.Options{Store: db, Identity: identityService, WordpacksDir: "assets/wordpacks", ImageDir: cfg.ImageDir, ImageCacheDir: cfg.ImageCacheDir, AVIFProcess: cfg.AVIFProcess})
+	handler, err := server.NewHandler(server.Options{Store: db, Identity: identityService, WordpacksDir: "assets/wordpacks", ImageDir: cfg.ImageDir, ImageCacheDir: cfg.ImageCacheDir, AVIFProcess: cfg.AVIFProcess, LogPictures: true})
 	if err != nil {
 		log.Fatalf("configure server: %v", err)
+	}
+	if line, ok := server.PictureDiagnostics(handler); ok {
+		log.Print(line)
 	}
 
 	log.Printf("codewords server listening on %s", cfg.Addr)

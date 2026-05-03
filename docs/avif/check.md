@@ -1,0 +1,131 @@
+# AVIF Cache Checking
+
+Codewords serves local picture cards only from cached AVIF files. The cache check happens while building the in-memory picture catalog, either on server startup or when running the manual cache command.
+
+## When checks run
+
+- `CODEWORDS_AVIF_PROCESS_P=y` on server startup: discover source images, verify each matching AVIF cache file, and rebuild missing or invalid cache files.
+- `bin/codewords avif-cache gen`: same checking and rebuilding path as startup with processing enabled.
+- `CODEWORDS_AVIF_PROCESS_P` unset/false on server startup: discover source images and require a matching cache file to already exist, but do not validate dimensions or rebuild files.
+
+### What Happens if I Set `Export CODEWORDS_AVIF_PROCESS_P=n`? Are Already Cached  Images Still Loaded, Just Without Validation?
+  Yes — with export CODEWORDS_AVIF_PROCESS_P=n, already cached images are still
+  loaded, but only if their matching source image is discoverable.
+
+  Behavior with n:
+
+  - The backend still scans CODEWORDS_IMAGE_DIR recursively and follows symlinked
+    directories.
+  - For each source image, it computes the legacy imageId from the source bytes.
+  - It checks whether this file exists:
+
+  <CODEWORDS_IMAGE_CACHE_DIR>/<imageId>.avif
+
+  - If that AVIF exists, the image is exposed in the catalog.
+  - If it is missing, that source image is skipped.
+  - It does not run identify.
+  - It does not validate dimensions.
+  - It does not run convert.
+  - It does not run avifenc.
+  - It does not rebuild missing/corrupt/wrong-size cache files.
+
+  So CODEWORDS_AVIF_PROCESS_P=n is the fast normal startup mode after your cache has
+  already been generated.
+
+  One important caveat: orphan AVIFs in the cache dir are not loaded by themselves.
+  The original source images must still be reachable from CODEWORDS_IMAGE_DIR,
+  because the cache filename is derived from source bytes.
+
+## Discovery step
+
+The backend scans `CODEWORDS_IMAGE_DIR` recursively and follows symlinked directories. It accepts:
+
+- `.jpg`
+- `.jpeg`
+- `.png`
+- `.webp`
+- other file extensions whose MIME type is `image/*`, except `.avif`
+- extensionless files that sniff as JPEG, PNG, or WebP
+
+Every source image is read so the backend can compute the legacy-compatible image id. The cache path is then:
+
+```text
+<CODEWORDS_IMAGE_CACHE_DIR>/<imageId>.avif
+```
+
+The id is based on the source bytes plus the fixed transform descriptor, so an AVIF file in the cache directory cannot be matched unless the original source image is discoverable.
+
+## Fast path when processing is off
+
+When `CODEWORDS_AVIF_PROCESS_P` is false, the server only calls `os.Stat` for each expected cache path.
+
+- Existing `<imageId>.avif`: exposed in the picture catalog.
+- Missing `<imageId>.avif`: skipped.
+- No ImageMagick or `avifenc` commands are run.
+- Existing cache bytes are trusted; dimensions are not checked.
+
+This is the intended normal startup mode after a cache has already been generated.
+
+## Full check when processing is on
+
+When `CODEWORDS_AVIF_PROCESS_P` is true, expected cache files are pre-statted first. Missing files are marked for rebuild. Existing files are validated in batches with ImageMagick `identify` from the cache directory, passing only generated cache basenames.
+
+The batch command emits filename-tagged width and height records:
+
+```sh
+identify -format '%f|||CODEWORDS_AVIF_DIM|||%w|||CODEWORDS_AVIF_DIM|||%h\n' -- \
+  00187a4b0245f9af4bbad7db487cd19a3531539b0623ca39a47f10617f978604.avif \
+  8b9f0e33a6d2e0dcb0b90e06dd5f53e0e0623cbd42fa4608e0ff96bb9c836b5e.avif
+```
+
+The parser keys results by filename, not row position. This matters because `identify` can return a non-zero exit and still print valid rows for other inputs, or omit rows for corrupt/unreadable inputs.
+
+Validation rules:
+
+- Missing cache file after `os.Stat`: rebuild.
+- Existing cache file with basename outside `^[0-9a-f]{64}\.avif$`: rebuild.
+- Filename-tagged row with `1024x1536`: keep.
+- Filename-tagged row with any other dimensions: rebuild.
+- Requested basename missing from stdout: rebuild.
+- Malformed, duplicate, or unexpected output rows: fail closed for the whole chunk.
+
+Files are checked in chunks of 128 basenames. After rebuilding a missing or invalid file, Codewords still performs a single-file dimension check for that rebuilt file.
+
+## Rebuild path
+
+A rebuild uses ImageMagick `convert` and `avifenc`:
+
+```sh
+convert <sourcePath> -auto-orient -resize '1024x1536^' -gravity center -extent 1024x1536 <tmp.png>
+avifenc -q 80 --speed 6 <tmp.png> <tmp.avif>
+```
+
+The temporary AVIF is then renamed into the final cache path.
+
+The normalized output contract is:
+
+- aspect ratio: 2:3
+- output size: `1024x1536`
+- format: AVIF
+- quality: `80`
+- speed: `6`
+
+## Why it can be slow
+
+The expensive parts are:
+
+- reading every source image to compute its legacy image id
+- reading/parsing every existing AVIF cache file when processing is enabled
+- invoking external `identify` processes for batches of cache files, rather than one process per file
+- rebuilding missing or invalid files with `convert` and `avifenc`
+
+For a large catalog, prefer this workflow:
+
+1. Run `bin/codewords avif-cache gen` during maintenance.
+2. Start/redeploy the server with `CODEWORDS_AVIF_PROCESS_P` false so startup only checks for matching cache file existence.
+
+## Relevant code
+
+- `internal/server/pictures.go`: catalog loading, source discovery, cache validation, and rebuild logic.
+- `cmd/server/main.go`: server startup and manual `avif-cache gen` command.
+- `internal/config/config.go`: `CODEWORDS_AVIF_PROCESS_P` parsing.

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"sort"
 	"strconv"
@@ -27,6 +28,7 @@ type Options struct {
 	ImageCacheDir string
 	AVIFProcess   bool
 	BaseURL       string
+	LogPictures   bool
 }
 
 type app struct {
@@ -37,6 +39,11 @@ type app struct {
 	pictures *pictureCatalog
 	rooms    map[string]*roomRuntime
 	mu       sync.Mutex
+}
+
+type Handler struct {
+	mux *http.ServeMux
+	app *app
 }
 
 type roomRuntime struct {
@@ -59,7 +66,11 @@ func NewHandler(options ...Options) (http.Handler, error) {
 		}
 		packs = loaded
 	}
-	pictures, err := loadPictureCatalog(pictureCatalogOptions{ImageDir: opts.ImageDir, ImageCacheDir: opts.ImageCacheDir, ProcessAVIF: opts.AVIFProcess})
+	pictureOptions := pictureCatalogOptions{ImageDir: opts.ImageDir, ImageCacheDir: opts.ImageCacheDir, ProcessAVIF: opts.AVIFProcess}
+	if opts.LogPictures {
+		pictureOptions.Logf = log.Printf
+	}
+	pictures, err := loadPictureCatalog(pictureOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +90,7 @@ func NewHandler(options ...Options) (http.Handler, error) {
 	mux.HandleFunc("GET /api/pictures/catalog", a.handlePictureCatalog)
 	mux.HandleFunc("GET /api/pictures/{imageId}", a.handlePicture)
 	mux.HandleFunc("GET /ws/rooms/{roomId}", a.handleWS)
-	return mux, nil
+	return &Handler{mux: mux, app: a}, nil
 }
 
 // MustNewHandler is a convenience for tests or tools that only need health routes.
@@ -89,6 +100,23 @@ func MustNewHandler(options ...Options) http.Handler {
 		panic(err)
 	}
 	return h
+}
+
+func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.mux.ServeHTTP(w, r)
+}
+
+func (h *Handler) PictureDiagnostics() string {
+	return h.app.pictures.Diagnostics().StartupLogLine()
+}
+
+// PictureDiagnostics returns startup diagnostics for local image mode.
+func PictureDiagnostics(handler http.Handler) (string, bool) {
+	appHandler, ok := handler.(interface{ PictureDiagnostics() string })
+	if !ok {
+		return "", false
+	}
+	return appHandler.PictureDiagnostics(), true
 }
 
 func healthz(w http.ResponseWriter, r *http.Request) {

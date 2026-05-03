@@ -18,6 +18,8 @@ IMAGE_DIR="${CODEWORDS_IMAGE_DIR:-$HOME/Pictures/SurrealPictures/chosen_2}"
 IMAGE_CACHE_DIR="${CODEWORDS_IMAGE_CACHE_DIR:-$HOME/.cache/talespin/cards}"
 CADDYFILE="${CODEWORDS_CADDYFILE:-$HOME/Caddyfile}"
 
+export CODEWORDS_AVIF_PROCESS_P=n
+
 usage() {
   cat <<USAGE
 Usage: ./self_host.zsh <command> [url]
@@ -41,7 +43,7 @@ tmuxnew () {
 load_node() {
   if command -v nvm-load >/dev/null 2>&1; then
     nvm-load
-    nvm use "${CODEWORDS_NODE_VERSION:-24.14.1}"
+    nvm use "${CODEWORDS_NODE_VERSION:-24}"
   fi
 }
 

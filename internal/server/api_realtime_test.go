@@ -318,6 +318,97 @@ func TestPictureCatalogDisabledWithoutCacheWhenProcessingOff(t *testing.T) {
 	}
 }
 
+func TestPictureCatalogDiscoversImagesThroughSymlinkedDirectories(t *testing.T) {
+	imageDir := t.TempDir()
+	targetDir := t.TempDir()
+	cacheDir := t.TempDir()
+	nestedDir := filepath.Join(targetDir, "nested")
+	if err := os.MkdirAll(nestedDir, 0o755); err != nil {
+		t.Fatalf("create nested dir: %v", err)
+	}
+	sourceBytes := []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n', 0, 0, 0, 0}
+	if err := os.WriteFile(filepath.Join(nestedDir, "linked.png"), sourceBytes, 0o644); err != nil {
+		t.Fatalf("write linked image fixture: %v", err)
+	}
+	if err := os.Symlink(targetDir, filepath.Join(imageDir, "linked-pictures")); err != nil {
+		t.Fatalf("create symlinked image dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(cacheDir, legacyImageID(sourceBytes)+".avif"), []byte("cached avif"), 0o644); err != nil {
+		t.Fatalf("write cache fixture: %v", err)
+	}
+
+	catalog, err := loadPictureCatalog(pictureCatalogOptions{ImageDir: imageDir, ImageCacheDir: cacheDir})
+	if err != nil {
+		t.Fatalf("load picture catalog: %v", err)
+	}
+
+	if len(catalog.ids) != 1 {
+		t.Fatalf("expected symlinked nested image to be discovered, got ids=%#v diagnostics=%q", catalog.ids, catalog.Diagnostics().StartupLogLine())
+	}
+	if catalog.Diagnostics().SourceCount != 1 {
+		t.Fatalf("expected diagnostics to count symlinked source image, got %#v", catalog.Diagnostics())
+	}
+}
+
+func TestPictureCatalogDiagnosticsExplainDisabledCacheOnlyState(t *testing.T) {
+	imageDir := t.TempDir()
+	cacheDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(cacheDir, "orphan.avif"), []byte("cached avif"), 0o644); err != nil {
+		t.Fatalf("write cache fixture: %v", err)
+	}
+
+	catalog, err := loadPictureCatalog(pictureCatalogOptions{ImageDir: imageDir, ImageCacheDir: cacheDir, ProcessAVIF: true})
+	if err != nil {
+		t.Fatalf("load picture catalog: %v", err)
+	}
+	line := catalog.Diagnostics().StartupLogLine()
+
+	for _, want := range []string{
+		"image mode disabled",
+		"no supported source images found",
+		"cached AVIF files alone cannot be matched without source images",
+		"source_images=0",
+		"enabled_images=0",
+		"cached_avif_images=1",
+		"avif_processing=true",
+	} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("expected diagnostics to contain %q, got %q", want, line)
+		}
+	}
+}
+
+func TestPictureCatalogDiagnosticsReportEnabledCachedImages(t *testing.T) {
+	imageDir := t.TempDir()
+	cacheDir := t.TempDir()
+	sourceBytes := []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n', 0, 0, 0, 0}
+	if err := os.WriteFile(filepath.Join(imageDir, "card.png"), sourceBytes, 0o644); err != nil {
+		t.Fatalf("write image fixture: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(cacheDir, legacyImageID(sourceBytes)+".avif"), []byte("cached avif"), 0o644); err != nil {
+		t.Fatalf("write cache fixture: %v", err)
+	}
+
+	catalog, err := loadPictureCatalog(pictureCatalogOptions{ImageDir: imageDir, ImageCacheDir: cacheDir})
+	if err != nil {
+		t.Fatalf("load picture catalog: %v", err)
+	}
+	line := catalog.Diagnostics().StartupLogLine()
+
+	for _, want := range []string{
+		"image mode enabled",
+		"available",
+		"source_images=1",
+		"enabled_images=1",
+		"cached_avif_images=1",
+		"avif_processing=false",
+	} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("expected diagnostics to contain %q, got %q", want, line)
+		}
+	}
+}
+
 func TestLegacyImageIDVector(t *testing.T) {
 	got := legacyImageID([]byte("legacy-cache-test"))
 	const want = "93670c3199ed9a9f911da869573fe47af8ec93bfe02516f1cc9ad67ed5a284fe"

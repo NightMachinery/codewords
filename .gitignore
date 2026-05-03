@@ -1,3 +1,6 @@
+.data
+data
+
 # Go build outputs
 /server
 /bin/
