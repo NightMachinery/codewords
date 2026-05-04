@@ -96,7 +96,7 @@ describe('local gameplay preferences', () => {
     const storage = new MemoryStorage();
     expect(readGameplayPreferences(storage)).toEqual(defaultGameplayPreferences);
 
-    const saved: GameplayPreferences = { confirmGuesses: false, confirmPasses: true, cardsPerRow: 4, chatSound: false, chatVisualCue: false, cardChoiceSound: false, cardChoiceVisualCue: true, clueSound: true, clueVisualCue: false };
+    const saved: GameplayPreferences = { confirmGuesses: false, confirmPasses: true, cardsPerRow: 4, chatSound: false, chatVisualCue: false, cardChoiceSound: false, cardChoiceVisualCue: true, clueSound: true, clueVisualCue: false, spymasterRevealedStyle: 'greyed' };
     writeGameplayPreferences(storage, saved);
     expect(readGameplayPreferences(storage)).toEqual(saved);
 

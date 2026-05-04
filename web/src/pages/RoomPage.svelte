@@ -68,6 +68,7 @@
   let sawSnapshot = false;
   let lastActionId = 0;
   let lastClueSignature = '';
+  let spymasterViewActive = $state(true);
 
   let buckets = $derived(playerBuckets(players));
   let startState = $derived(startReadiness(players));
@@ -550,7 +551,14 @@
               <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p class="text-xs font-black uppercase tracking-[0.22em] text-slate-400">Board</p>
-                  <h2 class="text-2xl font-black tracking-tight">5 × 5 code grid</h2>
+                  <div class="flex items-center gap-3">
+                    <h2 class="text-2xl font-black tracking-tight">5 × 5 code grid</h2>
+                    {#if role.kind === 'spymaster'}
+                      <button class="rounded-full border border-slate-600 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-300 transition hover:bg-slate-800" onclick={() => (spymasterViewActive = !spymasterViewActive)}>
+                        Toggle View: {spymasterViewActive ? 'Spymaster' : 'Normal'}
+                      </button>
+                    {/if}
+                  </div>
                 </div>
                 <div class="flex flex-wrap gap-2 text-sm font-black">
                   <span class="rounded-full border border-blue-300/40 bg-blue-400/15 px-3 py-1.5 text-blue-100">Blue left {remainingCounts.blue}</span>
@@ -560,7 +568,9 @@
 
               <div class="grid gap-2 md:gap-3" style={`grid-template-columns: repeat(${preferences.cardsPerRow}, minmax(0, 1fr));`}>
                 {#each cards as card, index (`${card.word ?? card.imageId ?? 'card'}-${index}`)}
-                  {@const view = cardViewState(card, index, role.canSeeHiddenColors, lastSelected)}
+                  {@const showHiddenColor = role.canSeeHiddenColors && (role.kind !== 'spymaster' || spymasterViewActive)}
+                  {@const revealedStyle = (role.kind === 'spymaster' && spymasterViewActive) ? preferences.spymasterRevealedStyle : 'normal'}
+                  {@const view = cardViewState(card, index, showHiddenColor, lastSelected, revealedStyle)}
                   <button
                     class={['group rounded-[1.35rem] border p-3 text-left shadow-xl shadow-slate-950/25 transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', card.contentType === 'image' ? 'aspect-[2/3]' : 'min-h-28', view.classes, !role.activeGuesser || card.revealed || phase !== 'active' ? 'disabled:opacity-80' : ''].join(' ')}
                     disabled={Boolean(guessDisabledReason(card))}
@@ -648,6 +658,14 @@
               <label class="mt-3 block rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
                 <span class="text-sm text-slate-200">Cards per row: {preferences.cardsPerRow}</span>
                 <input class="mt-2 w-full" type="range" min="2" max="7" value={preferences.cardsPerRow} oninput={(event) => updatePreferences({ cardsPerRow: Number.parseInt(event.currentTarget.value, 10) })} />
+              </label>
+              <label class="mt-3 block rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
+                <span class="text-sm text-slate-200">Spymaster revealed cards style</span>
+                <select class="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" bind:value={preferences.spymasterRevealedStyle} onchange={(event) => updatePreferences({ spymasterRevealedStyle: event.currentTarget.value as any })}>
+                  <option value="greyed">Greyed</option>
+                  <option value="invisible">Invisible</option>
+                  <option value="omitted">Omitted</option>
+                </select>
               </label>
               <div class="mt-3 grid gap-2 text-sm text-slate-200">
                 <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">

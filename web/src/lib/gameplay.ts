@@ -49,6 +49,7 @@ export interface GameplayPreferences {
   cardChoiceVisualCue: boolean;
   clueSound: boolean;
   clueVisualCue: boolean;
+  spymasterRevealedStyle: 'greyed' | 'invisible' | 'omitted';
 }
 
 export const gameplayPreferencesStorageKey = 'codewords.gameplayPreferences';
@@ -62,6 +63,7 @@ export const defaultGameplayPreferences: GameplayPreferences = {
   cardChoiceVisualCue: true,
   clueSound: true,
   clueVisualCue: true,
+  spymasterRevealedStyle: 'greyed',
 };
 
 export function viewerId(viewer: Viewer | null | undefined): string {
@@ -161,6 +163,7 @@ export function readGameplayPreferences(storage: Pick<Storage, 'getItem'>): Game
   if (!raw) return { ...defaultGameplayPreferences };
   try {
     const parsed = JSON.parse(raw) as Partial<GameplayPreferences>;
+    const spymasterRevealedStyle = ['greyed', 'invisible', 'omitted'].includes(parsed.spymasterRevealedStyle as string) ? parsed.spymasterRevealedStyle as 'greyed' | 'invisible' | 'omitted' : defaultGameplayPreferences.spymasterRevealedStyle;
     return {
       confirmGuesses: typeof parsed.confirmGuesses === 'boolean' ? parsed.confirmGuesses : defaultGameplayPreferences.confirmGuesses,
       confirmPasses: typeof parsed.confirmPasses === 'boolean' ? parsed.confirmPasses : defaultGameplayPreferences.confirmPasses,
@@ -171,6 +174,7 @@ export function readGameplayPreferences(storage: Pick<Storage, 'getItem'>): Game
       cardChoiceVisualCue: typeof parsed.cardChoiceVisualCue === 'boolean' ? parsed.cardChoiceVisualCue : defaultGameplayPreferences.cardChoiceVisualCue,
       clueSound: typeof parsed.clueSound === 'boolean' ? parsed.clueSound : defaultGameplayPreferences.clueSound,
       clueVisualCue: typeof parsed.clueVisualCue === 'boolean' ? parsed.clueVisualCue : defaultGameplayPreferences.clueVisualCue,
+      spymasterRevealedStyle,
     };
   } catch {
     return { ...defaultGameplayPreferences };
@@ -218,7 +222,13 @@ export function imageCountForMode(mode: 'words' | 'images' | 'mixed', currentMix
   return Math.min(24, Math.max(1, currentMixedCount || 8));
 }
 
-export function cardViewState(card: GameplayCard, index: number, showHiddenColor: boolean, lastSelected: LastSelected | null | undefined): {
+export function cardViewState(
+  card: GameplayCard,
+  index: number,
+  showHiddenColor: boolean,
+  lastSelected: LastSelected | null | undefined,
+  revealedStyle: 'normal' | 'greyed' | 'invisible' | 'omitted' = 'normal'
+): {
   visibleColor: VisibleCardColor;
   label: string;
   isLastSelected: boolean;
@@ -233,10 +243,19 @@ export function cardViewState(card: GameplayCard, index: number, showHiddenColor
     black: 'border-zinc-300/60 bg-zinc-950 text-zinc-50',
     civilian: 'border-amber-100/60 bg-amber-100/20 text-amber-50',
   }[visibleColor];
+
+  let styleClasses = '';
+  if (card.revealed) {
+    if (revealedStyle === 'normal') styleClasses = 'opacity-95';
+    else if (revealedStyle === 'greyed') styleClasses = 'opacity-40 saturate-50';
+    else if (revealedStyle === 'invisible') styleClasses = 'invisible';
+    else if (revealedStyle === 'omitted') styleClasses = 'hidden';
+  }
+
   return {
     visibleColor,
     label: visibleColor === 'hidden' ? 'Unrevealed' : visibleColor[0].toUpperCase() + visibleColor.slice(1),
     isLastSelected,
-    classes: [colorClass, card.revealed ? 'opacity-95' : '', showHiddenColor && !card.revealed ? 'shadow-inner shadow-white/10' : '', isLastSelected ? 'ring-4 ring-emerald-200' : ''].filter(Boolean).join(' '),
+    classes: [colorClass, styleClasses, showHiddenColor && !card.revealed ? 'shadow-inner shadow-white/10' : '', isLastSelected ? 'ring-4 ring-emerald-200' : ''].filter(Boolean).join(' '),
   };
 }
