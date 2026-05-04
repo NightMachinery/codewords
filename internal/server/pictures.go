@@ -15,6 +15,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"syscall"
 )
 
@@ -61,7 +63,7 @@ type pictureCatalogDiagnostics struct {
 }
 
 type avifDimensionBatchChecker interface {
-	CheckBatch(ctx context.Context, cacheDir string, basenames []string) map[string]dimensionResult
+	CheckBatch(ctx context.Context, cacheDir string, basenames []string, opts pictureCatalogOptions) map[string]dimensionResult
 }
 
 type identifyDimensionChecker struct {
@@ -112,38 +114,97 @@ func loadPictureCatalog(opts pictureCatalogOptions) (*pictureCatalog, error) {
 	catalog := &pictureCatalog{images: map[string]pictureAsset{}, diag: diag}
 	expectedCaches := make([]expectedPictureCache, 0, len(entries))
 	sourceByCachePath := make(map[string]string, len(entries))
-	for index, path := range entries {
-		if shouldLogPictureProgress(index, len(entries)) {
-			logPictureCatalog(opts, "image catalog: checking source image %d/%d", index+1, len(entries))
-		}
-		bytes, err := os.ReadFile(path)
-		if err != nil {
-			return nil, fmt.Errorf("read picture %s: %w", path, err)
-		}
-		id := legacyImageID(bytes)
-		cachePath := filepath.Join(opts.ImageCacheDir, id+".avif")
-		if opts.ProcessAVIF {
-			expectedCaches = append(expectedCaches, expectedPictureCache{SourcePath: path, CachePath: cachePath})
-			sourceByCachePath[cachePath] = path
-			continue
-		} else if _, err := os.Stat(cachePath); err != nil {
-			if os.IsNotExist(err) {
-				catalog.diag.CacheMissCount++
-				continue
+
+	var mu sync.Mutex
+	var firstErr error
+	var wg sync.WaitGroup
+	var progress atomic.Uint32
+
+	sem := make(chan struct{}, 8) // Limit concurrency
+
+	for _, path := range entries {
+		wg.Add(1)
+		go func(p string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			mu.Lock()
+			errVal := firstErr
+			mu.Unlock()
+			if errVal != nil {
+				return
 			}
-			return nil, fmt.Errorf("stat cached picture %s: %w", cachePath, err)
-		} else {
-			catalog.diag.CacheHitCount++
-		}
-		if _, exists := catalog.images[id]; exists {
-			catalog.diag.DuplicateCount++
-			continue
-		}
-		catalog.images[id] = pictureAsset{ID: id, SourcePath: path, CachePath: cachePath, ContentType: "image/avif"}
-		catalog.ids = append(catalog.ids, id)
+
+			idx := progress.Add(1) - 1
+			if shouldLogPictureProgress(int(idx), len(entries)) {
+				logPictureCatalog(opts, "image catalog: checking source image %d/%d", idx+1, len(entries))
+			}
+
+			bytes, err := os.ReadFile(p)
+			if err != nil {
+				mu.Lock()
+				if firstErr == nil {
+					firstErr = fmt.Errorf("read picture %s: %w", p, err)
+				}
+				mu.Unlock()
+				return
+			}
+			id := legacyImageID(bytes)
+			cachePath := filepath.Join(opts.ImageCacheDir, id+".avif")
+
+			var statErr error
+			var statNotExist bool
+			var doProcess bool
+
+			if !opts.ProcessAVIF {
+				_, err := os.Stat(cachePath)
+				if err != nil {
+					if os.IsNotExist(err) {
+						statNotExist = true
+					} else {
+						statErr = err
+					}
+				}
+			} else {
+				doProcess = true
+			}
+
+			if statErr != nil {
+				mu.Lock()
+				if firstErr == nil {
+					firstErr = fmt.Errorf("stat cached picture %s: %w", cachePath, statErr)
+				}
+				mu.Unlock()
+				return
+			}
+
+			mu.Lock()
+			defer mu.Unlock()
+			if doProcess {
+				expectedCaches = append(expectedCaches, expectedPictureCache{SourcePath: p, CachePath: cachePath})
+				sourceByCachePath[cachePath] = p
+			} else if statNotExist {
+				catalog.diag.CacheMissCount++
+			} else {
+				catalog.diag.CacheHitCount++
+				if _, exists := catalog.images[id]; exists {
+					catalog.diag.DuplicateCount++
+				} else {
+					catalog.images[id] = pictureAsset{ID: id, SourcePath: p, CachePath: cachePath, ContentType: "image/avif"}
+					catalog.ids = append(catalog.ids, id)
+				}
+			}
+		}(path)
 	}
+
+	wg.Wait()
+	if firstErr != nil {
+		return nil, firstErr
+	}
+
 	if opts.ProcessAVIF {
-		results, err := checkExpectedAVIFCaches(context.Background(), dimensionCheckerOrDefault(opts.DimensionChecker), expectedCaches)
+		results, err := checkExpectedAVIFCaches(context.Background(), dimensionCheckerOrDefault(opts.DimensionChecker), expectedCaches, opts)
 		if err != nil {
 			return nil, err
 		}
@@ -264,7 +325,7 @@ func dimensionCheckerOrDefault(checker avifDimensionBatchChecker) avifDimensionB
 	return identifyDimensionChecker{IdentifyBin: "identify", BatchSize: identifyBatchSize}
 }
 
-func checkExpectedAVIFCaches(ctx context.Context, checker avifDimensionBatchChecker, expected []expectedPictureCache) (map[string]dimensionResult, error) {
+func checkExpectedAVIFCaches(ctx context.Context, checker avifDimensionBatchChecker, expected []expectedPictureCache, opts pictureCatalogOptions) (map[string]dimensionResult, error) {
 	results := make(map[string]dimensionResult, len(expected))
 	byDir := map[string][]string{}
 	pathByDirAndBase := map[string]map[string]string{}
@@ -288,8 +349,9 @@ func checkExpectedAVIFCaches(ctx context.Context, checker avifDimensionBatchChec
 		}
 		pathByDirAndBase[dir][basename] = cache.CachePath
 	}
+	var checkedCount int
 	for dir, basenames := range byDir {
-		batchResults := checker.CheckBatch(ctx, dir, basenames)
+		batchResults := checker.CheckBatch(ctx, dir, basenames, opts)
 		for _, basename := range basenames {
 			path := pathByDirAndBase[dir][basename]
 			res, ok := batchResults[basename]
@@ -298,11 +360,12 @@ func checkExpectedAVIFCaches(ctx context.Context, checker avifDimensionBatchChec
 			}
 			results[path] = res
 		}
+		checkedCount += len(basenames)
 	}
 	return results, nil
 }
 
-func (c identifyDimensionChecker) CheckBatch(ctx context.Context, cacheDir string, basenames []string) map[string]dimensionResult {
+func (c identifyDimensionChecker) CheckBatch(ctx context.Context, cacheDir string, basenames []string, opts pictureCatalogOptions) map[string]dimensionResult {
 	batchSize := c.BatchSize
 	if batchSize <= 0 {
 		batchSize = identifyBatchSize
@@ -321,6 +384,7 @@ func (c identifyDimensionChecker) CheckBatch(ctx context.Context, cacheDir strin
 		for name, res := range chunkResults {
 			results[name] = res
 		}
+		logPictureCatalog(opts, "image catalog: verified cache file dimensions %d/%d", end, len(basenames))
 	}
 	return results
 }

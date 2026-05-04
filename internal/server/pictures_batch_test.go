@@ -96,7 +96,7 @@ func TestCheckExpectedAVIFCachesRejectsInvalidBasenameBeforeBatching(t *testing.
 		t.Fatalf("write cache fixture: %v", err)
 	}
 
-	results, err := checkExpectedAVIFCaches(context.Background(), checker, []expectedPictureCache{{CachePath: cachePath}})
+	results, err := checkExpectedAVIFCaches(context.Background(), checker, []expectedPictureCache{{CachePath: cachePath}}, pictureCatalogOptions{})
 	if err != nil {
 		t.Fatalf("check caches: %v", err)
 	}
@@ -184,7 +184,7 @@ type recordingDimensionChecker struct {
 	err     error
 }
 
-func (c *recordingDimensionChecker) CheckBatch(ctx context.Context, cacheDir string, basenames []string) map[string]dimensionResult {
+func (c *recordingDimensionChecker) CheckBatch(ctx context.Context, cacheDir string, basenames []string, opts pictureCatalogOptions) map[string]dimensionResult {
 	c.calls++
 	c.batches = append(c.batches, append([]string(nil), basenames...))
 	out := make(map[string]dimensionResult, len(basenames))
