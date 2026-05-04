@@ -13,6 +13,7 @@ describe('lobby helpers', () => {
     expect(playerBuckets(players)).toEqual({
       blue: [players[0]],
       red: [players[1]],
+      observers: [],
       unassigned: [players[2]],
     });
   });
@@ -24,7 +25,7 @@ describe('lobby helpers', () => {
   });
 
   it('explains what prevents the host from starting', () => {
-    expect(startReadiness(players)).toEqual({ ready: false, reason: 'Assign every player to a team first.' });
+    expect(startReadiness(players)).toEqual({ ready: false, reason: 'Assign every player to a team or observer mode first.' });
     expect(startReadiness(players.slice(0, 2))).toEqual({ ready: true, reason: '' });
     expect(startReadiness([{ ...players[0], spymaster: false }, players[1]])).toEqual({
       ready: false,

@@ -32,20 +32,24 @@ var (
 	ErrGuessLimitReached = errors.New("guess limit reached")
 )
 
-// Team identifies one of the two playable teams.
+// Team identifies one of the two playable teams, or the neutral observers team.
 type Team string
 
 const (
-	TeamBlue Team = "blue"
-	TeamRed  Team = "red"
+	TeamBlue      Team = "blue"
+	TeamRed       Team = "red"
+	TeamObservers Team = "observers"
 )
 
-// Opponent returns the opposing team.
+// Opponent returns the opposing team. Not valid for observers.
 func (t Team) Opponent() Team {
 	if t == TeamBlue {
 		return TeamRed
 	}
-	return TeamBlue
+	if t == TeamRed {
+		return TeamBlue
+	}
+	return ""
 }
 
 // Color returns the hidden card color corresponding to a team.
@@ -53,7 +57,10 @@ func (t Team) Color() Color {
 	if t == TeamBlue {
 		return ColorBlue
 	}
-	return ColorRed
+	if t == TeamRed {
+		return ColorRed
+	}
+	return ""
 }
 
 // Color identifies a card's hidden allegiance.
@@ -106,13 +113,17 @@ type Settings struct {
 	AllowInfinityClue     bool   `json:"allowInfinityClue"`
 	ImageCardCount        int    `json:"imageCardCount"`
 	RandomizeTeams        bool   `json:"randomizeTeams"`
+	CustomColorBlue       string `json:"customColorBlue,omitempty"`
+	CustomColorRed        string `json:"customColorRed,omitempty"`
+	ObserverChatEnabled   bool   `json:"observerChatEnabled"`
+	MixedImageOrderFirst  bool   `json:"mixedImageOrderFirst"`
 }
 
 // UnmarshalJSON gives API/DB payloads the product default for randomized team
 // assignment while still allowing clients to explicitly save false.
 func (s *Settings) UnmarshalJSON(data []byte) error {
 	type settingsAlias Settings
-	next := settingsAlias{RandomizeTeams: true}
+	next := settingsAlias{RandomizeTeams: true, ObserverChatEnabled: true}
 	if err := json.Unmarshal(data, &next); err != nil {
 		return err
 	}
@@ -207,6 +218,9 @@ const (
 	EventPassAccepted    EventType = "pass_accepted"
 	EventClueSubmitted   EventType = "clue_submitted"
 	EventClueFinalized   EventType = "clue_finalized"
+	EventRolesShuffled   EventType = "roles_shuffled"
+	EventClueReset       EventType = "clue_reset"
+	EventMatchRestarted  EventType = "match_restarted"
 )
 
 // Event is returned for an accepted command.

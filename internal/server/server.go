@@ -465,6 +465,10 @@ func (a *app) handleWSMessage(ctx context.Context, roomID string, rt *roomRuntim
 	}
 	if t == "sendChat" {
 		body, _ := msg["body"].(string)
+		if player, ok := rt.state.Players[viewerID]; ok && player.Team == game.TeamObservers && !rt.state.Settings.ObserverChatEnabled {
+			_ = conn.WriteJSON(errorMessage("chat_rejected", "Observers cannot chat in this room"))
+			return
+		}
 		chat, err := a.addChatMessage(ctx, roomID, viewerID, body)
 		if err != nil {
 			_ = conn.WriteJSON(errorMessage("chat_rejected", err.Error()))
@@ -576,6 +580,12 @@ func commandFromMessage(t string, msg map[string]any) (game.Command, error) {
 	case "submitClue":
 		text, _ := msg["text"].(string)
 		return game.SubmitClueCommand{Text: text, Number: clueNumber(msg["number"])}, nil
+	case "shuffleRoles":
+		return game.ShuffleRolesCommand{}, nil
+	case "resetClue":
+		return game.ResetClueCommand{}, nil
+	case "restartMatch":
+		return game.RestartMatchCommand{}, nil
 	default:
 		return nil, fmt.Errorf("unknown command type %q", t)
 	}
@@ -846,7 +856,7 @@ func snapshotDTO(state game.State, viewerID string) map[string]any {
 	}
 	sort.Slice(players, func(i, j int) bool { return players[i]["id"].(string) < players[j]["id"].(string) })
 	cards := make([]map[string]any, len(s.Cards))
-	remaining := map[string]int{"blue": 0, "red": 0}
+	remaining := map[string]int{"blue": 0, "red": 0, "civilian": 0, "black": 0}
 	for i, c := range s.Cards {
 		card := map[string]any{"contentType": c.Content.Type, "revealed": c.Revealed}
 		if c.Content.Type == game.ContentWord {
@@ -860,7 +870,7 @@ func snapshotDTO(state game.State, viewerID string) map[string]any {
 		cards[i] = card
 	}
 	for _, c := range state.Cards {
-		if !c.Revealed && (c.Color == game.ColorBlue || c.Color == game.ColorRed) {
+		if !c.Revealed {
 			remaining[string(c.Color)]++
 		}
 	}

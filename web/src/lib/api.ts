@@ -13,6 +13,10 @@ export interface Settings {
   allowInfinityClue: boolean;
   imageCardCount: number;
   randomizeTeams: boolean;
+  customColorBlue?: string;
+  customColorRed?: string;
+  observerChatEnabled: boolean;
+  mixedImageOrderFirst: boolean;
 }
 
 export interface Viewer {
@@ -148,6 +152,8 @@ export const defaultSettings: Settings = {
   allowInfinityClue: false,
   imageCardCount: 0,
   randomizeTeams: true,
+  observerChatEnabled: true,
+  mixedImageOrderFirst: false,
 };
 
 export const api = new ApiClient();

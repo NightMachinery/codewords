@@ -29,6 +29,8 @@ export interface LastSelected {
 export interface RemainingCounts {
   blue: number;
   red: number;
+  civilian: number;
+  black: number;
 }
 
 export interface GameplayCard {
@@ -184,7 +186,7 @@ export function readGameplayPreferences(storage: Pick<Storage, 'getItem'>): Game
 export function clampCardsPerRow(value: unknown): number {
   const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
   if (!Number.isFinite(parsed)) return defaultGameplayPreferences.cardsPerRow;
-  return Math.min(7, Math.max(2, Math.round(parsed)));
+  return Math.min(13, Math.max(1, Math.round(parsed)));
 }
 
 export function writeGameplayPreferences(storage: Pick<Storage, 'setItem'>, preferences: GameplayPreferences): void {
@@ -204,10 +206,15 @@ export function cardImageUrl(card: GameplayCard): string {
   return card.contentType === 'image' && card.imageId ? `/api/pictures/${encodeURIComponent(card.imageId)}` : '';
 }
 
+export function toTitleCase(str: string | undefined): string {
+  if (!str) return '';
+  return str.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+}
+
 export function cardWordTextClasses(word: string | undefined): string {
   const length = [...(word ?? '')].length;
   const size = length > 28 ? 'text-sm sm:text-base' : length > 18 ? 'text-base sm:text-lg' : 'text-xl sm:text-2xl';
-  return ['mt-4 block overflow-hidden break-normal hyphens-auto text-balance font-black uppercase tracking-[0.04em]', size].join(' ');
+  return ['mt-4 block overflow-hidden break-normal hyphens-auto text-balance text-center font-black tracking-[0.04em]', size].join(' ');
 }
 
 export function cardModeFromImageCount(imageCardCount: number): 'words' | 'images' | 'mixed' {
@@ -247,7 +254,7 @@ export function cardViewState(
   let styleClasses = '';
   if (card.revealed) {
     if (revealedStyle === 'normal') styleClasses = 'opacity-95';
-    else if (revealedStyle === 'greyed') styleClasses = 'opacity-40 saturate-50';
+    else if (revealedStyle === 'greyed') styleClasses = 'opacity-20 saturate-0 grayscale';
     else if (revealedStyle === 'invisible') styleClasses = 'invisible';
     else if (revealedStyle === 'omitted') styleClasses = 'hidden';
   }

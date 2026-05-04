@@ -64,6 +64,15 @@ type GuessCommand struct {
 // PassCommand ends the current team's round voluntarily.
 type PassCommand struct{}
 
+// ShuffleRolesCommand randomizes unrevealed red/blue/civilian/assassin cards.
+type ShuffleRolesCommand struct{}
+
+// ResetClueCommand clears the current clue but leaves it in history.
+type ResetClueCommand struct{}
+
+// RestartMatchCommand returns the game back to the lobby phase.
+type RestartMatchCommand struct{}
+
 // NewLobby creates a lobby state.
 func NewLobby(hostID string, settings Settings) State {
 	return State{HostID: hostID, Settings: settings, Phase: PhaseLobby, Players: map[string]Player{}}
@@ -179,7 +188,7 @@ func (c AssignTeamCommand) apply(state *State, actorID string) (Event, error) {
 	if !state.CanManage(actorID) && actorID != c.PlayerID {
 		return Event{}, ErrForbidden
 	}
-	if c.Team != TeamBlue && c.Team != TeamRed {
+	if c.Team != TeamBlue && c.Team != TeamRed && c.Team != TeamObservers && c.Team != "" {
 		return Event{}, fmt.Errorf("%w: invalid team", ErrInvalidCommand)
 	}
 	player, ok := state.Players[c.PlayerID]
@@ -348,6 +357,11 @@ func (c GuessCommand) apply(state *State, actorID string) (Event, error) {
 	}
 	if selectedColor != state.CurrentTeam.Color() {
 		state.endRoundAndSwitch()
+	} else if state.Settings.EnforceClueGuessLimit {
+		clue := state.CurrentClue()
+		if clue != nil && clue.Number.Kind == ClueNumberNumeric && clue.Guesses >= clue.Number.Value+1 {
+			state.endRoundAndSwitch()
+		}
 	}
 	return Event{Type: EventGuessAccepted}, nil
 }
@@ -362,6 +376,72 @@ func (c PassCommand) apply(state *State, actorID string) (Event, error) {
 	state.ActionID++
 	state.endRoundAndSwitch()
 	return Event{Type: EventPassAccepted}, nil
+}
+
+func (c ShuffleRolesCommand) apply(state *State, actorID string) (Event, error) {
+	if state.Phase != PhaseActive {
+		return Event{}, fmt.Errorf("%w: cannot shuffle outside active phase", ErrInvalidCommand)
+	}
+	player, ok := state.Players[actorID]
+	if !ok || !player.Mod {
+		return Event{}, ErrForbidden
+	}
+
+	var unrevealedIndices []int
+	var unrevealedColors []Color
+	for i, card := range state.Cards {
+		if !card.Revealed {
+			unrevealedIndices = append(unrevealedIndices, i)
+			unrevealedColors = append(unrevealedColors, card.Color)
+		}
+	}
+
+	rng := rand.New(rand.NewSource(state.Settings.Seed + int64(state.ActionID)))
+	perm := rng.Perm(len(unrevealedColors))
+	for i, permIndex := range perm {
+		state.Cards[unrevealedIndices[i]].Color = unrevealedColors[permIndex]
+	}
+
+	state.ActionID++
+	return Event{Type: EventRolesShuffled}, nil
+}
+
+func (c ResetClueCommand) apply(state *State, actorID string) (Event, error) {
+	if state.Phase != PhaseActive {
+		return Event{}, fmt.Errorf("%w: cannot reset clue outside active phase", ErrInvalidCommand)
+	}
+	player, ok := state.Players[actorID]
+	if !ok || !player.Mod {
+		return Event{}, ErrForbidden
+	}
+
+	clue := state.CurrentClue()
+	if clue == nil || clue.Status != ClueActive {
+		return Event{}, fmt.Errorf("%w: no active clue to reset", ErrInvalidCommand)
+	}
+
+	clue.Status = ClueFinal
+	state.ClueLog[len(state.ClueLog)-1] = *clue
+
+	state.ActionID++
+	return Event{Type: EventClueReset}, nil
+}
+
+func (c RestartMatchCommand) apply(state *State, actorID string) (Event, error) {
+	player, ok := state.Players[actorID]
+	if !ok || !player.Mod {
+		return Event{}, ErrForbidden
+	}
+
+	state.Phase = PhaseLobby
+	state.Cards = nil
+	state.ClueLog = nil
+	state.CurrentTeam = ""
+	state.Winner = ""
+	state.LastSelected = nil
+	state.Round = 0
+	state.ActionID++
+	return Event{Type: EventMatchRestarted}, nil
 }
 
 // IsActiveGuesser reports whether playerID may guess/pass for team.

@@ -14,12 +14,11 @@
     defaultGameplayPreferences,
     findViewerPlayer,
     formatClueNumber,
-    imageCountForMode,
-    parseClueNumber,
     readGameplayPreferences,
     shouldAutoJoinRoom,
     viewerRole,
     writeGameplayPreferences,
+    toTitleCase,
     type ClueEntry,
     type GameplayCard,
     type GameplayPreferences,
@@ -30,6 +29,11 @@
   import { canManageLobby, playerBuckets, startReadiness, type LobbyPlayer } from '../lib/lobby';
   import { RoomSocket, type RoomSocketMessage } from '../lib/realtime';
   import { roomIdFromPath, roomPath, websocketRoomUrl } from '../lib/routes';
+
+  import PlayerList from '../lib/PlayerList.svelte';
+  import ChatSidebar from '../lib/ChatSidebar.svelte';
+  import BottomControls from '../lib/BottomControls.svelte';
+  import ModSettings from '../lib/ModSettings.svelte';
 
   let roomId = $state('');
   let roomStatus = $state('lobby');
@@ -46,11 +50,11 @@
   let pictures = $state<PictureAsset[]>([]);
   let pictureCatalogAvailable = $state(false);
   let phase = $state<'lobby' | 'active' | 'game_over'>('lobby');
-  let currentTeam = $state<'blue' | 'red' | ''>('');
+  let currentTeam = $state<'blue' | 'red' | 'observers' | ''>('');
   let winner = $state<'blue' | 'red' | ''>('');
   let cards = $state<GameplayCard[]>([]);
   let lastSelected = $state<LastSelected | null>(null);
-  let remainingCounts = $state<RemainingCounts>({ blue: 0, red: 0 });
+  let remainingCounts = $state<RemainingCounts>({ blue: 0, red: 0, civilian: 0, black: 0 });
   let clueLog = $state<ClueEntry[]>([]);
   let clueText = $state('');
   let clueNumber = $state('');
@@ -71,14 +75,23 @@
   let spymasterViewActive = $state(true);
 
   let buckets = $derived(playerBuckets(players));
+  let sortedCards = $derived.by(() => {
+    const list = cards.map((c, i) => ({ ...c, originalIndex: i }));
+    if (cardMode !== 'mixed' || !settings.mixedImageOrderFirst) return list;
+    return list.sort((a, b) => {
+      if (a.contentType === 'image' && b.contentType !== 'image') return -1;
+      if (a.contentType !== 'image' && b.contentType === 'image') return 1;
+      return 0;
+    });
+  });
   let startState = $derived(startReadiness(players));
   let hostControls = $derived(canManageLobby(viewer));
   let currentPlayer = $derived(findViewerPlayer(players, viewer));
   let needsName = $derived(Boolean(credentialMode === 'auth' && !displayName && roomStatus === 'lobby'));
-  let role = $derived(viewerRole(players, viewer, currentTeam, phase));
-  let cluePermission = $derived(canSubmitClue(players, viewer, currentTeam, phase));
-  let clueNumberParsed = $derived(parseClueNumber(clueNumber));
-  let clueProblem = $derived(clueSubmitProblem(clueText, clueNumberParsed, settings));
+  let role = $derived(viewerRole(players, viewer, currentTeam as any, phase));
+  let cluePermission = $derived(canSubmitClue(players, viewer, currentTeam as any, phase));
+  let clueNumberParsed = $derived(clueNumber === '∞' ? { kind: 'infinity' } : { kind: 'numeric', value: parseInt(clueNumber, 10) });
+  let clueProblem = $derived(clueSubmitProblem(clueText, clueNumberParsed as any, settings));
   let currentClue = $derived(clueLog.slice().reverse().find((entry) => entry.status === 'active') ?? null);
   let guessProblem = $derived(guessDisabledReason());
   let passProblem = $derived(passDisabledReason());
@@ -188,11 +201,11 @@
       settings = { ...defaultSettings, ...message.snapshot.settings };
       viewer = message.snapshot.viewer;
       phase = message.snapshot.phase;
-      currentTeam = message.snapshot.currentTeam;
-      winner = message.snapshot.winner;
+      currentTeam = message.snapshot.currentTeam as any;
+      winner = message.snapshot.winner as any;
       cards = message.snapshot.cards ?? [];
       lastSelected = message.snapshot.lastSelected ?? null;
-      remainingCounts = message.snapshot.remainingCounts ?? { blue: 0, red: 0 };
+      remainingCounts = message.snapshot.remainingCounts ?? { blue: 0, red: 0, civilian: 0, black: 0 };
       clueLog = message.snapshot.clueLog ?? [];
     }
     if (message.type === 'chatMessage') {
@@ -202,48 +215,6 @@
     if (message.type === 'error') {
       error = message.message;
     }
-  }
-
-  function assignTeam(playerId: string, team: 'blue' | 'red') {
-    socket?.send({ type: 'assignTeam', playerId, team });
-  }
-
-  function toggleSpymaster(playerId: string) {
-    socket?.send({ type: 'toggleSpymaster', playerId });
-  }
-
-  function toggleRepresentative(playerId: string) {
-    socket?.send({ type: 'toggleRepresentative', playerId });
-  }
-
-  function toggleMod(playerId: string) {
-    socket?.send({ type: 'toggleMod', playerId });
-  }
-
-  async function saveSettings() {
-    if (!authToken) return;
-    error = '';
-    try {
-      await api.updateSettings(roomId, authToken, settings);
-    } catch (err) {
-      error = err instanceof Error ? err.message : 'Could not save settings.';
-    }
-  }
-
-  function startGame() {
-    error = '';
-    socket?.send({ type: 'startGame' });
-  }
-
-  function setCardMode(mode: 'words' | 'images' | 'mixed') {
-    settings = { ...settings, imageCardCount: imageCountForMode(mode, settings.imageCardCount) };
-    void saveSettings();
-  }
-
-  function setMixedImageCount(value: string) {
-    const parsed = Number.parseInt(value, 10);
-    settings = { ...settings, imageCardCount: Math.min(24, Math.max(1, Number.isFinite(parsed) ? parsed : 8)) };
-    void saveSettings();
   }
 
   function submitClue() {
@@ -377,9 +348,21 @@
       error = err instanceof Error ? err.message : 'Could not create a migrate link.';
     }
   }
+
+  function shuffleRoles() {
+    socket?.send({ type: 'shuffleRoles' });
+  }
+
+  function resetClue() {
+    socket?.send({ type: 'resetClue' });
+  }
+
+  function restartMatch() {
+    socket?.send({ type: 'restartMatch' });
+  }
 </script>
 
-<main class="min-h-screen w-full overflow-x-hidden bg-[oklch(14%_0.018_255)] text-slate-100">
+<main class="min-h-screen w-full overflow-x-hidden bg-[oklch(14%_0.018_255)] text-slate-100 pb-32 pr-12">
   <div class="mx-auto w-full max-w-7xl px-5 py-6 sm:px-8">
     <nav class="flex flex-wrap items-center justify-between gap-3 rounded-full border border-slate-700/70 bg-slate-900/75 px-5 py-3 shadow-2xl shadow-slate-950/40">
       <a class="text-lg font-black tracking-tight text-slate-50" href="/">Codewords</a>
@@ -418,11 +401,8 @@
         <div class="max-w-5xl">
           <p class="mb-4 text-sm font-semibold uppercase tracking-[0.22em] text-emerald-300">Room {roomId}</p>
           <h1 class="max-w-5xl text-5xl font-black leading-[0.96] tracking-[-0.05em] text-slate-50 sm:text-7xl">
-            {phase === 'lobby' ? 'Gather teams, choose roles, then start.' : phase === 'game_over' ? `${winner || 'A team'} wins the board.` : `${currentTeam || 'Current'} team is on the clock.`}
+            {phase === 'lobby' ? 'Gather teams, choose roles, then start.' : phase === 'game_over' ? `${winner || 'A team'} wins the board.` : ''}
           </h1>
-          <p class="mt-6 max-w-2xl text-lg leading-8 text-slate-300">
-            {displayName ? `You are ${displayName}. ` : ''}{phase === 'lobby' ? 'Share the room link with players on this server. Use migrate-device for the same seat on another browser.' : role.kind === 'spectator' ? 'You are watching as a read-only spectator.' : role.kind === 'spymaster' ? 'You can see hidden colors and submit clues on your team turn.' : 'You see unrevealed cards until a spymaster or guess reveals them.'}
-          </p>
         </div>
 
         <aside class="self-start rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5 shadow-2xl shadow-slate-950/40">
@@ -436,92 +416,37 @@
             {#if copyStatus}
               <p class="break-all rounded-2xl border border-emerald-300/40 bg-emerald-300/10 px-4 py-3 text-sm text-emerald-100">{copyStatus}</p>
             {/if}
-            {#if migrateUrl && copyStatus === migrateUrl}
-              <p class="break-all text-xs text-slate-400">{migrateUrl}</p>
-            {/if}
           </div>
         </aside>
       </header>
 
       {#if phase === 'lobby'}
-      <section class="grid gap-6 lg:grid-cols-[1fr_22rem]">
+      <section class="grid gap-6 lg:grid-cols-[1fr_24rem]">
         <div class="space-y-6">
-          <div class="grid grid-flow-dense gap-6 md:grid-cols-2">
-            {@render TeamColumn('Blue team', 'blue', buckets.blue, viewer, hostControls, assignTeam, toggleSpymaster, toggleRepresentative, toggleMod)}
-            {@render TeamColumn('Red team', 'red', buckets.red, viewer, hostControls, assignTeam, toggleSpymaster, toggleRepresentative, toggleMod)}
-          </div>
-
-          <section class="rounded-[2rem] border border-slate-700/70 bg-slate-900/70 p-5">
-            <h2 class="text-xl font-black tracking-tight">Unassigned</h2>
-            <div class="mt-4 grid gap-3 sm:grid-cols-2">
-              {#each buckets.unassigned as player (player.id)}
-                {@render PlayerCard(player, viewer, hostControls, assignTeam, toggleSpymaster, toggleRepresentative, toggleMod)}
-              {:else}
-                <p class="text-sm text-slate-400">No unassigned players.</p>
-              {/each}
-            </div>
-          </section>
+          <PlayerList 
+            players={players} 
+            viewer={viewer} 
+            hostControls={hostControls} 
+            roomHostId={roomHostId}
+            onAssignTeam={(id, team) => socket?.send({ type: 'assignTeam', playerId: id, team })}
+            onToggleSpymaster={(id) => socket?.send({ type: 'toggleSpymaster', playerId: id })}
+            onToggleRepresentative={(id) => socket?.send({ type: 'toggleRepresentative', playerId: id })}
+            onToggleMod={(id) => socket?.send({ type: 'toggleMod', playerId: id })}
+          />
         </div>
 
         <aside class="space-y-6">
-          <section class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5 shadow-2xl shadow-slate-950/30">
-            <h2 class="text-xl font-black tracking-tight">Host settings</h2>
-            <fieldset class="mt-5 space-y-4 disabled:opacity-60" disabled={!hostControls}>
-              <label class="block">
-                <span class="text-sm font-semibold text-slate-200">Wordpack</span>
-                <select class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" bind:value={settings.wordpackId} onchange={saveSettings}>
-                  {#each wordpacks as pack (pack.id)}
-                    <option value={pack.id}>{pack.label} ({pack.wordCount})</option>
-                  {/each}
-                </select>
-              </label>
-              <section class="rounded-2xl border border-slate-700 bg-slate-950 p-4">
-                <span class="text-sm font-semibold text-slate-200">Card content</span>
-                <div class="mt-3 grid gap-2">
-                  <label class="flex items-center gap-3 text-sm text-slate-200">
-                    <input type="radio" name="card-mode" checked={cardMode === 'words'} onchange={() => setCardMode('words')} />
-                    Words only
-                  </label>
-                  <label class="flex items-center gap-3 text-sm text-slate-200">
-                    <input type="radio" name="card-mode" checked={cardMode === 'images'} disabled={!pictureCatalogAvailable} onchange={() => setCardMode('images')} />
-                    Images only {pictureCatalogAvailable ? `(${pictures.length} available)` : '(no local pictures)'}
-                  </label>
-                  <label class="flex items-center gap-3 text-sm text-slate-200">
-                    <input type="radio" name="card-mode" checked={cardMode === 'mixed'} disabled={!pictureCatalogAvailable} onchange={() => setCardMode('mixed')} />
-                    Mixed images and words
-                  </label>
-                </div>
-                {#if cardMode === 'mixed'}
-                  <label class="mt-3 block">
-                    <span class="text-xs font-semibold text-slate-400">Image cards: {settings.imageCardCount}</span>
-                    <input class="mt-2 w-full" type="range" min="1" max="24" value={settings.imageCardCount} oninput={(event) => setMixedImageCount(event.currentTarget.value)} />
-                  </label>
-                {/if}
-                {#if settings.imageCardCount > pictures.length}
-                  <p class="mt-3 text-xs text-amber-100">This server only has {pictures.length} local pictures. Add files to the configured pictures directory or choose fewer image cards.</p>
-                {/if}
-              </section>
-
-              <label class="block">
-                <span class="text-sm font-semibold text-slate-200">Black cards</span>
-                <input class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" type="number" min="0" max="8" bind:value={settings.blackCards} onchange={saveSettings} />
-              </label>
-              <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
-                <input type="checkbox" bind:checked={settings.enforceClueGuessLimit} onchange={saveSettings} />
-                <span class="text-sm text-slate-200">Require clue before guessing</span>
-              </label>
-              <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
-                <input type="checkbox" bind:checked={settings.allowInfinityClue} onchange={saveSettings} />
-                <span class="text-sm text-slate-200">Allow infinity clues</span>
-              </label>
-              <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
-                <input type="checkbox" bind:checked={settings.randomizeTeams} onchange={saveSettings} />
-                <span class="text-sm text-slate-200">Randomize new players onto balanced teams</span>
-              </label>
-            </fieldset>
-          </section>
-
-          {@render ChatPanel(chatMessages, chatDraft, currentPlayer, sendChat)}
+          <ModSettings 
+            bind:settings={settings}
+            hostControls={hostControls}
+            wordpacks={wordpacks}
+            pictures={pictures}
+            pictureCatalogAvailable={pictureCatalogAvailable}
+            onSave={() => socket?.send({ type: 'updateSettings', settings })}
+            onShuffleRoles={shuffleRoles}
+            onResetClue={resetClue}
+            onRestartMatch={restartMatch}
+          />
 
           <section class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5">
             <h2 class="text-xl font-black tracking-tight">Start match</h2>
@@ -529,7 +454,7 @@
             <button
               class="mt-5 w-full rounded-2xl bg-emerald-300 px-5 py-3 font-black text-slate-950 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={!hostControls || !startState.ready}
-              onclick={startGame}
+              onclick={() => socket?.send({ type: 'startGame' })}
             >
               Start game
             </button>
@@ -552,39 +477,36 @@
                 <div>
                   <p class="text-xs font-black uppercase tracking-[0.22em] text-slate-400">Board</p>
                   <div class="flex items-center gap-3">
-                    <h2 class="text-2xl font-black tracking-tight">5 × 5 code grid</h2>
-                    {#if role.kind === 'spymaster'}
-                      <button class="rounded-full border border-slate-600 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-300 transition hover:bg-slate-800" onclick={() => (spymasterViewActive = !spymasterViewActive)}>
-                        Toggle View: {spymasterViewActive ? 'Spymaster' : 'Normal'}
-                      </button>
-                    {/if}
+                    <h2 class="text-2xl font-black tracking-tight">Code grid</h2>
                   </div>
                 </div>
-                <div class="flex flex-wrap gap-2 text-sm font-black">
-                  <span class="rounded-full border border-blue-300/40 bg-blue-400/15 px-3 py-1.5 text-blue-100">Blue left {remainingCounts.blue}</span>
-                  <span class="rounded-full border border-red-300/40 bg-red-400/15 px-3 py-1.5 text-red-100">Red left {remainingCounts.red}</span>
+                <div class="flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-widest">
+                  <span class="rounded-full border border-blue-300/40 bg-blue-400/15 px-3 py-1.5 text-blue-100" style={settings.customColorBlue ? `border-color: ${settings.customColorBlue}66; background-color: ${settings.customColorBlue}26; color: ${settings.customColorBlue}` : ''}>Blue {remainingCounts.blue}</span>
+                  <span class="rounded-full border border-red-300/40 bg-red-400/15 px-3 py-1.5 text-red-100" style={settings.customColorRed ? `border-color: ${settings.customColorRed}66; background-color: ${settings.customColorRed}26; color: ${settings.customColorRed}` : ''}>Red {remainingCounts.red}</span>
+                  <span class="rounded-full border border-amber-200/40 bg-amber-200/10 px-3 py-1.5 text-amber-100">Civilian {remainingCounts.civilian}</span>
+                  <span class="rounded-full border border-zinc-500/40 bg-zinc-950 px-3 py-1.5 text-zinc-100">Assassin {remainingCounts.black}</span>
                 </div>
               </div>
 
               <div class="grid gap-2 md:gap-3" style={`grid-template-columns: repeat(${preferences.cardsPerRow}, minmax(0, 1fr));`}>
-                {#each cards as card, index (`${card.word ?? card.imageId ?? 'card'}-${index}`)}
+                {#each sortedCards as card, index (`${card.word ?? card.imageId ?? 'card'}-${card.originalIndex}`)}
                   {@const showHiddenColor = role.canSeeHiddenColors && (role.kind !== 'spymaster' || spymasterViewActive)}
                   {@const revealedStyle = (role.kind === 'spymaster' && spymasterViewActive) ? preferences.spymasterRevealedStyle : 'normal'}
-                  {@const view = cardViewState(card, index, showHiddenColor, lastSelected, revealedStyle)}
+                  {@const view = cardViewState(card, card.originalIndex, showHiddenColor, lastSelected, revealedStyle)}
+                  {@const customColor = card.color === 'blue' ? settings.customColorBlue : card.color === 'red' ? settings.customColorRed : ''}
                   <button
-                    class={['group rounded-[1.35rem] border p-3 text-left shadow-xl shadow-slate-950/25 transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', card.contentType === 'image' ? 'aspect-[2/3]' : 'min-h-28', view.classes, !role.activeGuesser || card.revealed || phase !== 'active' ? 'disabled:opacity-80' : ''].join(' ')}
+                    class={['group relative overflow-hidden rounded-xl border p-1 text-left shadow-xl shadow-slate-950/25 transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', card.contentType === 'image' ? 'aspect-[2/3]' : 'min-h-24 sm:min-h-32', view.classes, !role.activeGuesser || card.revealed || phase !== 'active' ? 'disabled:opacity-80' : ''].join(' ')}
+                    style={view.visibleColor !== 'hidden' && customColor ? `border-color: ${customColor}B3; background-color: ${customColor}40; color: white` : ''}
                     disabled={Boolean(guessDisabledReason(card))}
                     title={guessDisabledReason(card) || `Reveal ${cardContentLabel(card)}`}
-                    onclick={() => guessCard(index, card)}
+                    onclick={() => guessCard(card.originalIndex, card)}
                   >
-                    <span class="block text-[0.65rem] font-black uppercase tracking-[0.18em] opacity-70">{view.label}</span>
                     {#if card.contentType === 'image'}
-                      <img class="mt-2 aspect-[2/3] max-h-[82%] w-full rounded-2xl object-cover" src={cardImageUrl(card)} alt="Card illustration" loading="lazy" />
+                      <img class="h-full w-full rounded-lg object-cover" src={cardImageUrl(card)} alt="Card illustration" loading="lazy" />
                     {:else}
-                      <span class={cardWordTextClasses(card.word)}>{card.word ?? 'Card'}</span>
-                    {/if}
-                    {#if view.isLastSelected}
-                      <span class="mt-3 inline-flex rounded-full bg-emerald-200 px-2.5 py-1 text-xs font-black text-slate-950">Last pick</span>
+                      <div class="flex h-full items-center justify-center p-2">
+                        <span class={cardWordTextClasses(card.word)}>{toTitleCase(card.word) || 'Card'}</span>
+                      </div>
                     {/if}
                   </button>
                 {:else}
@@ -594,108 +516,29 @@
             </section>
           </div>
 
-          <aside class="space-y-6">
-            <section class={['rounded-[2rem] border p-5 shadow-2xl shadow-slate-950/30', currentTeam === 'blue' ? 'border-blue-300/40 bg-blue-400/10' : 'border-red-300/40 bg-red-400/10']}>
-              <p class="text-xs font-black uppercase tracking-[0.22em] text-slate-400">Turn</p>
-              <h2 class="mt-1 text-3xl font-black tracking-tight capitalize">{currentTeam} team</h2>
-              {#if currentClue}
-                <p class="mt-4 rounded-2xl border border-slate-600 bg-slate-950/70 px-4 py-3">
-                  <span class="block text-xs font-black uppercase tracking-[0.18em] text-slate-400">Current clue</span>
-                  <span class="text-lg font-black">{currentClue.text} · {formatClueNumber(currentClue.number)}</span>
-                  <span class="block text-xs text-slate-400">{currentClue.guesses} guesses taken</span>
-                </p>
-              {:else if settings.enforceClueGuessLimit}
-                <p class="mt-4 rounded-2xl border border-amber-200/40 bg-amber-200/10 px-4 py-3 text-sm text-amber-100">A numbered clue is required before guessing.</p>
-              {/if}
-            </section>
+          <aside class="space-y-6 pb-32">
+            <ModSettings 
+              bind:settings={settings}
+              hostControls={hostControls}
+              wordpacks={wordpacks}
+              pictures={pictures}
+              pictureCatalogAvailable={pictureCatalogAvailable}
+              onSave={() => socket?.send({ type: 'updateSettings', settings })}
+              onShuffleRoles={shuffleRoles}
+              onResetClue={resetClue}
+              onRestartMatch={restartMatch}
+            />
 
-            <section class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5">
-              <h2 class="text-xl font-black tracking-tight">Clue composer</h2>
-              <fieldset class="mt-4 space-y-3 disabled:opacity-55" disabled={!cluePermission.allowed || phase !== 'active'}>
-                <input
-                  class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 font-semibold text-slate-50 outline-none ring-emerald-300 transition focus:ring-2"
-                  bind:value={clueText}
-                  maxlength="40"
-                  placeholder="One-word clue"
-                />
-                <select class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" bind:value={clueNumber}>
-                  <option value="">Any / blank</option>
-                  {#each [1, 2, 3, 4, 5, 6, 7, 8, 9] as n (n)}
-                    <option value={String(n)}>{n}</option>
-                  {/each}
-                  {#if settings.allowInfinityClue}
-                    <option value="∞">∞</option>
-                  {/if}
-                </select>
-                <button class="w-full rounded-2xl bg-emerald-300 px-5 py-3 font-black text-slate-950 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50" disabled={Boolean(clueProblem)} onclick={submitClue}>
-                  Submit / update clue
-                </button>
-              </fieldset>
-              <p class="mt-3 text-sm leading-6 text-slate-400">{cluePermission.allowed ? clueProblem || 'Your latest clue replaces the active clue for this turn.' : cluePermission.reason}</p>
-            </section>
-
-            <section class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5">
-              <h2 class="text-xl font-black tracking-tight">Guess controls</h2>
-              <p class="mt-2 text-sm leading-6 text-slate-300">{guessProblem || 'Select an unrevealed board card to guess.'}</p>
-              <button class="mt-4 w-full rounded-2xl border border-slate-500 px-5 py-3 font-black text-slate-100 transition hover:border-emerald-300 hover:text-emerald-200 disabled:cursor-not-allowed disabled:opacity-50" disabled={Boolean(passProblem)} onclick={passTurn}>
-                Pass turn
-              </button>
-              {#if passProblem}
-                <p class="mt-2 text-xs text-slate-500">{passProblem}</p>
-              {/if}
-            </section>
-
-            <section class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5">
-              <h2 class="text-xl font-black tracking-tight">Local confirmations</h2>
-              <label class="mt-4 flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
-                <input type="checkbox" checked={preferences.confirmGuesses} onchange={(event) => updatePreferences({ confirmGuesses: event.currentTarget.checked })} />
-                <span class="text-sm text-slate-200">Confirm before revealing a card</span>
-              </label>
-              <label class="mt-3 flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
-                <input type="checkbox" checked={preferences.confirmPasses} onchange={(event) => updatePreferences({ confirmPasses: event.currentTarget.checked })} />
-                <span class="text-sm text-slate-200">Confirm before passing</span>
-              </label>
-              <label class="mt-3 block rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
-                <span class="text-sm text-slate-200">Cards per row: {preferences.cardsPerRow}</span>
-                <input class="mt-2 w-full" type="range" min="2" max="7" value={preferences.cardsPerRow} oninput={(event) => updatePreferences({ cardsPerRow: Number.parseInt(event.currentTarget.value, 10) })} />
-              </label>
-              <label class="mt-3 block rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
-                <span class="text-sm text-slate-200">Spymaster revealed cards style</span>
-                <select class="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" bind:value={preferences.spymasterRevealedStyle} onchange={(event) => updatePreferences({ spymasterRevealedStyle: event.currentTarget.value as any })}>
-                  <option value="greyed">Greyed</option>
-                  <option value="invisible">Invisible</option>
-                  <option value="omitted">Omitted</option>
-                </select>
-              </label>
-              <div class="mt-3 grid gap-2 text-sm text-slate-200">
-                <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
-                  <input type="checkbox" checked={preferences.chatSound} onchange={(event) => updatePreferences({ chatSound: event.currentTarget.checked })} />
-                  Chat sound
-                </label>
-                <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
-                  <input type="checkbox" checked={preferences.chatVisualCue} onchange={(event) => updatePreferences({ chatVisualCue: event.currentTarget.checked })} />
-                  Chat visual cue
-                </label>
-                <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
-                  <input type="checkbox" checked={preferences.cardChoiceSound} onchange={(event) => updatePreferences({ cardChoiceSound: event.currentTarget.checked })} />
-                  Card-choice sound
-                </label>
-                <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
-                  <input type="checkbox" checked={preferences.cardChoiceVisualCue} onchange={(event) => updatePreferences({ cardChoiceVisualCue: event.currentTarget.checked })} />
-                  Card-choice visual cue
-                </label>
-                <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
-                  <input type="checkbox" checked={preferences.clueSound} onchange={(event) => updatePreferences({ clueSound: event.currentTarget.checked })} />
-                  Incoming clue sound
-                </label>
-                <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
-                  <input type="checkbox" checked={preferences.clueVisualCue} onchange={(event) => updatePreferences({ clueVisualCue: event.currentTarget.checked })} />
-                  Incoming clue visual cue
-                </label>
-              </div>
-            </section>
-
-            {@render ChatPanel(chatMessages, chatDraft, currentPlayer, sendChat)}
+            <PlayerList 
+              players={players} 
+              viewer={viewer} 
+              hostControls={hostControls} 
+              roomHostId={roomHostId}
+              onAssignTeam={(id, team) => socket?.send({ type: 'assignTeam', playerId: id, team })}
+              onToggleSpymaster={(id) => socket?.send({ type: 'toggleSpymaster', playerId: id })}
+              onToggleRepresentative={(id) => socket?.send({ type: 'toggleRepresentative', playerId: id })}
+              onToggleMod={(id) => socket?.send({ type: 'toggleMod', playerId: id })}
+            />
 
             <section class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5">
               <h2 class="text-xl font-black tracking-tight">Clue log</h2>
@@ -703,7 +546,7 @@
                 {#each clueLog.slice().reverse() as clue (`${clue.round}-${clue.team}-${clue.status}`)}
                   <article class="rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3">
                     <div class="flex items-center justify-between gap-3">
-                      <span class={['rounded-full px-2.5 py-1 text-xs font-black capitalize', clue.team === 'blue' ? 'bg-blue-300 text-blue-950' : 'bg-red-300 text-red-950']}>{clue.team}</span>
+                      <span class={['rounded-full px-2.5 py-1 text-xs font-black capitalize', clue.team === 'blue' ? 'bg-blue-300 text-blue-950' : 'bg-red-300 text-red-950']} style={clue.team === 'blue' && settings.customColorBlue ? `background-color: ${settings.customColorBlue}; color: white` : clue.team === 'red' && settings.customColorRed ? `background-color: ${settings.customColorRed}; color: white` : ''}>{clue.team}</span>
                       <span class="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{clue.status}</span>
                     </div>
                     <p class="mt-2 font-black">{clue.text} · {formatClueNumber(clue.number)}</p>
@@ -714,105 +557,98 @@
                 {/each}
               </div>
             </section>
+
+            <section class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5">
+              <h2 class="text-xl font-black tracking-tight">Local Options</h2>
+              <label class="mt-4 flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
+                <input type="checkbox" checked={preferences.confirmGuesses} onchange={(event) => updatePreferences({ confirmGuesses: event.currentTarget.checked })} />
+                <span class="text-sm text-slate-200">Confirm before revealing a card</span>
+              </label>
+              <label class="mt-3 flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
+                <input type="checkbox" checked={preferences.confirmPasses} onchange={(event) => updatePreferences({ confirmPasses: event.currentTarget.checked })} />
+                <span class="text-sm text-slate-200">Confirm before passing</span>
+              </label>
+              <label class="mt-3 block rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
+                <span class="text-sm text-slate-200 font-bold">Cards per row: {preferences.cardsPerRow}</span>
+                <input class="mt-2 w-full accent-emerald-300" type="range" min="1" max="13" value={preferences.cardsPerRow} oninput={(event) => updatePreferences({ cardsPerRow: Number.parseInt(event.currentTarget.value, 10) })} />
+              </label>
+              <label class="mt-3 block rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
+                <span class="text-sm text-slate-200 font-bold">Spymaster view style</span>
+                <select class="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" bind:value={preferences.spymasterRevealedStyle} onchange={(event) => updatePreferences({ spymasterRevealedStyle: event.currentTarget.value as any })}>
+                  <option value="greyed">Greyed</option>
+                  <option value="invisible">Invisible</option>
+                  <option value="omitted">Omitted</option>
+                </select>
+              </label>
+              <div class="mt-3 grid gap-2 text-sm text-slate-200">
+                <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
+                  <input type="checkbox" checked={preferences.chatSound} onchange={(event) => updatePreferences({ chatSound: event.currentTarget.checked })} />
+                  Chat sound
+                </label>
+                <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
+                  <input type="checkbox" checked={preferences.chatVisualCue} onchange={(event) => updatePreferences({ chatVisualCue: event.currentTarget.checked })} />
+                  Chat visual cue
+                </label>
+                <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
+                  <input type="checkbox" checked={preferences.cardChoiceSound} onchange={(event) => updatePreferences({ cardChoiceSound: event.currentTarget.checked })} />
+                  Card-choice sound
+                </label>
+                <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
+                  <input type="checkbox" checked={preferences.cardChoiceVisualCue} onchange={(event) => updatePreferences({ cardChoiceVisualCue: event.currentTarget.checked })} />
+                  Card-choice visual cue
+                </label>
+                <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
+                  <input type="checkbox" checked={preferences.clueSound} onchange={(event) => updatePreferences({ clueSound: event.currentTarget.checked })} />
+                  Incoming clue sound
+                </label>
+                <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
+                  <input type="checkbox" checked={preferences.clueVisualCue} onchange={(event) => updatePreferences({ clueVisualCue: event.currentTarget.checked })} />
+                  Incoming clue visual cue
+                </label>
+              </div>
+            </section>
           </aside>
         </section>
       {/if}
     {/if}
 
+    <ChatSidebar 
+      messages={chatMessages} 
+      bind:draft={chatDraft} 
+      canChat={Boolean(currentPlayer && (currentPlayer.team !== 'observers' || settings.observerChatEnabled))}
+      onSend={sendChat}
+    />
+
+    {#if phase === 'active'}
+      <BottomControls 
+        phase={phase}
+        currentTeam={currentTeam as any}
+        currentClue={currentClue}
+        role={role}
+        cluePermission={cluePermission}
+        bind:clueText={clueText}
+        bind:clueNumber={clueNumber}
+        clueProblem={clueProblem}
+        guessProblem={guessProblem}
+        passProblem={passProblem}
+        settings={settings}
+        spymasterViewActive={spymasterViewActive}
+        onToggleView={() => (spymasterViewActive = !spymasterViewActive)}
+        onSubmitClue={submitClue}
+        onPassTurn={passTurn}
+      />
+    {/if}
+
     {#if error}
-      <p class="mt-6 rounded-2xl border border-red-400/40 bg-red-400/10 px-4 py-3 text-sm text-red-100">{error}</p>
+      <p class="fixed top-20 left-1/2 z-50 -translate-x-1/2 rounded-2xl border border-red-400/40 bg-red-400/90 backdrop-blur-md px-6 py-4 text-sm font-bold text-red-50 shadow-2xl">
+        {error}
+        <button class="ml-4 opacity-70 hover:opacity-100" onclick={() => error = ''}>✕</button>
+      </p>
     {/if}
     {#if cueNotice}
-      <p class="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-full border border-emerald-200/60 bg-emerald-300 px-5 py-3 text-sm font-black text-slate-950 shadow-2xl shadow-emerald-950/40">
+      <p class="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full border border-emerald-200/60 bg-emerald-300 px-5 py-3 text-sm font-black text-slate-950 shadow-2xl shadow-emerald-950/40">
         {cueNotice}
       </p>
     {/if}
   </div>
 </main>
-
-{#snippet roleBadges(player: LobbyPlayer)}
-  {#if player.spymaster}
-    <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-950">Spymaster</span>
-  {/if}
-  {#if player.representative}
-    <span class="rounded-full bg-amber-200 px-2.5 py-1 text-xs font-black text-slate-950">Representative</span>
-  {/if}
-  {#if player.mod}
-    <span class="rounded-full bg-emerald-200 px-2.5 py-1 text-xs font-black text-slate-950">Mod</span>
-  {/if}
-{/snippet}
-
-{#snippet PlayerCard(player: LobbyPlayer, viewer: Viewer | null, hostControls: boolean, onassign: (id: string, team: 'blue' | 'red') => void, ontoggleSpy: (id: string) => void, ontoggleRep: (id: string) => void, ontoggleMod: (id: string) => void)}
-  <article class="group rounded-2xl border border-slate-700 bg-slate-950 p-4 transition duration-300 hover:-translate-y-0.5 hover:border-slate-500">
-    <div class="flex items-start justify-between gap-3">
-      <div>
-        <h3 class="font-black text-slate-50">{player.displayName || 'Unnamed player'}</h3>
-        <p class="text-xs text-slate-500">{player.id === viewer?.userId ? 'You' : player.id.slice(0, 8)}</p>
-      </div>
-      <div class="flex flex-wrap justify-end gap-2">{@render roleBadges(player)}</div>
-    </div>
-    <div class="mt-4 flex flex-wrap gap-2">
-      {#if hostControls || player.id === viewer?.userId}
-        <button class="rounded-full border border-blue-300/50 px-3 py-1.5 text-xs font-bold text-blue-100 hover:bg-blue-400/20" onclick={() => onassign(player.id, 'blue')}>Blue</button>
-        <button class="rounded-full border border-red-300/50 px-3 py-1.5 text-xs font-bold text-red-100 hover:bg-red-400/20" onclick={() => onassign(player.id, 'red')}>Red</button>
-      {/if}
-      {#if hostControls && player.team}
-        <button class="rounded-full border border-slate-600 px-3 py-1.5 text-xs font-bold text-slate-200 hover:border-slate-300" onclick={() => ontoggleSpy(player.id)}>Spy</button>
-        <button class="rounded-full border border-slate-600 px-3 py-1.5 text-xs font-bold text-slate-200 hover:border-slate-300" onclick={() => ontoggleRep(player.id)}>Rep</button>
-      {/if}
-      {#if hostControls && player.id !== roomHostId}
-        <button class="rounded-full border border-emerald-400/60 px-3 py-1.5 text-xs font-bold text-emerald-100 hover:bg-emerald-400/15" onclick={() => ontoggleMod(player.id)}>
-          {player.mod ? 'Demote mod' : 'Promote mod'}
-        </button>
-      {/if}
-    </div>
-  </article>
-{/snippet}
-
-
-{#snippet ChatPanel(messages: ChatMessage[], draft: string, currentPlayer: LobbyPlayer | undefined, onsend: () => void)}
-  <section class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5">
-    <div class="flex items-center justify-between gap-3">
-      <h2 class="text-xl font-black tracking-tight">Chat</h2>
-      {#if !currentPlayer}
-        <span class="rounded-full border border-slate-600 px-2.5 py-1 text-xs font-bold text-slate-300">read-only spectator</span>
-      {/if}
-    </div>
-    <div class="mt-4 max-h-72 space-y-3 overflow-y-auto pr-1">
-      {#each messages as message (message.id)}
-        <article class="rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3">
-          <p class="text-xs font-black text-emerald-200">{message.displayName || 'Player'}</p>
-          <p class="mt-1 break-words text-sm leading-6 text-slate-100">{message.body}</p>
-        </article>
-      {:else}
-        <p class="text-sm text-slate-400">No chat messages yet.</p>
-      {/each}
-    </div>
-    <div class="mt-4 grid grid-cols-[1fr_auto] gap-2">
-      <input
-        class="rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50 outline-none ring-emerald-300 transition focus:ring-2 disabled:opacity-60"
-        bind:value={chatDraft}
-        maxlength="1000"
-        placeholder={currentPlayer ? 'Message the room' : 'Spectators are read-only'}
-        disabled={!currentPlayer}
-        onkeydown={(event) => {
-          if (event.key === 'Enter') onsend();
-        }}
-      />
-      <button class="rounded-2xl bg-emerald-300 px-4 py-3 font-black text-slate-950 transition hover:bg-emerald-200 disabled:opacity-50" disabled={!currentPlayer || !draft.trim()} onclick={onsend}>Send</button>
-    </div>
-  </section>
-{/snippet}
-
-{#snippet TeamColumn(title: string, tone: 'blue' | 'red', players: LobbyPlayer[], viewer: Viewer | null, hostControls: boolean, onassign: (id: string, team: 'blue' | 'red') => void, ontoggleSpy: (id: string) => void, ontoggleRep: (id: string) => void, ontoggleMod: (id: string) => void)}
-  <section class={['rounded-[2rem] border p-5 shadow-2xl shadow-slate-950/25', tone === 'blue' ? 'border-blue-300/30 bg-blue-400/10' : 'border-red-300/30 bg-red-400/10']}>
-    <h2 class="text-xl font-black tracking-tight">{title}</h2>
-    <div class="mt-4 grid gap-3">
-      {#each players as player (player.id)}
-        {@render PlayerCard(player, viewer, hostControls, onassign, ontoggleSpy, ontoggleRep, ontoggleMod)}
-      {:else}
-        <p class="rounded-2xl border border-slate-700/70 bg-slate-950/70 px-4 py-6 text-center text-sm text-slate-400">Waiting for players.</p>
-      {/each}
-    </div>
-  </section>
-{/snippet}
