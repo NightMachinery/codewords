@@ -421,7 +421,9 @@ func (c ResetClueCommand) apply(state *State, actorID string) (Event, error) {
 	}
 
 	clue.Status = ClueFinal
-	state.ClueLog[len(state.ClueLog)-1] = *clue
+	if len(state.ClueLog) > 0 {
+		state.ClueLog[len(state.ClueLog)-1] = *clue
+	}
 
 	state.ActionID++
 	return Event{Type: EventClueReset}, nil
@@ -514,7 +516,7 @@ func (s State) canStart() bool {
 		return false
 	}
 	for _, player := range s.Players {
-		if player.Team != TeamBlue && player.Team != TeamRed {
+		if player.Team != TeamBlue && player.Team != TeamRed && player.Team != TeamObservers {
 			return false
 		}
 		if player.Team == TeamBlue && player.Spymaster {

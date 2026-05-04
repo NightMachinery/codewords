@@ -211,6 +211,11 @@ export function toTitleCase(str: string | undefined): string {
   return str.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 }
 
+export function hexWithAlpha(hex: string | undefined, alpha: string): string {
+  if (!hex || !hex.startsWith('#') || (hex.length !== 7 && hex.length !== 4)) return hex ?? '';
+  return `${hex}${alpha}`;
+}
+
 export function cardWordTextClasses(word: string | undefined): string {
   const length = [...(word ?? '')].length;
   const size = length > 28 ? 'text-sm sm:text-base' : length > 18 ? 'text-base sm:text-lg' : 'text-xl sm:text-2xl';

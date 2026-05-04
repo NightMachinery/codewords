@@ -19,6 +19,7 @@
     viewerRole,
     writeGameplayPreferences,
     toTitleCase,
+    hexWithAlpha,
     type ClueEntry,
     type GameplayCard,
     type GameplayPreferences,
@@ -481,8 +482,8 @@
                   </div>
                 </div>
                 <div class="flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-widest">
-                  <span class="rounded-full border border-blue-300/40 bg-blue-400/15 px-3 py-1.5 text-blue-100" style={settings.customColorBlue ? `border-color: ${settings.customColorBlue}66; background-color: ${settings.customColorBlue}26; color: ${settings.customColorBlue}` : ''}>Blue {remainingCounts.blue}</span>
-                  <span class="rounded-full border border-red-300/40 bg-red-400/15 px-3 py-1.5 text-red-100" style={settings.customColorRed ? `border-color: ${settings.customColorRed}66; background-color: ${settings.customColorRed}26; color: ${settings.customColorRed}` : ''}>Red {remainingCounts.red}</span>
+                  <span class="rounded-full border border-blue-300/40 bg-blue-400/15 px-3 py-1.5 text-blue-100" style={settings.customColorBlue ? `border-color: ${hexWithAlpha(settings.customColorBlue, '66')}; background-color: ${hexWithAlpha(settings.customColorBlue, '26')}; color: ${settings.customColorBlue}` : ''}>Blue {remainingCounts.blue}</span>
+                  <span class="rounded-full border border-red-300/40 bg-red-400/15 px-3 py-1.5 text-red-100" style={settings.customColorRed ? `border-color: ${hexWithAlpha(settings.customColorRed, '66')}; background-color: ${hexWithAlpha(settings.customColorRed, '26')}; color: ${settings.customColorRed}` : ''}>Red {remainingCounts.red}</span>
                   <span class="rounded-full border border-amber-200/40 bg-amber-200/10 px-3 py-1.5 text-amber-100">Civilian {remainingCounts.civilian}</span>
                   <span class="rounded-full border border-zinc-500/40 bg-zinc-950 px-3 py-1.5 text-zinc-100">Assassin {remainingCounts.black}</span>
                 </div>
@@ -496,7 +497,7 @@
                   {@const customColor = card.color === 'blue' ? settings.customColorBlue : card.color === 'red' ? settings.customColorRed : ''}
                   <button
                     class={['group relative overflow-hidden rounded-xl border p-1 text-left shadow-xl shadow-slate-950/25 transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', card.contentType === 'image' ? 'aspect-[2/3]' : 'min-h-24 sm:min-h-32', view.classes, !role.activeGuesser || card.revealed || phase !== 'active' ? 'disabled:opacity-80' : ''].join(' ')}
-                    style={view.visibleColor !== 'hidden' && customColor ? `border-color: ${customColor}B3; background-color: ${customColor}40; color: white` : ''}
+                    style={view.visibleColor !== 'hidden' && customColor ? `border-color: ${hexWithAlpha(customColor, 'B3')}; background-color: ${hexWithAlpha(customColor, '40')}; color: white` : ''}
                     disabled={Boolean(guessDisabledReason(card))}
                     title={guessDisabledReason(card) || `Reveal ${cardContentLabel(card)}`}
                     onclick={() => guessCard(card.originalIndex, card)}
