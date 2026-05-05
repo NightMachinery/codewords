@@ -218,6 +218,7 @@ const (
 	EventPassAccepted    EventType = "pass_accepted"
 	EventClueSubmitted   EventType = "clue_submitted"
 	EventClueFinalized   EventType = "clue_finalized"
+	EventTeamsRandomized EventType = "teams_randomized"
 	EventRolesShuffled   EventType = "roles_shuffled"
 	EventClueReset       EventType = "clue_reset"
 	EventMatchRestarted  EventType = "match_restarted"

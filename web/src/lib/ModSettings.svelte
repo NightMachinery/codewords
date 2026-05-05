@@ -8,7 +8,10 @@
     wordpacks: Wordpack[];
     pictures: PictureAsset[];
     pictureCatalogAvailable: boolean;
+    phase: 'lobby' | 'active' | 'game_over';
+    canRandomizeTeams: boolean;
     onSave: () => void;
+    onRandomizeTeams: () => void;
     onShuffleRoles: () => void;
     onResetClue: () => void;
     onRestartMatch: () => void;
@@ -20,7 +23,10 @@
     wordpacks,
     pictures,
     pictureCatalogAvailable,
+    phase,
+    canRandomizeTeams,
     onSave,
+    onRandomizeTeams,
     onShuffleRoles,
     onResetClue,
     onRestartMatch
@@ -112,28 +118,37 @@
     <div class="grid gap-4 sm:grid-cols-2">
       <label class="block">
         <span class="text-xs font-bold text-slate-400">Blue team color</span>
-        <div class="mt-1 flex gap-2">
-          <input class="h-10 w-14 rounded-xl border border-slate-700 bg-slate-950 p-1" type="color" value={settings.customColorBlue || '#3b82f6'} onchange={(event) => { settings.customColorBlue = event.currentTarget.value; onSave(); }} />
-          <button class="flex-1 rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 hover:border-slate-500" type="button" onclick={() => { settings.customColorBlue = ''; onSave(); }}>Reset</button>
+        <div class="mt-2 flex gap-2 rounded-2xl border border-blue-300/20 bg-slate-950/60 p-2 shadow-inner shadow-blue-950/20">
+          <input class="h-11 w-16 cursor-pointer rounded-xl border border-blue-300/40 bg-slate-900 p-1 accent-emerald-300" type="color" value={settings.customColorBlue || '#3b82f6'} onchange={(event) => { settings.customColorBlue = event.currentTarget.value; onSave(); }} />
+          <button class="flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-black uppercase tracking-wider text-slate-300 transition hover:border-blue-300/70 hover:text-blue-100" type="button" onclick={() => { settings.customColorBlue = ''; onSave(); }}>Reset</button>
         </div>
       </label>
       <label class="block">
         <span class="text-xs font-bold text-slate-400">Red team color</span>
-        <div class="mt-1 flex gap-2">
-          <input class="h-10 w-14 rounded-xl border border-slate-700 bg-slate-950 p-1" type="color" value={settings.customColorRed || '#ef4444'} onchange={(event) => { settings.customColorRed = event.currentTarget.value; onSave(); }} />
-          <button class="flex-1 rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 hover:border-slate-500" type="button" onclick={() => { settings.customColorRed = ''; onSave(); }}>Reset</button>
+        <div class="mt-2 flex gap-2 rounded-2xl border border-red-300/20 bg-slate-950/60 p-2 shadow-inner shadow-red-950/20">
+          <input class="h-11 w-16 cursor-pointer rounded-xl border border-red-300/40 bg-slate-900 p-1 accent-emerald-300" type="color" value={settings.customColorRed || '#ef4444'} onchange={(event) => { settings.customColorRed = event.currentTarget.value; onSave(); }} />
+          <button class="flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-black uppercase tracking-wider text-slate-300 transition hover:border-red-300/70 hover:text-red-100" type="button" onclick={() => { settings.customColorRed = ''; onSave(); }}>Reset</button>
         </div>
       </label>
     </div>
 
-    <!-- Mod Tools -->
-    <div class="pt-4 border-t border-slate-700/50 space-y-3">
-      <span class="text-xs font-black uppercase tracking-widest text-slate-500">Round tools</span>
-      <div class="grid gap-3 sm:grid-cols-2">
-        <button class="rounded-xl border border-amber-500/50 px-4 py-3 text-sm font-black text-amber-200 hover:bg-amber-500/10 transition" onclick={onShuffleRoles}>Shuffle Card Roles</button>
-        <button class="rounded-xl border border-amber-500/50 px-4 py-3 text-sm font-black text-amber-200 hover:bg-amber-500/10 transition" onclick={onResetClue}>Reset Current Clue</button>
+    {#if phase === 'lobby'}
+      <!-- Lobby Tools -->
+      <div class="space-y-3 border-t border-slate-700/50 pt-4">
+        <span class="text-xs font-black uppercase tracking-widest text-slate-500">Lobby tools</span>
+        <button class="w-full rounded-xl border border-emerald-400/60 bg-emerald-400/10 px-4 py-3 text-sm font-black text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50" disabled={!canRandomizeTeams} onclick={onRandomizeTeams}>Randomize Teams</button>
+        <p class="text-xs leading-5 text-slate-500">Balances non-observer and unassigned players, clears rep roles, and picks one spy for each team.</p>
       </div>
-      <button class="w-full rounded-xl border border-red-500/50 px-4 py-3 text-sm font-black text-red-200 hover:bg-red-500/10 transition" onclick={onRestartMatch}>Restart Match (Back to Lobby)</button>
-    </div>
+    {:else}
+      <!-- Round Tools -->
+      <div class="space-y-3 border-t border-slate-700/50 pt-4">
+        <span class="text-xs font-black uppercase tracking-widest text-slate-500">Round tools</span>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <button class="rounded-xl border border-amber-500/50 px-4 py-3 text-sm font-black text-amber-200 transition hover:bg-amber-500/10" onclick={onShuffleRoles}>Shuffle Card Roles</button>
+          <button class="rounded-xl border border-amber-500/50 px-4 py-3 text-sm font-black text-amber-200 transition hover:bg-amber-500/10" onclick={onResetClue}>Reset Current Clue</button>
+        </div>
+        <button class="w-full rounded-xl border border-red-500/50 px-4 py-3 text-sm font-black text-red-200 transition hover:bg-red-500/10" onclick={onRestartMatch}>Restart Match (Back to Lobby)</button>
+      </div>
+    {/if}
   </fieldset>
 </section>

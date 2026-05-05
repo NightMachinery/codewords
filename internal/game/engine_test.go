@@ -252,6 +252,79 @@ func TestRandomizedTeamAssignmentBalancesNewPlayers(t *testing.T) {
 	}
 }
 
+func TestRandomizeTeamsBalancesEligiblePlayersAndResetsRoles(t *testing.T) {
+	state := NewLobby("host", Settings{Seed: 77})
+	for _, player := range []struct {
+		id    string
+		team  Team
+		spy   bool
+		rep   bool
+		isMod bool
+	}{
+		{id: "host", team: TeamBlue, spy: true, isMod: true},
+		{id: "blueRep", team: TeamBlue, rep: true},
+		{id: "redSpy", team: TeamRed, spy: true},
+		{id: "floater"},
+		{id: "observer", team: TeamObservers, spy: true, rep: true},
+	} {
+		state.Players[player.id] = Player{ID: player.id, DisplayName: player.id, Team: player.team, Spymaster: player.spy, Representative: player.rep, Mod: player.isMod}
+	}
+
+	event, err := Apply(&state, RandomizeTeamsCommand{}, "host")
+	if err != nil {
+		t.Fatalf("randomize teams should be accepted: %v", err)
+	}
+	if event.Type != EventTeamsRandomized {
+		t.Fatalf("expected teams randomized event, got %#v", event)
+	}
+
+	counts := map[Team]int{}
+	spies := map[Team]int{}
+	for _, player := range state.Players {
+		if player.ID == "observer" {
+			if player.Team != TeamObservers || player.Spymaster || player.Representative {
+				t.Fatalf("observer should stay observer with roles cleared, got %#v", player)
+			}
+			continue
+		}
+		if player.Team != TeamBlue && player.Team != TeamRed {
+			t.Fatalf("eligible player should be assigned to a playable team: %#v", player)
+		}
+		if player.Representative {
+			t.Fatalf("representative roles should be cleared: %#v", player)
+		}
+		counts[player.Team]++
+		if player.Spymaster {
+			spies[player.Team]++
+		}
+	}
+	if counts[TeamBlue]+counts[TeamRed] != 4 || abs(counts[TeamBlue]-counts[TeamRed]) > 1 {
+		t.Fatalf("expected balanced teams, counts=%#v players=%#v", counts, state.Players)
+	}
+	if spies[TeamBlue] != 1 || spies[TeamRed] != 1 {
+		t.Fatalf("expected one spy per team, spies=%#v players=%#v", spies, state.Players)
+	}
+}
+
+func TestRandomizeTeamsRequiresManagerLobbyAndEnoughEligiblePlayers(t *testing.T) {
+	state := NewLobby("host", Settings{Seed: 5})
+	state.Players["host"] = Player{ID: "host", Team: TeamBlue, Mod: true}
+	state.Players["guest"] = Player{ID: "guest", Team: TeamRed}
+
+	if _, err := Apply(&state, RandomizeTeamsCommand{}, "guest"); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("non-manager randomize should be forbidden, got %v", err)
+	}
+	state.Phase = PhaseActive
+	if _, err := Apply(&state, RandomizeTeamsCommand{}, "host"); !errors.Is(err, ErrInvalidCommand) {
+		t.Fatalf("active-phase randomize should be invalid, got %v", err)
+	}
+	state.Phase = PhaseLobby
+	state.Players["guest"] = Player{ID: "guest", Team: TeamObservers}
+	if _, err := Apply(&state, RandomizeTeamsCommand{}, "host"); !errors.Is(err, ErrCannotStart) {
+		t.Fatalf("single eligible player randomize should be rejected, got %v", err)
+	}
+}
+
 func TestLobbyRoleValidationAndActiveGuessers(t *testing.T) {
 	state := NewLobby("host", Settings{Seed: 7, BlackCards: 1})
 	mustApply(t, &state, AddPlayerCommand{PlayerID: "host", DisplayName: "Host"}, "host")
@@ -479,6 +552,13 @@ func mustApply(t *testing.T, state *State, command Command, actor string) Event 
 		t.Fatalf("apply %T by %s: %v", command, actor, err)
 	}
 	return event
+}
+
+func abs(n int) int {
+	if n < 0 {
+		return -n
+	}
+	return n
 }
 
 func mapsKeys[K comparable, V any](m map[K]V) []K {

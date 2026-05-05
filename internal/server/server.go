@@ -654,6 +654,8 @@ func commandFromMessage(t string, msg map[string]any) (game.Command, error) {
 	case "toggleMod":
 		playerID, _ := msg["playerId"].(string)
 		return game.ToggleModCommand{PlayerID: playerID}, nil
+	case "randomizeTeams":
+		return game.RandomizeTeamsCommand{}, nil
 	case "guessCard":
 		idx := int(number(msg["index"]))
 		return game.GuessCommand{Index: idx}, nil

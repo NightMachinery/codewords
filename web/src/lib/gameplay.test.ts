@@ -4,6 +4,7 @@ import {
   canSubmitClue,
   cardViewState,
   cardContentLabel,
+  displayCards,
   defaultGameplayPreferences,
   formatClueNumber,
   cardWordTextClasses,
@@ -113,6 +114,23 @@ describe('board card state', () => {
   it('formats image card content labels for confirmations and fallbacks', () => {
     expect(cardContentLabel({ contentType: 'image', imageId: 'abc123', revealed: false })).toBe('Picture card');
     expect(cardContentLabel({ contentType: 'word', word: 'river', revealed: false })).toBe('river');
+  });
+
+  it('keeps card number badges tied to original board order when images sort first', () => {
+    const cards: GameplayCard[] = [
+      { contentType: 'word', word: 'alpha', revealed: false },
+      { contentType: 'image', imageId: 'img-2', revealed: false },
+      { contentType: 'word', word: 'bravo', revealed: false },
+      { contentType: 'image', imageId: 'img-4', revealed: false },
+    ];
+
+    expect(displayCards(cards, 'mixed', true).map((card) => `${card.contentType}:${card.badgeNumber}:${card.originalIndex}`)).toEqual([
+      'image:2:1',
+      'image:4:3',
+      'word:1:0',
+      'word:3:2',
+    ]);
+    expect(displayCards(cards, 'mixed', false).map((card) => card.badgeNumber)).toEqual([1, 2, 3, 4]);
   });
 
   it('uses non-breaking text classes and shrinks long words to fit cards', () => {

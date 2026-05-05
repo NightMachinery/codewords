@@ -41,6 +41,13 @@ export interface GameplayCard {
   color?: CardColor;
 }
 
+export type CardMode = 'words' | 'images' | 'mixed';
+
+export interface DisplayCard extends GameplayCard {
+  originalIndex: number;
+  badgeNumber: number;
+}
+
 export interface GameplayPreferences {
   confirmGuesses: boolean;
   confirmPasses: boolean;
@@ -232,16 +239,26 @@ export function cardWordTextClasses(word: string | undefined): string {
   return ['mt-4 block overflow-hidden break-normal hyphens-auto text-balance text-center font-black tracking-[0.04em]', size].join(' ');
 }
 
-export function cardModeFromImageCount(imageCardCount: number): 'words' | 'images' | 'mixed' {
+export function cardModeFromImageCount(imageCardCount: number): CardMode {
   if (imageCardCount <= 0) return 'words';
   if (imageCardCount >= 25) return 'images';
   return 'mixed';
 }
 
-export function imageCountForMode(mode: 'words' | 'images' | 'mixed', currentMixedCount: number): number {
+export function imageCountForMode(mode: CardMode, currentMixedCount: number): number {
   if (mode === 'words') return 0;
   if (mode === 'images') return 25;
   return Math.min(24, Math.max(1, currentMixedCount || 8));
+}
+
+export function displayCards(cards: GameplayCard[], cardMode: CardMode, imageOrderFirst: boolean): DisplayCard[] {
+  const list = cards.map((card, index) => ({ ...card, originalIndex: index, badgeNumber: index + 1 }));
+  if (cardMode !== 'mixed' || !imageOrderFirst) return list;
+  return list.sort((a, b) => {
+    if (a.contentType === 'image' && b.contentType !== 'image') return -1;
+    if (a.contentType !== 'image' && b.contentType === 'image') return 1;
+    return a.originalIndex - b.originalIndex;
+  });
 }
 
 export function cardViewState(

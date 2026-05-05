@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"math/rand"
+	"sort"
 	"strings"
 )
 
@@ -38,6 +39,9 @@ type ToggleRepresentativeCommand struct {
 type ToggleModCommand struct {
 	PlayerID string
 }
+
+// RandomizeTeamsCommand balances non-observer lobby players between blue and red.
+type RandomizeTeamsCommand struct{}
 
 // UpdateSettingsCommand updates lobby/game clue and board settings.
 type UpdateSettingsCommand struct {
@@ -256,6 +260,66 @@ func (c ToggleModCommand) apply(state *State, actorID string) (Event, error) {
 	player.Mod = !player.Mod
 	state.Players[c.PlayerID] = player
 	return Event{Type: EventModChanged}, nil
+}
+
+func (c RandomizeTeamsCommand) apply(state *State, actorID string) (Event, error) {
+	if !state.CanManage(actorID) {
+		return Event{}, ErrForbidden
+	}
+	if state.Phase != PhaseLobby {
+		return Event{}, fmt.Errorf("%w: cannot randomize teams outside lobby", ErrInvalidCommand)
+	}
+	eligible := make([]string, 0, len(state.Players))
+	for id, player := range state.Players {
+		if player.Team != TeamObservers {
+			eligible = append(eligible, id)
+		}
+	}
+	if len(eligible) < 2 {
+		return Event{}, fmt.Errorf("%w: at least two non-observer players required", ErrCannotStart)
+	}
+	for id, player := range state.Players {
+		player.Spymaster = false
+		player.Representative = false
+		state.Players[id] = player
+	}
+	sort.Strings(eligible)
+	rng := rand.New(rand.NewSource(state.Settings.Seed + int64(state.ActionID) + 1))
+	rng.Shuffle(len(eligible), func(i, j int) {
+		eligible[i], eligible[j] = eligible[j], eligible[i]
+	})
+
+	blueCount := len(eligible) / 2
+	if len(eligible)%2 == 1 && rng.Intn(2) == 0 {
+		blueCount++
+	}
+	if blueCount == 0 {
+		blueCount = 1
+	}
+	if blueCount == len(eligible) {
+		blueCount = len(eligible) - 1
+	}
+
+	teamIDs := map[Team][]string{TeamBlue: []string{}, TeamRed: []string{}}
+	for i, id := range eligible {
+		player := state.Players[id]
+		if i < blueCount {
+			player.Team = TeamBlue
+		} else {
+			player.Team = TeamRed
+		}
+		state.Players[id] = player
+		teamIDs[player.Team] = append(teamIDs[player.Team], id)
+	}
+	for _, team := range []Team{TeamBlue, TeamRed} {
+		ids := teamIDs[team]
+		spyID := ids[rng.Intn(len(ids))]
+		player := state.Players[spyID]
+		player.Spymaster = true
+		state.Players[spyID] = player
+	}
+	state.ActionID++
+	return Event{Type: EventTeamsRandomized}, nil
 }
 
 func (c UpdateSettingsCommand) apply(state *State, actorID string) (Event, error) {

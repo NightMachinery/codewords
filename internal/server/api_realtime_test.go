@@ -283,6 +283,45 @@ func TestLobbyWebSocketReceivesJoinAndHostViewerSnapshot(t *testing.T) {
 	}
 }
 
+func TestLobbyWebSocketRandomizeTeamsPersistsBalancedRoles(t *testing.T) {
+	h := newTestHandler(t)
+	postJSON(t, h, "/api/identity/bootstrap", map[string]any{"authToken": "host-random", "displayName": "Host"}, http.StatusOK)
+	roomResp := postJSON(t, h, "/api/rooms", map[string]any{"authToken": "host-random", "settings": map[string]any{"wordpackId": "english", "seed": 31, "randomizeTeams": false}}, http.StatusCreated)
+	roomID := roomResp["room"].(map[string]any)["id"].(string)
+	for _, token := range []string{"a-random", "b-random", "c-random"} {
+		postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": token, "displayName": token}, http.StatusOK)
+	}
+	makeRoomStartable(t, h, roomID, map[string]string{"host-random": "blueSpy", "a-random": "blueGuess", "b-random": "redSpy", "c-random": "redGuess"})
+
+	server := httptest.NewServer(h)
+	defer server.Close()
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws/rooms/" + roomID + "?authToken=host-random"
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial websocket: %v", err)
+	}
+	defer conn.Close()
+	if err := conn.SetReadDeadline(testDeadline()); err != nil {
+		t.Fatalf("set read deadline: %v", err)
+	}
+
+	var msg map[string]any
+	if err := conn.ReadJSON(&msg); err != nil {
+		t.Fatalf("read initial snapshot: %v", err)
+	}
+	if err := conn.WriteJSON(map[string]any{"type": "randomizeTeams"}); err != nil {
+		t.Fatalf("write randomize command: %v", err)
+	}
+	if err := conn.ReadJSON(&msg); err != nil {
+		t.Fatalf("read randomize snapshot: %v", err)
+	}
+	players := msg["snapshot"].(map[string]any)["players"].([]any)
+	assertBalancedRandomizedPlayers(t, players)
+
+	persisted := getJSON(t, h, "/api/rooms/"+roomID+"?authToken=host-random", http.StatusOK)
+	assertBalancedRandomizedPlayers(t, persisted["players"].([]any))
+}
+
 func TestMigrateIdProvidesRoomViewerContext(t *testing.T) {
 	h := newTestHandler(t)
 	boot := postJSON(t, h, "/api/identity/bootstrap", map[string]any{"authToken": "host-migrate", "displayName": "Host"}, http.StatusOK)
@@ -295,6 +334,32 @@ func TestMigrateIdProvidesRoomViewerContext(t *testing.T) {
 	viewer := room["viewer"].(map[string]any)
 	if viewer["userId"] != hostID || viewer["isHost"] != true {
 		t.Fatalf("expected migrate viewer to resolve host, got %#v", viewer)
+	}
+}
+
+func assertBalancedRandomizedPlayers(t *testing.T, players []any) {
+	t.Helper()
+	counts := map[string]int{}
+	spies := map[string]int{}
+	for _, raw := range players {
+		player := raw.(map[string]any)
+		team := player["team"].(string)
+		if team != "blue" && team != "red" {
+			t.Fatalf("expected only playable teams after randomize, got %#v", players)
+		}
+		counts[team]++
+		if player["representative"].(bool) {
+			t.Fatalf("representatives should be cleared after randomize: %#v", players)
+		}
+		if player["spymaster"].(bool) {
+			spies[team]++
+		}
+	}
+	if counts["blue"] != 2 || counts["red"] != 2 {
+		t.Fatalf("expected two players per team, counts=%#v players=%#v", counts, players)
+	}
+	if spies["blue"] != 1 || spies["red"] != 1 {
+		t.Fatalf("expected one spy per team, spies=%#v players=%#v", spies, players)
 	}
 }
 

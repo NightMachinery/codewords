@@ -13,6 +13,7 @@
     clueNumberFromInput,
     clueSubmitProblem,
     defaultGameplayPreferences,
+    displayCards,
     findViewerPlayer,
     formatClueNumber,
     readGameplayPreferences,
@@ -78,15 +79,9 @@
   let spymasterViewActive = $state(true);
 
   let buckets = $derived(playerBuckets(players));
-  let sortedCards = $derived.by(() => {
-    const list = cards.map((c, i) => ({ ...c, originalIndex: i }));
-    if (cardMode !== 'mixed' || !settings.mixedImageOrderFirst) return list;
-    return list.sort((a, b) => {
-      if (a.contentType === 'image' && b.contentType !== 'image') return -1;
-      if (a.contentType !== 'image' && b.contentType === 'image') return 1;
-      return 0;
-    });
-  });
+  let cardMode = $derived(cardModeFromImageCount(settings.imageCardCount ?? 0));
+  let sortedCards = $derived(displayCards(cards, cardMode, settings.mixedImageOrderFirst));
+  let canRandomizeTeams = $derived(players.filter((player) => player.team !== 'observers').length >= 2);
   let startState = $derived(startReadiness(players));
   let hostControls = $derived(canManageLobby(viewer));
   let currentPlayer = $derived(findViewerPlayer(players, viewer));
@@ -98,7 +93,6 @@
   let currentClue = $derived(clueLog.slice().reverse().find((entry) => entry.status === 'active') ?? null);
   let guessProblem = $derived(guessDisabledReason());
   let passProblem = $derived(passDisabledReason());
-  let cardMode = $derived(cardModeFromImageCount(settings.imageCardCount ?? 0));
 
   onMount(() => {
     void boot();
@@ -358,6 +352,10 @@
     socket?.send({ type: 'shuffleRoles' });
   }
 
+  function randomizeTeams() {
+    socket?.send({ type: 'randomizeTeams' });
+  }
+
   function resetClue() {
     socket?.send({ type: 'resetClue' });
   }
@@ -450,6 +448,9 @@
             pictures={pictures}
             pictureCatalogAvailable={pictureCatalogAvailable}
             onSave={() => socket?.send({ type: 'updateSettings', settings })}
+            phase={phase}
+            canRandomizeTeams={canRandomizeTeams}
+            onRandomizeTeams={randomizeTeams}
             onShuffleRoles={shuffleRoles}
             onResetClue={resetClue}
             onRestartMatch={restartMatch}
@@ -502,12 +503,15 @@
                   {@const view = cardViewState(card, card.originalIndex, showHiddenColor, lastSelected, revealedStyle)}
                   {@const customColor = card.color === 'blue' ? settings.customColorBlue : card.color === 'red' ? settings.customColorRed : ''}
                   <button
-                    class={['group relative overflow-hidden rounded-xl border p-1 text-left shadow-xl shadow-slate-950/25 transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', card.contentType === 'image' ? 'aspect-[2/3]' : 'min-h-24 sm:min-h-32', view.classes, !role.activeGuesser || card.revealed || phase !== 'active' ? 'disabled:opacity-80' : ''].join(' ')}
+                    class={['group relative overflow-hidden rounded-xl border p-1 text-left shadow-xl shadow-slate-950/25 transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', card.contentType === 'image' ? 'aspect-[2/3] border-4' : 'min-h-24 sm:min-h-32', view.classes, !role.activeGuesser || card.revealed || phase !== 'active' ? 'disabled:opacity-80' : ''].join(' ')}
                     style={view.visibleColor !== 'hidden' && customColor ? `border-color: ${hexWithAlpha(customColor, 'B3')}; background-color: ${hexWithAlpha(customColor, '40')}; color: white` : ''}
                     disabled={Boolean(guessDisabledReason(card))}
                     title={guessDisabledReason(card) || `Reveal ${cardContentLabel(card)}`}
                     onclick={() => guessCard(card.originalIndex, card)}
                   >
+                    <span class="absolute left-2 top-2 z-10 rounded-full border border-slate-100/20 bg-slate-950/80 px-2 py-1 text-[10px] font-black leading-none text-slate-100 shadow-lg shadow-slate-950/40 backdrop-blur-sm">
+                      #{card.badgeNumber}
+                    </span>
                     {#if card.contentType === 'image'}
                       <img class="h-full w-full rounded-lg object-cover" src={cardImageUrl(card)} alt="Card illustration" loading="lazy" />
                     {:else}
@@ -531,6 +535,9 @@
               pictures={pictures}
               pictureCatalogAvailable={pictureCatalogAvailable}
               onSave={() => socket?.send({ type: 'updateSettings', settings })}
+              phase={phase}
+              canRandomizeTeams={canRandomizeTeams}
+              onRandomizeTeams={randomizeTeams}
               onShuffleRoles={shuffleRoles}
               onResetClue={resetClue}
               onRestartMatch={restartMatch}
