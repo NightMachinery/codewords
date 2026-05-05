@@ -19,9 +19,9 @@ Room migrate links call `/api/rooms/{roomId}/migrate-bootstrap` and connect with
 
 ## Lobby
 
-The lobby opens a room WebSocket after the viewer has an identity. Snapshots drive team columns, role badges, settings, host permissions, and start readiness. Moderators can update wordpack, card content mode (words only, images only, or mixed image count), mixed image ordering, black-card count, enforced clue mode, infinity clues, observer chat, custom team colors, roles, and team assignments. Non-host players can assign their own team or move to observer mode.
+The lobby opens a room WebSocket after the viewer has an identity. Snapshots drive team columns, role badges, settings, host permissions, and start readiness. Moderators can update wordpack, card content mode (words only, images only, or mixed image count), mixed image ordering, black-card count, enforced clue mode, infinity clues, observer chat, custom team names/colors, roles, and team assignments. Non-host players can assign their own team or move to observer mode.
 
-Clipboard actions first use `navigator.clipboard`, then fall back to a temporary textarea plus `document.execCommand('copy')`, and finally show the raw link for manual copy.
+Clipboard actions first use `navigator.clipboard`, then fall back to a temporary textarea plus `document.execCommand('copy')`, and finally show the raw link for manual copy. Successful copy feedback clears itself after a short delay.
 
 Named browser identities auto-join only while a room is still in `lobby` status. After a match is active, a previously unknown authenticated browser connects over WebSocket as a read-only spectator instead of being seated as a new player.
 
@@ -67,4 +67,8 @@ Picture mode uses the local server catalog only. Hosts can choose words-only (`i
 
 ## Final local preferences and moderator controls
 
-LocalStorage gameplay preferences include confirmations, cards per row, spymaster revealed-card style, and separate sound/visual cue toggles for chat, card reveals, and incoming clues. The greyed spymaster style makes revealed cards transparent and grayscale while retaining color hints. Room creators are moderators by default; moderators can promote/demote other players, update room settings, assign teams/roles manually, shuffle unrevealed card roles, reset the current clue, restart an active match back to the lobby, and use the default-on balanced random assignment for new players.
+LocalStorage gameplay preferences include confirmations, separate word/image cards-per-row values for mobile and desktop, spymaster revealed-card style, and separate sound/visual cue toggles for chat, card reveals, and incoming clues. Mixed boards use word and image row settings together so picture cards can stay larger while word cards remain compact. The greyed spymaster style makes revealed cards transparent while retaining color hints. Room creators are moderators by default; moderators can promote/demote other players, update room settings, assign teams/roles manually, shuffle unrevealed card roles, reset the current clue, restart an active match back to the lobby, and use the default-on balanced random assignment for new players.
+
+Team display names are configurable room settings. The internal protocol still uses `blue` and `red`, but the default names shown in the UI are `Libertarians` and `Monarchists`. Custom colors and team names flow through lobby panels, player controls, turn indicators, clue rows, winner summaries, and card counts. Invalid custom color hex values fall back to the default team colors.
+
+When a playable-team member becomes an observer, the room remembers that player’s previous team and spymaster/representative role. The observer card shows a compact rejoin control that restores the remembered assignment. Browser-local creator settings are stored per creator identity and reused for newly created rooms with a fresh seed.

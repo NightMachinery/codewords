@@ -322,6 +322,29 @@ func TestLobbyWebSocketRandomizeTeamsPersistsBalancedRoles(t *testing.T) {
 	assertBalancedRandomizedPlayers(t, persisted["players"].([]any))
 }
 
+func TestNormalizeSettingsDefaultsTeamNamesAndRejectsInvalidColors(t *testing.T) {
+	settings := normalizeSettings(game.Settings{
+		WordpackID:      "english",
+		CustomColorBlue: "not-a-color",
+		CustomColorRed:  "#123abc",
+		TeamNameBlue:    "  ",
+		TeamNameRed:     " Guild of a Very Long Name That Should Be Trimmed Past The Limit ",
+	})
+
+	if settings.TeamNameBlue != "Libertarians" {
+		t.Fatalf("expected default blue team name, got %q", settings.TeamNameBlue)
+	}
+	if settings.TeamNameRed != "Guild of a Very Long Name That" {
+		t.Fatalf("expected trimmed red team name, got %q", settings.TeamNameRed)
+	}
+	if settings.CustomColorBlue != "" {
+		t.Fatalf("invalid blue color should be cleared, got %q", settings.CustomColorBlue)
+	}
+	if settings.CustomColorRed != "#123abc" {
+		t.Fatalf("valid red color should be preserved, got %q", settings.CustomColorRed)
+	}
+}
+
 func TestMigrateIdProvidesRoomViewerContext(t *testing.T) {
 	h := newTestHandler(t)
 	boot := postJSON(t, h, "/api/identity/bootstrap", map[string]any{"authToken": "host-migrate", "displayName": "Host"}, http.StatusOK)

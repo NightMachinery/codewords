@@ -8,13 +8,19 @@ import {
   defaultGameplayPreferences,
   formatClueNumber,
   cardWordTextClasses,
+  clampLayoutCardsPerRow,
   clueLogKey,
+  defaultTeamNames,
+  displayTeamName,
+  isValidHexColor,
+  mixedCardGridStyle,
   isActiveGuesser,
   parseClueNumber,
   readPanelPreferences,
   readGameplayPreferences,
   shouldAutoJoinRoom,
   shouldCueCardReveal,
+  chatCueNotice,
   viewerRole,
   writePanelPreferences,
   writeGameplayPreferences,
@@ -78,7 +84,7 @@ describe('gameplay permissions', () => {
 
   it('allows only the current team spymaster to submit clues during active play', () => {
     expect(canSubmitClue(players, viewer('blueSpy'), 'blue', 'active').allowed).toBe(true);
-    expect(canSubmitClue(players, viewer('redSpy'), 'blue', 'active').reason).toBe('Only the blue spymaster can clue right now.');
+    expect(canSubmitClue(players, viewer('redSpy'), 'blue', 'active', settings).reason).toBe('Only the Libertarians spymaster can clue right now.');
     expect(canSubmitClue(players, viewer('blueGuess'), 'blue', 'active').reason).toBe('Only spymasters can clue.');
     expect(canSubmitClue(players, viewer('spectator'), 'blue', 'active').reason).toBe('Spectators are read-only.');
     expect(canSubmitClue(players, viewer('blueSpy'), 'blue', 'game_over').reason).toBe('The match is over.');
@@ -103,12 +109,34 @@ describe('local gameplay preferences', () => {
     expect(readGameplayPreferences(storage)).toEqual(defaultGameplayPreferences);
     expect(defaultGameplayPreferences.spymasterRevealedStyle).toBe('invisible');
 
-    const saved: GameplayPreferences = { confirmGuesses: false, confirmPasses: true, cardsPerRow: 4, chatSound: false, chatVisualCue: false, cardChoiceSound: false, cardChoiceVisualCue: true, clueSound: true, clueVisualCue: false, spymasterRevealedStyle: 'greyed' };
+    const saved: GameplayPreferences = { confirmGuesses: false, confirmPasses: true, wordCardsPerRowMobile: 4, imageCardsPerRowMobile: 2, wordCardsPerRowDesktop: 5, imageCardsPerRowDesktop: 5, chatSound: false, chatVisualCue: false, cardChoiceSound: false, cardChoiceVisualCue: true, clueSound: true, clueVisualCue: false, spymasterRevealedStyle: 'greyed' };
     writeGameplayPreferences(storage, saved);
     expect(readGameplayPreferences(storage)).toEqual(saved);
 
     storage.setItem('codewords.gameplayPreferences', JSON.stringify({ confirmGuesses: false }));
     expect(readGameplayPreferences(storage)).toEqual({ ...defaultGameplayPreferences, confirmGuesses: false });
+
+    storage.setItem('codewords.gameplayPreferences', JSON.stringify({ cardsPerRow: 7 }));
+    expect(readGameplayPreferences(storage)).toMatchObject({
+      wordCardsPerRowMobile: 7,
+      imageCardsPerRowMobile: 7,
+      wordCardsPerRowDesktop: 7,
+      imageCardsPerRowDesktop: 7,
+    });
+  });
+
+  it('defaults and clamps separate word/image mobile/desktop layout preferences', () => {
+    expect(defaultGameplayPreferences).toMatchObject({
+      wordCardsPerRowMobile: 4,
+      imageCardsPerRowMobile: 2,
+      wordCardsPerRowDesktop: 5,
+      imageCardsPerRowDesktop: 5,
+    });
+    expect(clampLayoutCardsPerRow(99, 'word')).toBe(13);
+    expect(clampLayoutCardsPerRow(0, 'image')).toBe(1);
+    expect(mixedCardGridStyle({
+      contentType: 'image',
+    }, { word: 5, image: 2 })).toContain('--card-span: 3');
   });
 
   it('defaults collapsible panel preferences open and persists changes', () => {
@@ -152,7 +180,7 @@ describe('board card state', () => {
 
   it('uses non-breaking text classes and shrinks long words to fit cards', () => {
     expect(cardWordTextClasses('short word')).toContain('break-normal');
-    expect(cardWordTextClasses('exceptionally-long-unbroken-card-word')).toContain('text-sm');
+    expect(cardWordTextClasses('exceptionally-long-unbroken-card-word')).toContain('clamp');
   });
 
   it('derives visible color, labels, classes, and last-selected state', () => {
@@ -198,6 +226,16 @@ describe('active-room boot behavior', () => {
 
 
 describe('regression helpers', () => {
+  it('formats configurable team names and validates custom colors', () => {
+    expect(defaultTeamNames).toEqual({ blue: 'Libertarians', red: 'Monarchists' });
+    expect(displayTeamName('blue', { ...settings, teamNameBlue: 'River Guild' })).toBe('River Guild');
+    expect(displayTeamName('red', { ...settings, teamNameRed: '' })).toBe('Monarchists');
+    expect(isValidHexColor('#123abc')).toBe(true);
+    expect(isValidHexColor('#abc')).toBe(true);
+    expect(isValidHexColor('123abc')).toBe(false);
+    expect(isValidHexColor('#12zzzz')).toBe(false);
+  });
+
   it('treats blank clue numbers as blank instead of NaN numeric values', async () => {
     const { clueNumberFromInput } = await import('./gameplay');
     expect(clueNumberFromInput('')).toEqual({ kind: 'blank' });
@@ -209,6 +247,7 @@ describe('regression helpers', () => {
     const { shouldCueChatMessage } = await import('./gameplay');
     expect(shouldCueChatMessage({ userId: 'me', playerId: 'me', isHost: false }, { senderUserId: 'me' })).toBe(false);
     expect(shouldCueChatMessage({ userId: 'me', playerId: 'me', isHost: false }, { senderUserId: 'other' })).toBe(true);
+    expect(chatCueNotice({ displayName: 'Ada', body: 'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz' })).toBe('Ada: abcdefghijklmnopqrstuvwxyzabcdefghijkl…');
   });
 
   it('keeps greyed revealed cards transparent while preserving color hints', () => {

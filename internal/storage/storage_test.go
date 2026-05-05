@@ -99,6 +99,16 @@ func TestUsersRoomsMatchesSnapshotsEventsAndChatPersist(t *testing.T) {
 	if players[0].Team != "blue" || !players[0].Spymaster || !players[0].Mod {
 		t.Fatalf("expected updated role fields, got %#v", players[0])
 	}
+	if err := db.UpsertRoomPlayer(ctx, storage.RoomPlayer{RoomID: room.ID, UserID: user.ID, Team: "observers", PreviousTeam: "blue", PreviousSpymaster: true}); err != nil {
+		t.Fatalf("upsert room player with previous assignment: %v", err)
+	}
+	players, err = db.RoomPlayers(ctx, room.ID)
+	if err != nil {
+		t.Fatalf("room players after previous assignment: %v", err)
+	}
+	if players[0].PreviousTeam != "blue" || !players[0].PreviousSpymaster || players[0].PreviousRepresentative {
+		t.Fatalf("expected previous assignment to round-trip, got %#v", players[0])
+	}
 
 	match, err := db.CreateMatch(ctx, storage.CreateMatchParams{ID: "match-1", RoomID: room.ID, Seed: 99, SettingsJSON: `{"seed":99}`})
 	if err != nil {

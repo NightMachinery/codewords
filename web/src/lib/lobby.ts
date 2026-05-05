@@ -7,6 +7,9 @@ export interface LobbyPlayer {
   spymaster: boolean;
   representative: boolean;
   mod: boolean;
+  previousTeam?: Team;
+  previousSpymaster?: boolean;
+  previousRepresentative?: boolean;
 }
 
 export interface ViewerContext {

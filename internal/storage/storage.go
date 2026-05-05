@@ -48,14 +48,17 @@ type CreateRoomParams struct {
 }
 
 type RoomPlayer struct {
-	RoomID         string
-	UserID         string
-	Team           string
-	Spymaster      bool
-	Representative bool
-	Mod            bool
-	JoinedAt       time.Time
-	LastSeenAt     time.Time
+	RoomID                 string
+	UserID                 string
+	Team                   string
+	Spymaster              bool
+	Representative         bool
+	Mod                    bool
+	PreviousTeam           string
+	PreviousSpymaster      bool
+	PreviousRepresentative bool
+	JoinedAt               time.Time
+	LastSeenAt             time.Time
 }
 
 type CreateMatchParams struct {
@@ -338,8 +341,8 @@ func (d *DB) UpdateRoomSettings(ctx context.Context, roomID, settingsJSON string
 
 func (d *DB) UpsertRoomPlayer(ctx context.Context, p RoomPlayer) error {
 	_, err := d.db.ExecContext(ctx, `
-INSERT INTO room_players(room_id, user_id, team, spymaster, representative, mod) VALUES (?, ?, ?, ?, ?, ?)
-ON CONFLICT(room_id, user_id) DO UPDATE SET team = excluded.team, spymaster = excluded.spymaster, representative = excluded.representative, mod = excluded.mod, last_seen_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`, p.RoomID, p.UserID, p.Team, boolInt(p.Spymaster), boolInt(p.Representative), boolInt(p.Mod))
+INSERT INTO room_players(room_id, user_id, team, spymaster, representative, mod, previous_team, previous_spymaster, previous_representative) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(room_id, user_id) DO UPDATE SET team = excluded.team, spymaster = excluded.spymaster, representative = excluded.representative, mod = excluded.mod, previous_team = excluded.previous_team, previous_spymaster = excluded.previous_spymaster, previous_representative = excluded.previous_representative, last_seen_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`, p.RoomID, p.UserID, p.Team, boolInt(p.Spymaster), boolInt(p.Representative), boolInt(p.Mod), p.PreviousTeam, boolInt(p.PreviousSpymaster), boolInt(p.PreviousRepresentative))
 	if err != nil {
 		return fmt.Errorf("upsert room player: %w", err)
 	}
@@ -347,7 +350,7 @@ ON CONFLICT(room_id, user_id) DO UPDATE SET team = excluded.team, spymaster = ex
 }
 
 func (d *DB) RoomPlayers(ctx context.Context, roomID string) ([]RoomPlayer, error) {
-	rows, err := d.db.QueryContext(ctx, `SELECT room_id, user_id, team, spymaster, representative, mod, joined_at, last_seen_at FROM room_players WHERE room_id = ? ORDER BY joined_at, user_id`, roomID)
+	rows, err := d.db.QueryContext(ctx, `SELECT room_id, user_id, team, spymaster, representative, mod, previous_team, previous_spymaster, previous_representative, joined_at, last_seen_at FROM room_players WHERE room_id = ? ORDER BY joined_at, user_id`, roomID)
 	if err != nil {
 		return nil, fmt.Errorf("query room players: %w", err)
 	}
@@ -355,14 +358,16 @@ func (d *DB) RoomPlayers(ctx context.Context, roomID string) ([]RoomPlayer, erro
 	var players []RoomPlayer
 	for rows.Next() {
 		var p RoomPlayer
-		var spy, rep, mod int
+		var spy, rep, mod, previousSpy, previousRep int
 		var joined, seen string
-		if err := rows.Scan(&p.RoomID, &p.UserID, &p.Team, &spy, &rep, &mod, &joined, &seen); err != nil {
+		if err := rows.Scan(&p.RoomID, &p.UserID, &p.Team, &spy, &rep, &mod, &p.PreviousTeam, &previousSpy, &previousRep, &joined, &seen); err != nil {
 			return nil, fmt.Errorf("scan room player: %w", err)
 		}
 		p.Spymaster = spy == 1
 		p.Representative = rep == 1
 		p.Mod = mod == 1
+		p.PreviousSpymaster = previousSpy == 1
+		p.PreviousRepresentative = previousRep == 1
 		p.JoinedAt = parseTime(joined)
 		p.LastSeenAt = parseTime(seen)
 		players = append(players, p)

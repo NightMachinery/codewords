@@ -6,7 +6,7 @@ Milestone 2 adds a pure Go game engine under `internal/game`. The package owns l
 
 Callers create a lobby with `game.NewLobby(hostID, settings)` and apply typed commands through `game.Apply(&state, command, actorID)`. Accepted commands mutate only the supplied `State` and return a typed `Event`; rejected commands return stable sentinel errors such as `ErrForbidden`, `ErrCannotStart`, `ErrClueRequired`, or `ErrGuessLimitReached`.
 
-Engine commands cover player seating, team assignment, moderator promotion/demotion, moderator role toggles, settings updates, match start, clue submit/update, guesses, and passes. The reducer-style API is designed to map directly to later persistence events without adding storage in this milestone.
+Engine commands cover player seating, team assignment, observer rejoin, moderator promotion/demotion, moderator role toggles, settings updates, match start, clue submit/update, guesses, and passes. The reducer-style API is designed to map directly to later persistence events without adding storage in this milestone.
 
 ## Wordpacks and boards
 
@@ -23,3 +23,9 @@ When `EnforceClueGuessLimit` is enabled, guessing is rejected until a clue with 
 ## Snapshots
 
 `State.SnapshotFor` hides unrevealed card colors from non-spymasters and anonymous spectators during active play. Spymasters see all colors. Finished matches reveal the full board to every viewer. Clue log entries are visible to all viewers.
+
+## Observer rejoin and restarts
+
+Assigning a player from a playable team to observers clears their active spy/representative flags but records the previous team and role. `RejoinTeamCommand` restores that remembered playable assignment for the player or a moderator.
+
+`RestartMatchCommand` returns the room to lobby state and increments the seed so the next start generates a fresh board instead of reusing the prior word/image order.

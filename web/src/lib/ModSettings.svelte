@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { PictureAsset, Settings, Wordpack } from './api';
-  import { cardModeFromImageCount, imageCountForMode } from './gameplay';
+  import { cardModeFromImageCount, displayTeamName, imageCountForMode, isValidHexColor, teamColor } from './gameplay';
 
   interface Props {
     settings: Settings;
@@ -37,6 +37,14 @@
   }: Props = $props();
 
   let cardMode = $derived(cardModeFromImageCount(settings.imageCardCount ?? 0));
+  const colorPresets = [
+    '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e', '#10b981', '#14b8a6', '#06b6d4',
+    '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899', '#f43f5e', '#64748b',
+    '#dc2626', '#ea580c', '#d97706', '#ca8a04', '#65a30d', '#16a34a', '#059669', '#0d9488', '#0891b2',
+    '#0284c7', '#2563eb', '#4f46e5', '#7c3aed', '#9333ea', '#c026d3', '#db2777', '#e11d48', '#475569',
+    '#991b1b', '#9a3412', '#92400e', '#854d0e', '#3f6212', '#166534', '#065f46', '#115e59', '#155e75',
+    '#075985', '#1d4ed8', '#3730a3', '#5b21b6', '#6b21a8', '#86198f', '#9d174d', '#9f1239', '#334155',
+  ];
 
   function setCardMode(mode: 'words' | 'images' | 'mixed') {
     settings.imageCardCount = imageCountForMode(mode, settings.imageCardCount);
@@ -48,8 +56,14 @@
     onSave();
   }
 
-  function colorInputLabel(team: 'Blue' | 'Red', color: string | undefined, fallback: string) {
-    return `${team} team color ${color || fallback}`;
+  function colorInputLabel(team: 'blue' | 'red', color: string | undefined, fallback: string) {
+    return `${displayTeamName(team, settings)} color ${color || fallback}`;
+  }
+
+  function setTeamColor(team: 'blue' | 'red', color: string) {
+    if (team === 'blue') settings.customColorBlue = isValidHexColor(color) ? color : '';
+    else settings.customColorRed = isValidHexColor(color) ? color : '';
+    onSave();
   }
 </script>
 
@@ -141,27 +155,45 @@
     </div>
 
     <!-- Custom Colors -->
-    <div class="grid gap-4 sm:grid-cols-2">
+    <div id="settings" class="grid gap-4 sm:grid-cols-2">
       <label class="block">
-        <span class="text-xs font-bold text-slate-400">Blue team color</span>
-        <div class="mt-2 flex gap-2 rounded-2xl border bg-slate-950/60 p-2 shadow-inner shadow-blue-950/20" style={`border-color: ${settings.customColorBlue ? settings.customColorBlue : '#3b82f6'}66;`}>
-          <span class="relative grid h-12 w-20 shrink-0 place-items-center overflow-hidden rounded-xl border border-slate-100/15 shadow-lg shadow-slate-950/30" style={`background-color: ${settings.customColorBlue || '#3b82f6'};`}>
-            <span class="rounded-full bg-slate-950/70 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-slate-50">Pick</span>
-            <input class="absolute inset-0 h-full w-full cursor-pointer opacity-0" aria-label={colorInputLabel('Blue', settings.customColorBlue, '#3b82f6')} type="color" value={settings.customColorBlue || '#3b82f6'} onchange={(event) => { settings.customColorBlue = event.currentTarget.value; onSave(); }} />
+        <span class="text-xs font-bold text-slate-400">Team name</span>
+        <input class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" maxlength="30" bind:value={settings.teamNameBlue} onchange={onSave} placeholder="Libertarians" />
+      </label>
+      <label class="block">
+        <span class="text-xs font-bold text-slate-400">Team name</span>
+        <input class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" maxlength="30" bind:value={settings.teamNameRed} onchange={onSave} placeholder="Monarchists" />
+      </label>
+      <label class="block">
+        <span class="text-xs font-bold text-slate-400">{displayTeamName('blue', settings)} color</span>
+        <div class="mt-2 flex gap-2 rounded-2xl border bg-slate-950/60 p-2 shadow-inner shadow-blue-950/20" style={`border-color: ${teamColor('blue', settings)}66;`}>
+          <span class="relative grid h-12 w-20 shrink-0 place-items-center overflow-hidden rounded-xl border border-slate-100/15 shadow-lg shadow-slate-950/30" style={`background-color: ${teamColor('blue', settings)};`}>
+            <span class="rounded-full bg-slate-950/70 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-slate-50">Advanced</span>
+            <input class="absolute inset-0 h-full w-full cursor-pointer opacity-0" aria-label={colorInputLabel('blue', settings.customColorBlue, '#3b82f6')} type="color" value={teamColor('blue', settings)} onchange={(event) => setTeamColor('blue', event.currentTarget.value)} />
           </span>
-          <span class="flex min-w-0 flex-1 items-center rounded-xl border border-slate-800 bg-slate-900 px-3 text-xs font-black uppercase tracking-wider text-slate-300">{settings.customColorBlue || '#3b82f6'}</span>
+          <input class="min-w-0 flex-1 rounded-xl border border-slate-800 bg-slate-900 px-3 text-xs font-black uppercase tracking-wider text-slate-300" value={settings.customColorBlue || ''} placeholder="#3b82f6" onchange={(event) => { settings.customColorBlue = event.currentTarget.value; onSave(); }} />
           <button class="flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-black uppercase tracking-wider text-slate-300 transition hover:border-blue-300/70 hover:text-blue-100" type="button" onclick={() => { settings.customColorBlue = ''; onSave(); }}>Reset</button>
+        </div>
+        <div class="mt-2 grid grid-cols-9 gap-1">
+          {#each colorPresets as color (`blue-${color}`)}
+            <button class="h-5 rounded-md border border-slate-100/15" type="button" title={color} style={`background-color: ${color}`} onclick={() => setTeamColor('blue', color)}></button>
+          {/each}
         </div>
       </label>
       <label class="block">
-        <span class="text-xs font-bold text-slate-400">Red team color</span>
-        <div class="mt-2 flex gap-2 rounded-2xl border bg-slate-950/60 p-2 shadow-inner shadow-red-950/20" style={`border-color: ${settings.customColorRed ? settings.customColorRed : '#ef4444'}66;`}>
-          <span class="relative grid h-12 w-20 shrink-0 place-items-center overflow-hidden rounded-xl border border-slate-100/15 shadow-lg shadow-slate-950/30" style={`background-color: ${settings.customColorRed || '#ef4444'};`}>
-            <span class="rounded-full bg-slate-950/70 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-slate-50">Pick</span>
-            <input class="absolute inset-0 h-full w-full cursor-pointer opacity-0" aria-label={colorInputLabel('Red', settings.customColorRed, '#ef4444')} type="color" value={settings.customColorRed || '#ef4444'} onchange={(event) => { settings.customColorRed = event.currentTarget.value; onSave(); }} />
+        <span class="text-xs font-bold text-slate-400">{displayTeamName('red', settings)} color</span>
+        <div class="mt-2 flex gap-2 rounded-2xl border bg-slate-950/60 p-2 shadow-inner shadow-red-950/20" style={`border-color: ${teamColor('red', settings)}66;`}>
+          <span class="relative grid h-12 w-20 shrink-0 place-items-center overflow-hidden rounded-xl border border-slate-100/15 shadow-lg shadow-slate-950/30" style={`background-color: ${teamColor('red', settings)};`}>
+            <span class="rounded-full bg-slate-950/70 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-slate-50">Advanced</span>
+            <input class="absolute inset-0 h-full w-full cursor-pointer opacity-0" aria-label={colorInputLabel('red', settings.customColorRed, '#ef4444')} type="color" value={teamColor('red', settings)} onchange={(event) => setTeamColor('red', event.currentTarget.value)} />
           </span>
-          <span class="flex min-w-0 flex-1 items-center rounded-xl border border-slate-800 bg-slate-900 px-3 text-xs font-black uppercase tracking-wider text-slate-300">{settings.customColorRed || '#ef4444'}</span>
+          <input class="min-w-0 flex-1 rounded-xl border border-slate-800 bg-slate-900 px-3 text-xs font-black uppercase tracking-wider text-slate-300" value={settings.customColorRed || ''} placeholder="#ef4444" onchange={(event) => { settings.customColorRed = event.currentTarget.value; onSave(); }} />
           <button class="flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-black uppercase tracking-wider text-slate-300 transition hover:border-red-300/70 hover:text-red-100" type="button" onclick={() => { settings.customColorRed = ''; onSave(); }}>Reset</button>
+        </div>
+        <div class="mt-2 grid grid-cols-9 gap-1">
+          {#each colorPresets as color (`red-${color}`)}
+            <button class="h-5 rounded-md border border-slate-100/15" type="button" title={color} style={`background-color: ${color}`} onclick={() => setTeamColor('red', color)}></button>
+          {/each}
         </div>
       </label>
     </div>

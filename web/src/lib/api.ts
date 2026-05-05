@@ -15,6 +15,8 @@ export interface Settings {
   randomizeTeams: boolean;
   customColorBlue?: string;
   customColorRed?: string;
+  teamNameBlue?: string;
+  teamNameRed?: string;
   observerChatEnabled: boolean;
   mixedImageOrderFirst: boolean;
 }
@@ -154,6 +156,8 @@ export const defaultSettings: Settings = {
   randomizeTeams: true,
   observerChatEnabled: true,
   mixedImageOrderFirst: false,
+  teamNameBlue: 'Libertarians',
+  teamNameRed: 'Monarchists',
 };
 
 export const api = new ApiClient();

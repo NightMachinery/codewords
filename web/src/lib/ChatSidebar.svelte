@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import type { ChatMessage } from './api';
 
   interface Props {
@@ -11,6 +12,12 @@
   let { messages, draft = $bindable(), canChat, onSend }: Props = $props();
   let expanded = $state(false);
 
+  onMount(() => {
+    const open = () => (expanded = true);
+    window.addEventListener('codewords:open-chat', open);
+    return () => window.removeEventListener('codewords:open-chat', open);
+  });
+
   function handleSubmit() {
     if (draft.trim()) {
       onSend(draft);
@@ -19,20 +26,24 @@
   }
 </script>
 
-<aside class={['fixed bottom-24 right-0 top-0 z-40 border-b border-l border-slate-700/70 bg-slate-900/95 shadow-2xl transition-all duration-300 flex flex-col', expanded ? 'w-80' : 'w-12']}>
+{#if !expanded}
+  <button
+    class="fixed bottom-24 right-3 z-40 grid h-11 w-11 place-items-center rounded-full border border-slate-700/70 bg-slate-900/95 text-xl shadow-2xl transition hover:border-emerald-300/60"
+    onclick={() => expanded = true}
+    title="Expand chat"
+  >
+    💬
+  </button>
+{:else}
+<aside class="fixed bottom-24 right-0 top-0 z-40 flex w-80 flex-col border-b border-l border-slate-700/70 bg-slate-900/95 shadow-2xl transition-all duration-300">
   <button 
     class="flex h-12 w-full items-center justify-center border-b border-slate-700/50 hover:bg-slate-800 transition"
     onclick={() => expanded = !expanded}
     title={expanded ? 'Collapse chat' : 'Expand chat'}
   >
-    {#if expanded}
-      <span class="text-xs font-black uppercase tracking-widest text-slate-400">Chat</span>
-    {:else}
-      <span class="text-xl">💬</span>
-    {/if}
+    <span class="text-xs font-black uppercase tracking-widest text-slate-400">Chat</span>
   </button>
 
-  {#if expanded}
     <div class="flex-1 overflow-y-auto p-4 space-y-3">
       {#each messages as message (message.id)}
         <article class="rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3">
@@ -63,5 +74,5 @@
         </button>
       </div>
     </div>
-  {/if}
 </aside>
+{/if}

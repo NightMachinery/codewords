@@ -1,38 +1,55 @@
 <script lang="ts">
   import { playerBuckets, type LobbyPlayer, type Team } from './lobby';
-  import type { Viewer } from './api';
+  import type { Settings, Viewer } from './api';
+  import { displayTeamName, hexWithAlpha, teamColor } from './gameplay';
 
   interface Props {
     players: LobbyPlayer[];
     viewer: Viewer | null;
+    settings: Settings;
     hostControls: boolean;
     roomHostId: string;
     onAssignTeam: (id: string, team: Team) => void;
     onToggleSpymaster: (id: string) => void;
     onToggleRepresentative: (id: string) => void;
     onToggleMod: (id: string) => void;
+    onRejoinTeam: (id: string) => void;
   }
 
   let {
     players,
     viewer,
+    settings,
     hostControls,
     roomHostId,
     onAssignTeam,
     onToggleSpymaster,
     onToggleRepresentative,
-    onToggleMod
+    onToggleMod,
+    onRejoinTeam
   }: Props = $props();
 
   let buckets = $derived(playerBuckets(players));
 </script>
 
+{#snippet SpyIcon()}
+  <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" aria-hidden="true">
+    <path fill="currentColor" d="M4 9.5 6.2 5h11.6L20 9.5c-2.4.7-5.1 1-8 1s-5.6-.3-8-1Zm2.6 3.1c1.7.3 3.5.4 5.4.4s3.7-.1 5.4-.4l-.7 5.7c-.1 1-1 1.7-2 1.7H9.3c-1 0-1.9-.7-2-1.7l-.7-5.7ZM9 16.2c0 .8.7 1.5 1.5 1.5s1.5-.7 1.5-1.5H9Zm3 0c0 .8.7 1.5 1.5 1.5s1.5-.7 1.5-1.5h-3Z" />
+  </svg>
+{/snippet}
+
+{#snippet RepIcon()}
+  <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" aria-hidden="true">
+    <path fill="currentColor" d="M12 3 4.5 6.4v5.1c0 4.7 3.2 8.1 7.5 9.5 4.3-1.4 7.5-4.8 7.5-9.5V6.4L12 3Zm0 4.1 4 1.8v2.7c0 2.7-1.5 4.8-4 6-2.5-1.2-4-3.3-4-6V8.9l4-1.8Z" />
+  </svg>
+{/snippet}
+
 {#snippet roleBadges(player: LobbyPlayer)}
   {#if player.spymaster}
-    <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-950">Spymaster</span>
+    <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-xs font-black text-slate-950">{@render SpyIcon()} Spy</span>
   {/if}
   {#if player.representative}
-    <span class="rounded-full bg-amber-200 px-2.5 py-1 text-xs font-black text-slate-950">Representative</span>
+    <span class="inline-flex items-center gap-1 rounded-full bg-amber-200 px-2 py-1 text-xs font-black text-slate-950">{@render RepIcon()} Rep</span>
   {/if}
   {#if player.mod}
     <span class="rounded-full bg-emerald-200 px-2.5 py-1 text-xs font-black text-slate-950">Mod</span>
@@ -55,9 +72,14 @@
     </div>
     <div class="mt-4 flex flex-wrap gap-2">
       {#if hostControls || player.id === (viewer?.playerId || viewer?.userId)}
-        <button class={['rounded-full border px-3 py-1.5 text-xs font-bold transition', player.team === 'blue' ? 'border-blue-300 bg-blue-400/20 text-blue-100' : 'border-blue-300/50 text-blue-100/60 hover:bg-blue-400/20']} onclick={() => onAssignTeam(player.id, 'blue')}>Blue</button>
-        <button class={['rounded-full border px-3 py-1.5 text-xs font-bold transition', player.team === 'red' ? 'border-red-300 bg-red-400/20 text-red-100' : 'border-red-300/50 text-red-100/60 hover:bg-red-400/20']} onclick={() => onAssignTeam(player.id, 'red')}>Red</button>
+        <button class={['rounded-full border px-3 py-1.5 text-xs font-bold transition', player.team === 'blue' ? 'text-white' : 'text-slate-100/70']} style={`border-color: ${hexWithAlpha(teamColor('blue', settings), player.team === 'blue' ? 'cc' : '80')}; background-color: ${player.team === 'blue' ? hexWithAlpha(teamColor('blue', settings), '40') : 'transparent'};`} onclick={() => onAssignTeam(player.id, 'blue')}>{displayTeamName('blue', settings)}</button>
+        <button class={['rounded-full border px-3 py-1.5 text-xs font-bold transition', player.team === 'red' ? 'text-white' : 'text-slate-100/70']} style={`border-color: ${hexWithAlpha(teamColor('red', settings), player.team === 'red' ? 'cc' : '80')}; background-color: ${player.team === 'red' ? hexWithAlpha(teamColor('red', settings), '40') : 'transparent'};`} onclick={() => onAssignTeam(player.id, 'red')}>{displayTeamName('red', settings)}</button>
         <button class={['rounded-full border px-3 py-1.5 text-xs font-bold transition', player.team === 'observers' ? 'border-slate-300 bg-slate-400/20 text-slate-100' : 'border-slate-300/50 text-slate-100/60 hover:bg-slate-400/20']} onclick={() => onAssignTeam(player.id, 'observers')}>Observer</button>
+      {/if}
+      {#if player.team === 'observers' && player.previousTeam && (hostControls || player.id === (viewer?.playerId || viewer?.userId))}
+        <button class="rounded-full border border-emerald-300/70 px-3 py-1.5 text-xs font-black text-emerald-100 hover:bg-emerald-300/10" onclick={() => onRejoinTeam(player.id)}>
+          Rejoin {displayTeamName(player.previousTeam, settings)}
+        </button>
       {/if}
       {#if hostControls && (player.team === 'blue' || player.team === 'red')}
         <button class={['rounded-full border px-3 py-1.5 text-xs font-bold transition', player.spymaster ? 'border-slate-100 bg-white text-slate-950' : 'border-slate-600 text-slate-200 hover:border-slate-300']} onclick={() => onToggleSpymaster(player.id)}>Spy</button>
@@ -77,7 +99,8 @@
     tone === 'blue' ? 'border-blue-300/30 bg-blue-400/10' : 
     tone === 'red' ? 'border-red-300/30 bg-red-400/10' : 
     tone === 'observers' ? 'border-slate-500/30 bg-slate-700/10' :
-    'border-slate-700 bg-slate-900/40']}>
+    'border-slate-700 bg-slate-900/40']}
+    style={tone === 'blue' || tone === 'red' ? `border-color: ${hexWithAlpha(teamColor(tone, settings), '55')}; background-color: ${hexWithAlpha(teamColor(tone, settings), '18')};` : ''}>
     <h2 class="text-xl font-black tracking-tight">{title} ({members.length})</h2>
     <div class="mt-4 grid gap-3">
       {#each members as player (player.id)}
@@ -91,8 +114,8 @@
 
 <div class="space-y-6">
   <div class="grid grid-flow-dense gap-6 md:grid-cols-2">
-    {@render TeamColumn('Blue team', 'blue', buckets.blue)}
-    {@render TeamColumn('Red team', 'red', buckets.red)}
+    {@render TeamColumn(displayTeamName('blue', settings), 'blue', buckets.blue)}
+    {@render TeamColumn(displayTeamName('red', settings), 'red', buckets.red)}
   </div>
 
   <div class="grid grid-flow-dense gap-6 md:grid-cols-2">

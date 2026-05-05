@@ -25,6 +25,11 @@ type AssignTeamCommand struct {
 	Team     Team
 }
 
+// RejoinTeamCommand restores an observer to their last playable team and role.
+type RejoinTeamCommand struct {
+	PlayerID string
+}
+
 // ToggleSpymasterCommand toggles spymaster status for a player.
 type ToggleSpymasterCommand struct {
 	PlayerID string
@@ -200,10 +205,36 @@ func (c AssignTeamCommand) apply(state *State, actorID string) (Event, error) {
 		return Event{}, fmt.Errorf("%w: unknown player", ErrInvalidCommand)
 	}
 	if player.Team != c.Team {
+		if c.Team == TeamObservers && (player.Team == TeamBlue || player.Team == TeamRed) {
+			player.PreviousTeam = player.Team
+			player.PreviousSpymaster = player.Spymaster
+			player.PreviousRepresentative = player.Representative
+		}
 		player.Spymaster = false
 		player.Representative = false
 	}
 	player.Team = c.Team
+	state.Players[c.PlayerID] = player
+	return Event{Type: EventTeamAssigned}, nil
+}
+
+func (c RejoinTeamCommand) apply(state *State, actorID string) (Event, error) {
+	if !state.CanManage(actorID) && actorID != c.PlayerID {
+		return Event{}, ErrForbidden
+	}
+	player, ok := state.Players[c.PlayerID]
+	if !ok {
+		return Event{}, fmt.Errorf("%w: unknown player", ErrInvalidCommand)
+	}
+	if player.Team != TeamObservers {
+		return Event{}, fmt.Errorf("%w: player is not an observer", ErrInvalidCommand)
+	}
+	if player.PreviousTeam != TeamBlue && player.PreviousTeam != TeamRed {
+		return Event{}, fmt.Errorf("%w: no previous playable team", ErrInvalidCommand)
+	}
+	player.Team = player.PreviousTeam
+	player.Spymaster = player.PreviousSpymaster
+	player.Representative = player.PreviousRepresentative && !player.Spymaster
 	state.Players[c.PlayerID] = player
 	return Event{Type: EventTeamAssigned}, nil
 }
@@ -512,6 +543,7 @@ func (c RestartMatchCommand) apply(state *State, actorID string) (Event, error) 
 	state.Winner = ""
 	state.LastSelected = nil
 	state.Round = 0
+	state.Settings.Seed++
 	state.ActionID++
 	return Event{Type: EventMatchRestarted}, nil
 }

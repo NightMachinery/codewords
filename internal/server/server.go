@@ -21,6 +21,12 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const (
+	defaultBlueTeamName = "Libertarians"
+	defaultRedTeamName  = "Monarchists"
+	maxTeamNameRunes    = 30
+)
+
 // Options wires the HTTP/API handler to persistence, identity, and local assets.
 type Options struct {
 	Store         *storage.DB
@@ -249,9 +255,23 @@ func (a *app) handleJoinRoom(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized", err.Error())
 		return
 	}
-	if err := a.store.UpsertRoomPlayer(r.Context(), storage.RoomPlayer{RoomID: roomID, UserID: boot.UserID}); err != nil {
-		writeError(w, http.StatusInternalServerError, "join_failed", err.Error())
+	playersBefore, err := a.store.RoomPlayers(r.Context(), roomID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "players_failed", err.Error())
 		return
+	}
+	alreadyMember := false
+	for _, p := range playersBefore {
+		if p.UserID == boot.UserID {
+			alreadyMember = true
+			break
+		}
+	}
+	if !alreadyMember {
+		if err := a.store.UpsertRoomPlayer(r.Context(), storage.RoomPlayer{RoomID: roomID, UserID: boot.UserID}); err != nil {
+			writeError(w, http.StatusInternalServerError, "join_failed", err.Error())
+			return
+		}
 	}
 	rt, err := a.loadRuntime(r.Context(), roomID)
 	if err == nil {
@@ -549,6 +569,11 @@ func (a *app) handleWSMessage(ctx context.Context, roomID string, rt *roomRuntim
 				return
 			}
 			if event.Type == game.EventMatchRestarted {
+				settingsJSON, _ := json.Marshal(normalizeSettings(rt.state.Settings))
+				if err := a.store.UpdateRoomSettings(ctx, roomID, string(settingsJSON)); err != nil {
+					_ = conn.WriteJSON(errorMessage("settings_failed", err.Error()))
+					return
+				}
 				if err := a.store.ClearRoomCurrentMatch(ctx, roomID); err != nil {
 					_ = conn.WriteJSON(errorMessage("restart_failed", err.Error()))
 					return
@@ -651,6 +676,9 @@ func commandFromMessage(t string, msg map[string]any) (game.Command, error) {
 	case "toggleRepresentative":
 		playerID, _ := msg["playerId"].(string)
 		return game.ToggleRepresentativeCommand{PlayerID: playerID}, nil
+	case "rejoinTeam":
+		playerID, _ := msg["playerId"].(string)
+		return game.RejoinTeamCommand{PlayerID: playerID}, nil
 	case "toggleMod":
 		playerID, _ := msg["playerId"].(string)
 		return game.ToggleModCommand{PlayerID: playerID}, nil
@@ -720,7 +748,7 @@ func (a *app) loadRuntime(ctx context.Context, roomID string) (*roomRuntime, err
 	players, _ := a.store.RoomPlayers(ctx, roomID)
 	for _, p := range players {
 		u, _ := a.store.UserByID(ctx, p.UserID)
-		state.Players[p.UserID] = game.Player{ID: p.UserID, DisplayName: u.DisplayName, Team: game.Team(p.Team), Spymaster: p.Spymaster, Representative: p.Representative, Mod: p.Mod || p.UserID == room.HostUserID}
+		state.Players[p.UserID] = game.Player{ID: p.UserID, DisplayName: u.DisplayName, Team: game.Team(p.Team), Spymaster: p.Spymaster, Representative: p.Representative, Mod: p.Mod || p.UserID == room.HostUserID, PreviousTeam: game.Team(p.PreviousTeam), PreviousSpymaster: p.PreviousSpymaster, PreviousRepresentative: p.PreviousRepresentative}
 	}
 	rt.state = state
 	return rt, nil
@@ -742,12 +770,15 @@ func (a *app) persistState(ctx context.Context, matchID, actorID, eventType stri
 func (a *app) syncRoomPlayers(ctx context.Context, roomID string, state game.State) error {
 	for _, player := range state.Players {
 		if err := a.store.UpsertRoomPlayer(ctx, storage.RoomPlayer{
-			RoomID:         roomID,
-			UserID:         player.ID,
-			Team:           string(player.Team),
-			Spymaster:      player.Spymaster,
-			Representative: player.Representative,
-			Mod:            player.Mod || player.ID == state.HostID,
+			RoomID:                 roomID,
+			UserID:                 player.ID,
+			Team:                   string(player.Team),
+			Spymaster:              player.Spymaster,
+			Representative:         player.Representative,
+			Mod:                    player.Mod || player.ID == state.HostID,
+			PreviousTeam:           string(player.PreviousTeam),
+			PreviousSpymaster:      player.PreviousSpymaster,
+			PreviousRepresentative: player.PreviousRepresentative,
 		}); err != nil {
 			return err
 		}
@@ -831,7 +862,51 @@ func normalizeSettings(s game.Settings) game.Settings {
 	if s.WordpackID == "" {
 		s.WordpackID = "english"
 	}
+	s.CustomColorBlue = normalizeHexColor(s.CustomColorBlue)
+	s.CustomColorRed = normalizeHexColor(s.CustomColorRed)
+	s.TeamNameBlue = normalizeTeamName(s.TeamNameBlue, defaultBlueTeamName)
+	s.TeamNameRed = normalizeTeamName(s.TeamNameRed, defaultRedTeamName)
 	return s
+}
+
+func normalizeTeamName(name string, fallback string) string {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return fallback
+	}
+	runes := []rune(trimmed)
+	if len(runes) > maxTeamNameRunes {
+		runes = runes[:maxTeamNameRunes]
+	}
+	return strings.TrimSpace(string(runes))
+}
+
+func normalizeHexColor(color string) string {
+	trimmed := strings.TrimSpace(color)
+	if trimmed == "" {
+		return ""
+	}
+	if len(trimmed) == 4 && trimmed[0] == '#' {
+		for _, r := range trimmed[1:] {
+			if !isHexRune(r) {
+				return ""
+			}
+		}
+		return strings.ToLower(trimmed)
+	}
+	if len(trimmed) == 7 && trimmed[0] == '#' {
+		for _, r := range trimmed[1:] {
+			if !isHexRune(r) {
+				return ""
+			}
+		}
+		return strings.ToLower(trimmed)
+	}
+	return ""
+}
+
+func isHexRune(r rune) bool {
+	return (r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')
 }
 func mustSettings(raw string) game.Settings {
 	var s game.Settings
@@ -868,7 +943,7 @@ func viewerDTO(userID string, host bool, mod bool) map[string]any {
 func playerDTOs(players []storage.RoomPlayer) []map[string]any {
 	out := make([]map[string]any, len(players))
 	for i, p := range players {
-		out[i] = map[string]any{"userId": p.UserID, "id": p.UserID, "team": p.Team, "spymaster": p.Spymaster, "representative": p.Representative, "mod": p.Mod}
+		out[i] = map[string]any{"userId": p.UserID, "id": p.UserID, "team": p.Team, "spymaster": p.Spymaster, "representative": p.Representative, "mod": p.Mod, "previousTeam": p.PreviousTeam, "previousSpymaster": p.PreviousSpymaster, "previousRepresentative": p.PreviousRepresentative}
 	}
 	return out
 }
@@ -1015,7 +1090,7 @@ func snapshotDTO(state game.State, viewerID string) map[string]any {
 	s := state.SnapshotFor(game.Viewer{PlayerID: viewerID})
 	players := make([]map[string]any, 0, len(state.Players))
 	for _, p := range state.Players {
-		players = append(players, map[string]any{"id": p.ID, "displayName": p.DisplayName, "team": p.Team, "spymaster": p.Spymaster, "representative": p.Representative, "mod": p.Mod || p.ID == state.HostID})
+		players = append(players, map[string]any{"id": p.ID, "displayName": p.DisplayName, "team": p.Team, "spymaster": p.Spymaster, "representative": p.Representative, "mod": p.Mod || p.ID == state.HostID, "previousTeam": p.PreviousTeam, "previousSpymaster": p.PreviousSpymaster, "previousRepresentative": p.PreviousRepresentative})
 	}
 	sort.Slice(players, func(i, j int) bool { return players[i]["id"].(string) < players[j]["id"].(string) })
 	cards := make([]map[string]any, len(s.Cards))

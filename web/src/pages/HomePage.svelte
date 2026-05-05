@@ -7,6 +7,7 @@
 
   let authToken = '';
   let displayName = $state('');
+  let userId = $state('');
   let nameDraft = $state('');
   let roomDraft = $state('');
   let loading = $state(true);
@@ -19,6 +20,7 @@
       .bootstrap(authToken)
       .then((identity) => {
         displayName = identity.displayName;
+        userId = identity.userId;
         nameDraft = identity.displayName;
       })
       .catch((err: Error) => {
@@ -48,7 +50,8 @@
       if (!displayName || displayName !== nameDraft.trim()) {
         if (!(await saveName())) return;
       }
-      const created = await api.createRoom(authToken, { ...defaultSettings, seed: Date.now() });
+      const savedSettings = readCreatorSettings();
+      const created = await api.createRoom(authToken, { ...defaultSettings, ...savedSettings, seed: Date.now() });
       window.location.href = roomPath(created.room.id);
     } catch (err) {
       error = err instanceof Error ? err.message : 'Could not create the room.';
@@ -83,6 +86,17 @@
       return match ? decodeURIComponent(match[1]) : text;
     } catch {
       return text.replace(/^#?\/?rooms?\//, '').trim();
+    }
+  }
+
+  function readCreatorSettings() {
+    if (!userId) return {};
+    try {
+      const parsed = JSON.parse(localStorage.getItem(`codewords.creatorSettings.${userId}`) ?? '{}');
+      delete parsed.seed;
+      return parsed;
+    } catch {
+      return {};
     }
   }
 </script>

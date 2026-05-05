@@ -360,6 +360,46 @@ func TestLobbyRoleValidationAndActiveGuessers(t *testing.T) {
 	}
 }
 
+func TestObserverRejoinRestoresPreviousPlayableTeamAndRole(t *testing.T) {
+	state := NewLobby("host", Settings{Seed: 7})
+	state.Players["host"] = Player{ID: "host", Team: TeamBlue, Mod: true}
+	state.Players["rep"] = Player{ID: "rep", Team: TeamBlue, Representative: true}
+	state.Players["spy"] = Player{ID: "spy", Team: TeamRed, Spymaster: true}
+
+	mustApply(t, &state, AssignTeamCommand{PlayerID: "rep", Team: TeamObservers}, "rep")
+	if got := state.Players["rep"]; got.Team != TeamObservers || got.Representative || got.PreviousTeam != TeamBlue || !got.PreviousRepresentative {
+		t.Fatalf("representative observer transition should remember prior role, got %#v", got)
+	}
+	mustApply(t, &state, RejoinTeamCommand{PlayerID: "rep"}, "rep")
+	if got := state.Players["rep"]; got.Team != TeamBlue || !got.Representative || got.Spymaster {
+		t.Fatalf("representative rejoin should restore team and role, got %#v", got)
+	}
+
+	mustApply(t, &state, AssignTeamCommand{PlayerID: "spy", Team: TeamObservers}, "host")
+	mustApply(t, &state, RejoinTeamCommand{PlayerID: "spy"}, "host")
+	if got := state.Players["spy"]; got.Team != TeamRed || !got.Spymaster || got.Representative {
+		t.Fatalf("spymaster rejoin should restore team and role, got %#v", got)
+	}
+}
+
+func TestRestartMatchReseedsNextBoard(t *testing.T) {
+	state := startedState(t, Settings{Seed: 42, BlackCards: 1, WordpackID: "test"})
+	originalSeed := state.Settings.Seed
+	originalCards := append([]Card(nil), state.Cards...)
+
+	mustApply(t, &state, RestartMatchCommand{}, "host")
+	if state.Phase != PhaseLobby || len(state.Cards) != 0 {
+		t.Fatalf("restart should return to empty lobby, got phase=%s cards=%d", state.Phase, len(state.Cards))
+	}
+	if state.Settings.Seed == originalSeed {
+		t.Fatalf("restart should change seed from %d", originalSeed)
+	}
+	mustApply(t, &state, StartCommand{Words: makeWords(40), ImageIDs: makeImageIDs(40)}, "host")
+	if cardsEqual(originalCards, state.Cards) {
+		t.Fatalf("next board should be reshuffled after restart")
+	}
+}
+
 func TestGameplayGuessesPassesWinsAndSnapshots(t *testing.T) {
 	state := startedState(t, Settings{Seed: 11, BlackCards: 1, WordpackID: "test", EnforceClueGuessLimit: false})
 	state.CurrentTeam = TeamBlue
@@ -575,6 +615,18 @@ func makeImageIDs(n int) []string {
 		ids[i] = "image-" + strings.Repeat("x", i+1)
 	}
 	return ids
+}
+
+func cardsEqual(a, b []Card) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func TestCannotStartWithAllSpymasterTeams(t *testing.T) {

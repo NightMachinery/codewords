@@ -117,6 +117,8 @@ type Settings struct {
 	CustomColorRed        string `json:"customColorRed,omitempty"`
 	ObserverChatEnabled   bool   `json:"observerChatEnabled"`
 	MixedImageOrderFirst  bool   `json:"mixedImageOrderFirst"`
+	TeamNameBlue          string `json:"teamNameBlue,omitempty"`
+	TeamNameRed           string `json:"teamNameRed,omitempty"`
 }
 
 // UnmarshalJSON gives API/DB payloads the product default for randomized team
@@ -133,12 +135,15 @@ func (s *Settings) UnmarshalJSON(data []byte) error {
 
 // Player is the authoritative per-room player state.
 type Player struct {
-	ID             string `json:"id"`
-	DisplayName    string `json:"displayName"`
-	Team           Team   `json:"team"`
-	Spymaster      bool   `json:"spymaster"`
-	Representative bool   `json:"representative"`
-	Mod            bool   `json:"mod"`
+	ID                     string `json:"id"`
+	DisplayName            string `json:"displayName"`
+	Team                   Team   `json:"team"`
+	Spymaster              bool   `json:"spymaster"`
+	Representative         bool   `json:"representative"`
+	Mod                    bool   `json:"mod"`
+	PreviousTeam           Team   `json:"previousTeam,omitempty"`
+	PreviousSpymaster      bool   `json:"previousSpymaster,omitempty"`
+	PreviousRepresentative bool   `json:"previousRepresentative,omitempty"`
 }
 
 // LastSelected records the most recent accepted guess.

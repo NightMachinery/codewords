@@ -51,7 +51,10 @@ export interface DisplayCard extends GameplayCard {
 export interface GameplayPreferences {
   confirmGuesses: boolean;
   confirmPasses: boolean;
-  cardsPerRow: number;
+  wordCardsPerRowMobile: number;
+  imageCardsPerRowMobile: number;
+  wordCardsPerRowDesktop: number;
+  imageCardsPerRowDesktop: number;
   chatSound: boolean;
   chatVisualCue: boolean;
   cardChoiceSound: boolean;
@@ -71,7 +74,10 @@ export const panelPreferencesStorageKey = 'codewords.panelPreferences';
 export const defaultGameplayPreferences: GameplayPreferences = {
   confirmGuesses: true,
   confirmPasses: false,
-  cardsPerRow: 5,
+  wordCardsPerRowMobile: 4,
+  imageCardsPerRowMobile: 2,
+  wordCardsPerRowDesktop: 5,
+  imageCardsPerRowDesktop: 5,
   chatSound: true,
   chatVisualCue: true,
   cardChoiceSound: true,
@@ -80,6 +86,11 @@ export const defaultGameplayPreferences: GameplayPreferences = {
   clueVisualCue: true,
   spymasterRevealedStyle: 'invisible',
 };
+
+export const defaultTeamNames = {
+  blue: 'Libertarians',
+  red: 'Monarchists',
+} as const;
 
 export const defaultPanelPreferences: PanelPreferences = {
   modSettingsOpen: true,
@@ -141,13 +152,14 @@ export function canSubmitClue(
   viewer: Viewer | null | undefined,
   currentTeam: Team,
   phase: GameplayPhase,
+  settings?: Settings,
 ): { allowed: boolean; reason: string } {
   if (phase === 'game_over') return { allowed: false, reason: 'The match is over.' };
   if (phase !== 'active') return { allowed: false, reason: 'Clues are available after the match starts.' };
   const player = findViewerPlayer(players, viewer);
   if (!player) return { allowed: false, reason: 'Spectators are read-only.' };
   if (!player.spymaster) return { allowed: false, reason: 'Only spymasters can clue.' };
-  if (player.team !== currentTeam) return { allowed: false, reason: `Only the ${currentTeam} spymaster can clue right now.` };
+  if (player.team !== currentTeam) return { allowed: false, reason: `Only the ${displayTeamName(currentTeam, settings)} spymaster can clue right now.` };
   return { allowed: true, reason: '' };
 }
 
@@ -187,12 +199,15 @@ export function readGameplayPreferences(storage: Pick<Storage, 'getItem'>): Game
   const raw = storage.getItem(gameplayPreferencesStorageKey);
   if (!raw) return { ...defaultGameplayPreferences };
   try {
-    const parsed = JSON.parse(raw) as Partial<GameplayPreferences>;
+    const parsed = JSON.parse(raw) as Partial<GameplayPreferences> & { cardsPerRow?: unknown };
     const spymasterRevealedStyle = ['greyed', 'invisible', 'omitted'].includes(parsed.spymasterRevealedStyle as string) ? parsed.spymasterRevealedStyle as 'greyed' | 'invisible' | 'omitted' : defaultGameplayPreferences.spymasterRevealedStyle;
     return {
       confirmGuesses: typeof parsed.confirmGuesses === 'boolean' ? parsed.confirmGuesses : defaultGameplayPreferences.confirmGuesses,
       confirmPasses: typeof parsed.confirmPasses === 'boolean' ? parsed.confirmPasses : defaultGameplayPreferences.confirmPasses,
-      cardsPerRow: clampCardsPerRow(parsed.cardsPerRow),
+      wordCardsPerRowMobile: clampLayoutCardsPerRow(parsed.wordCardsPerRowMobile ?? parsed.cardsPerRow, 'word', defaultGameplayPreferences.wordCardsPerRowMobile),
+      imageCardsPerRowMobile: clampLayoutCardsPerRow(parsed.imageCardsPerRowMobile ?? parsed.cardsPerRow, 'image', defaultGameplayPreferences.imageCardsPerRowMobile),
+      wordCardsPerRowDesktop: clampLayoutCardsPerRow(parsed.wordCardsPerRowDesktop ?? parsed.cardsPerRow, 'word', defaultGameplayPreferences.wordCardsPerRowDesktop),
+      imageCardsPerRowDesktop: clampLayoutCardsPerRow(parsed.imageCardsPerRowDesktop ?? parsed.cardsPerRow, 'image', defaultGameplayPreferences.imageCardsPerRowDesktop),
       chatSound: typeof parsed.chatSound === 'boolean' ? parsed.chatSound : defaultGameplayPreferences.chatSound,
       chatVisualCue: typeof parsed.chatVisualCue === 'boolean' ? parsed.chatVisualCue : defaultGameplayPreferences.chatVisualCue,
       cardChoiceSound: typeof parsed.cardChoiceSound === 'boolean' ? parsed.cardChoiceSound : defaultGameplayPreferences.cardChoiceSound,
@@ -208,7 +223,13 @@ export function readGameplayPreferences(storage: Pick<Storage, 'getItem'>): Game
 
 export function clampCardsPerRow(value: unknown): number {
   const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
-  if (!Number.isFinite(parsed)) return defaultGameplayPreferences.cardsPerRow;
+  if (!Number.isFinite(parsed)) return defaultGameplayPreferences.wordCardsPerRowDesktop;
+  return Math.min(13, Math.max(1, Math.round(parsed)));
+}
+
+export function clampLayoutCardsPerRow(value: unknown, _kind: 'word' | 'image', fallback = 5): number {
+  const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+  if (!Number.isFinite(parsed)) return fallback;
   return Math.min(13, Math.max(1, Math.round(parsed)));
 }
 
@@ -253,19 +274,48 @@ export function toTitleCase(str: string | undefined): string {
 }
 
 export function hexWithAlpha(hex: string | undefined, alpha: string): string {
-  if (!hex || !hex.startsWith('#')) return hex ?? '';
-  if (hex.length === 4) {
-    const [, r, g, b] = hex;
+  if (!isValidHexColor(hex)) return '';
+  const color = hex as string;
+  if (color.length === 4) {
+    const [, r, g, b] = color;
     return `#${r}${r}${g}${g}${b}${b}${alpha}`;
   }
-  if (hex.length === 7) return `${hex}${alpha}`;
+  if (color.length === 7) return `${color}${alpha}`;
   return '';
+}
+
+export function isValidHexColor(hex: string | undefined): boolean {
+  return Boolean(hex && (/^#[0-9a-fA-F]{3}$/.test(hex) || /^#[0-9a-fA-F]{6}$/.test(hex)));
+}
+
+export function normalizedHexColor(hex: string | undefined, fallback = ''): string {
+  return isValidHexColor(hex) ? hex as string : fallback;
+}
+
+export function displayTeamName(team: Team | 'blue' | 'red' | '', settings: Settings | undefined): string {
+  if (team === 'blue') return (settings?.teamNameBlue?.trim() || defaultTeamNames.blue).slice(0, 30);
+  if (team === 'red') return (settings?.teamNameRed?.trim() || defaultTeamNames.red).slice(0, 30);
+  if (team === 'observers') return 'Observers';
+  return 'Waiting';
+}
+
+export function teamColor(team: Team | 'blue' | 'red' | '', settings: Settings | undefined): string {
+  if (team === 'blue') return normalizedHexColor(settings?.customColorBlue, '#3b82f6');
+  if (team === 'red') return normalizedHexColor(settings?.customColorRed, '#ef4444');
+  return '';
+}
+
+export function mixedCardGridStyle(card: Pick<DisplayCard, 'contentType'>, rows: { word: number; image: number }): string {
+  const maxColumns = Math.max(rows.word, rows.image, 1);
+  const target = card.contentType === 'image' ? rows.image : rows.word;
+  const span = Math.max(1, Math.round(maxColumns / Math.max(1, target)));
+  return `--card-span: ${span};`;
 }
 
 export function cardWordTextClasses(word: string | undefined): string {
   const length = [...(word ?? '')].length;
-  const size = length > 28 ? 'text-sm sm:text-base' : length > 18 ? 'text-base sm:text-lg' : 'text-xl sm:text-2xl';
-  return ['mt-4 block overflow-hidden break-normal hyphens-auto text-balance text-center font-black tracking-[0.04em]', size].join(' ');
+  const size = length > 28 ? 'text-[clamp(0.58rem,1.6vw,1rem)]' : length > 18 ? 'text-[clamp(0.72rem,2vw,1.25rem)]' : 'text-[clamp(0.9rem,2.8vw,1.65rem)]';
+  return ['block max-w-full overflow-visible break-normal hyphens-auto text-balance text-center font-black leading-none tracking-[0.02em]', size].join(' ');
 }
 
 export function cardModeFromImageCount(imageCardCount: number): CardMode {
@@ -350,4 +400,11 @@ export function cardViewState(
 export function shouldCueChatMessage(viewer: Viewer | null | undefined, message: Pick<{ senderUserId: string }, 'senderUserId'>): boolean {
   const id = viewerId(viewer);
   return !id || message.senderUserId !== id;
+}
+
+export function chatCueNotice(message: Pick<{ displayName: string; body: string }, 'displayName' | 'body'>): string {
+  const name = message.displayName?.trim() || 'Player';
+  const compact = message.body.trim().replace(/\s+/g, ' ');
+  const truncated = compact.length > 38 ? `${compact.slice(0, 38)}…` : compact;
+  return `${name}: ${truncated}`;
 }

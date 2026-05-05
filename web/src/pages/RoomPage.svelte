@@ -13,10 +13,13 @@
     clueLogKey,
     clueNumberFromInput,
     clueSubmitProblem,
+    chatCueNotice,
     defaultGameplayPreferences,
     displayCards,
+    displayTeamName,
     findViewerPlayer,
     formatClueNumber,
+    mixedCardGridStyle,
     readPanelPreferences,
     readGameplayPreferences,
     shouldAutoJoinRoom,
@@ -27,6 +30,7 @@
     writeGameplayPreferences,
     toTitleCase,
     hexWithAlpha,
+    teamColor,
     type ClueEntry,
     type GameplayCard,
     type GameplayPreferences,
@@ -94,12 +98,22 @@
   let needsName = $derived(Boolean(credentialMode === 'auth' && !displayName && roomStatus === 'lobby'));
   let role = $derived(viewerRole(players, viewer, currentTeam as any, phase));
   let activeTeamHasRepresentative = $derived(players.some((player) => player.team === currentTeam && player.representative));
-  let cluePermission = $derived(canSubmitClue(players, viewer, currentTeam as any, phase));
+  let cluePermission = $derived(canSubmitClue(players, viewer, currentTeam as any, phase, settings));
   let clueNumberParsed = $derived(clueNumberFromInput(clueNumber));
   let clueProblem = $derived(clueSubmitProblem(clueText, clueNumberParsed as any, settings));
   let currentClue = $derived(clueLog.slice().reverse().find((entry) => entry.status === 'active') ?? null);
   let guessProblem = $derived(guessDisabledReason());
   let passProblem = $derived(passDisabledReason());
+  let activeRows = $derived(cardMode === 'words'
+    ? { word: preferences.wordCardsPerRowDesktop, image: preferences.wordCardsPerRowDesktop }
+    : cardMode === 'images'
+      ? { word: preferences.imageCardsPerRowDesktop, image: preferences.imageCardsPerRowDesktop }
+      : { word: preferences.wordCardsPerRowDesktop, image: preferences.imageCardsPerRowDesktop });
+  let mobileRows = $derived(cardMode === 'words'
+    ? { word: preferences.wordCardsPerRowMobile, image: preferences.wordCardsPerRowMobile }
+    : cardMode === 'images'
+      ? { word: preferences.imageCardsPerRowMobile, image: preferences.imageCardsPerRowMobile }
+      : { word: preferences.wordCardsPerRowMobile, image: preferences.imageCardsPerRowMobile });
 
   onMount(() => {
     void boot();
@@ -137,6 +151,7 @@
       roomHostId = room.room.hostUserId;
       viewer = room.viewer;
       settings = { ...defaultSettings, ...room.settings };
+      rememberCreatorSettings();
       chatMessages = room.chatMessages ?? [];
       if (shouldAutoJoinRoom(room.room, credential.mode, displayName)) {
         await api.joinRoom(roomId, authToken, displayName);
@@ -204,6 +219,7 @@
       lastClueSignature = nextClueSignature;
       players = message.snapshot.players;
       settings = { ...defaultSettings, ...message.snapshot.settings };
+      rememberCreatorSettings();
       viewer = message.snapshot.viewer;
       phase = message.snapshot.phase;
       currentTeam = message.snapshot.currentTeam as any;
@@ -216,7 +232,7 @@
     if (message.type === 'chatMessage') {
       chatMessages = [...chatMessages, message.message].slice(-50);
       if (shouldCueChatMessage(viewer, message.message)) {
-        emitCue('chat', 'New chat message.');
+        emitCue('chat', chatCueNotice(message.message));
       }
     }
     if (message.type === 'error') {
@@ -269,7 +285,7 @@
     if (!role.player) return 'Spectators are read-only.';
     if (!role.activeGuesser) {
       if (role.kind === 'spymaster') return 'Spymasters cannot guess while teammates can.';
-      return `Only the ${currentTeam} guesser can reveal cards.`;
+      return `Only the ${displayTeamName(currentTeam, settings)} guesser can reveal cards.`;
     }
     if (settings.enforceClueGuessLimit && (!currentClue || currentClue.number.kind === 'blank')) return 'Wait for a numbered clue first.';
     if (card?.revealed) return 'That card is already revealed.';
@@ -280,7 +296,7 @@
     if (phase === 'game_over') return 'The match is over.';
     if (phase !== 'active') return 'The match has not started.';
     if (!role.player) return 'Spectators are read-only.';
-    if (!role.activeGuesser) return role.kind === 'spymaster' ? 'Spymasters cannot pass while teammates can.' : `Only the ${currentTeam} guesser can pass.`;
+    if (!role.activeGuesser) return role.kind === 'spymaster' ? 'Spymasters cannot pass while teammates can.' : `Only the ${displayTeamName(currentTeam, settings)} guesser can pass.`;
     return '';
   }
 
@@ -346,7 +362,8 @@
   async function copyRoomLink() {
     const link = `${window.location.origin}${roomPath(roomId)}`;
     const result = await copyText(link);
-    copyStatus = result.ok ? 'Room link copied.' : link;
+      copyStatus = result.ok ? 'Room link copied.' : link;
+      clearCopyStatusSoon(copyStatus);
   }
 
   async function copyMigrateLink() {
@@ -356,6 +373,7 @@
       migrateUrl = link.migrateUrl;
       const result = await copyText(link.migrateUrl);
       copyStatus = result.ok ? 'Migrate-device link copied.' : link.migrateUrl;
+      clearCopyStatusSoon(copyStatus);
     } catch (err) {
       error = err instanceof Error ? err.message : 'Could not create a migrate link.';
     }
@@ -370,8 +388,8 @@
   }
 
   function imageSelectionBorder(color: string) {
-    if (color === 'blue') return settings.customColorBlue || '#93c5fd';
-    if (color === 'red') return settings.customColorRed || '#fca5a5';
+    if (color === 'blue') return teamColor('blue', settings) || '#93c5fd';
+    if (color === 'red') return teamColor('red', settings) || '#fca5a5';
     if (color === 'black') return '#d4d4d8';
     if (color === 'civilian') return '#fde68a';
     return '#e5e7eb';
@@ -385,6 +403,26 @@
     if (window.confirm('Restart this match and return everyone to the lobby?')) {
       socket?.send({ type: 'restartMatch' });
     }
+  }
+
+  function clearCopyStatusSoon(value: string) {
+    window.setTimeout(() => {
+      if (copyStatus === value) copyStatus = '';
+    }, 2400);
+  }
+
+  function navigateTo(target: string) {
+    if (target === 'chat') {
+      window.dispatchEvent(new CustomEvent('codewords:open-chat'));
+      return;
+    }
+    document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function rememberCreatorSettings() {
+    if (!viewer?.isHost || !viewer.userId) return;
+    const saved = { ...settings, seed: undefined };
+    localStorage.setItem(`codewords.creatorSettings.${viewer.userId}`, JSON.stringify(saved));
   }
 </script>
 
@@ -452,12 +490,14 @@
           <PlayerList 
             players={players} 
             viewer={viewer} 
+            settings={settings}
             hostControls={hostControls} 
             roomHostId={roomHostId}
             onAssignTeam={(id, team) => socket?.send({ type: 'assignTeam', playerId: id, team })}
             onToggleSpymaster={(id) => socket?.send({ type: 'toggleSpymaster', playerId: id })}
             onToggleRepresentative={(id) => socket?.send({ type: 'toggleRepresentative', playerId: id })}
             onToggleMod={(id) => socket?.send({ type: 'toggleMod', playerId: id })}
+            onRejoinTeam={(id) => socket?.send({ type: 'rejoinTeam', playerId: id })}
           />
         </div>
 
@@ -496,9 +536,9 @@
         <section class="grid gap-6 xl:grid-cols-[1fr_24rem]">
           <div class="space-y-6">
             {#if phase === 'game_over'}
-              <section class={['rounded-[2rem] border p-6 shadow-2xl shadow-slate-950/30', winner === 'blue' ? 'border-blue-300/50 bg-blue-400/15' : 'border-red-300/50 bg-red-400/15']}>
+              <section class={['rounded-[2rem] border p-6 shadow-2xl shadow-slate-950/30', winner === 'blue' ? 'border-blue-300/50 bg-blue-400/15' : 'border-red-300/50 bg-red-400/15']} style={winner ? `border-color: ${hexWithAlpha(teamColor(winner, settings), '80')}; background-color: ${hexWithAlpha(teamColor(winner, settings), '26')};` : ''}>
                 <p class="text-sm font-black uppercase tracking-[0.25em] text-emerald-200">Game over</p>
-                <h2 class="mt-2 text-4xl font-black tracking-[-0.04em] text-slate-50">{winner === 'blue' ? 'Blue' : 'Red'} team wins</h2>
+                <h2 class="mt-2 text-4xl font-black tracking-[-0.04em] text-slate-50">{displayTeamName(winner, settings)} wins</h2>
                 <p class="mt-3 text-slate-300">All card colors are now revealed to every viewer.</p>
               </section>
             {/if}
@@ -512,27 +552,27 @@
                   </div>
                 </div>
                 <div class="flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-widest">
-                  <span class="rounded-full border border-blue-300/40 bg-blue-400/15 px-3 py-1.5 text-blue-100" style={settings.customColorBlue ? `border-color: ${hexWithAlpha(settings.customColorBlue, '66')}; background-color: ${hexWithAlpha(settings.customColorBlue, '26')}; color: ${settings.customColorBlue}` : ''}>Blue {remainingCounts.blue}</span>
-                  <span class="rounded-full border border-red-300/40 bg-red-400/15 px-3 py-1.5 text-red-100" style={settings.customColorRed ? `border-color: ${hexWithAlpha(settings.customColorRed, '66')}; background-color: ${hexWithAlpha(settings.customColorRed, '26')}; color: ${settings.customColorRed}` : ''}>Red {remainingCounts.red}</span>
+                  <span class="rounded-full border border-blue-300/40 bg-blue-400/15 px-3 py-1.5 text-blue-100" style={`border-color: ${hexWithAlpha(teamColor('blue', settings), '66')}; background-color: ${hexWithAlpha(teamColor('blue', settings), '26')}; color: ${teamColor('blue', settings)}`}>{displayTeamName('blue', settings)} {remainingCounts.blue}</span>
+                  <span class="rounded-full border border-red-300/40 bg-red-400/15 px-3 py-1.5 text-red-100" style={`border-color: ${hexWithAlpha(teamColor('red', settings), '66')}; background-color: ${hexWithAlpha(teamColor('red', settings), '26')}; color: ${teamColor('red', settings)}`}>{displayTeamName('red', settings)} {remainingCounts.red}</span>
                   <span class="rounded-full border border-amber-200/40 bg-amber-200/10 px-3 py-1.5 text-amber-100">Civilian {remainingCounts.civilian}</span>
                   <span class="rounded-full border border-zinc-500/40 bg-zinc-950 px-3 py-1.5 text-zinc-100">Assassin {remainingCounts.black}</span>
                 </div>
               </div>
 
-              <div class="grid gap-2 md:gap-3" style={`grid-template-columns: repeat(${preferences.cardsPerRow}, minmax(0, 1fr));`}>
+              <div id="board" class="grid gap-2 md:gap-3 [grid-template-columns:repeat(var(--mobile-card-columns),minmax(0,1fr))] md:[grid-template-columns:repeat(var(--card-columns),minmax(0,1fr))]" style={`--mobile-card-columns: ${Math.max(mobileRows.word, mobileRows.image)}; --card-columns: ${Math.max(activeRows.word, activeRows.image)};`}>
                 {#each sortedCards as card, index (`${card.word ?? card.imageId ?? 'card'}-${card.originalIndex}`)}
                   {@const showHiddenColor = role.canSeeHiddenColors && (role.kind !== 'spymaster' || spymasterViewActive)}
                   {@const revealedStyle = (role.kind === 'spymaster' && spymasterViewActive) ? preferences.spymasterRevealedStyle : 'normal'}
                   {@const view = cardViewState(card, card.originalIndex, showHiddenColor, lastSelected, revealedStyle)}
-                  {@const customColor = card.color === 'blue' ? settings.customColorBlue : card.color === 'red' ? settings.customColorRed : ''}
+                  {@const customColor = card.color === 'blue' ? teamColor('blue', settings) : card.color === 'red' ? teamColor('red', settings) : ''}
                   <button
-                    class={['group relative overflow-hidden rounded-xl border p-1 text-left shadow-xl shadow-slate-950/25 transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', card.contentType === 'image' ? 'aspect-[2/3] border-4' : 'min-h-24 sm:min-h-32', view.classes, !role.activeGuesser || card.revealed || phase !== 'active' ? 'disabled:opacity-80' : ''].join(' ')}
-                    style={view.visibleColor !== 'hidden' && customColor ? `border-color: ${hexWithAlpha(customColor, 'B3')}; background-color: ${hexWithAlpha(customColor, '40')}; color: white` : ''}
+                    class={['group relative col-span-[var(--card-span)] rounded-xl border p-1 text-left shadow-xl shadow-slate-950/25 transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', card.contentType === 'image' ? 'aspect-[2/3] overflow-hidden border-4' : 'min-h-20 overflow-visible sm:min-h-28', view.classes, !role.activeGuesser || card.revealed || phase !== 'active' ? 'disabled:opacity-80' : ''].join(' ')}
+                    style={`${mixedCardGridStyle(card, activeRows)} ${view.visibleColor !== 'hidden' && customColor ? `border-color: ${hexWithAlpha(customColor, 'B3')}; background-color: ${hexWithAlpha(customColor, '40')}; color: white` : ''}`}
                     disabled={Boolean(guessDisabledReason(card))}
                     title={guessDisabledReason(card) || `Reveal ${cardContentLabel(card)}`}
                     onclick={() => guessCard(card.originalIndex, card)}
                   >
-                    <span class="absolute left-2 top-2 z-10 rounded-full border border-slate-100/20 bg-slate-950/80 px-2 py-1 text-[10px] font-black leading-none text-slate-100 shadow-lg shadow-slate-950/40 backdrop-blur-sm">
+                    <span class="absolute left-0 top-0 z-10 rounded-br-lg border-b border-r border-slate-100/20 bg-slate-950/85 px-1.5 py-1 text-[10px] font-black leading-none text-slate-100">
                       #{card.badgeNumber}
                     </span>
                     {#if card.contentType === 'image'}
@@ -541,7 +581,7 @@
                         <span class="pointer-events-none absolute inset-1 rounded-lg border-4" style={`border-color: ${imageSelectionBorder(view.visibleColor)}; box-shadow: inset 0 0 0 2px rgba(16, 185, 129, 0.65);`}></span>
                       {/if}
                     {:else}
-                      <div class="flex h-full items-center justify-center p-2">
+                      <div class="flex h-full min-h-16 items-center justify-center p-1.5">
                         <span class={cardWordTextClasses(card.word)}>{toTitleCase(card.word) || 'Card'}</span>
                       </div>
                     {/if}
@@ -557,21 +597,23 @@
             <PlayerList 
               players={players} 
               viewer={viewer} 
+              settings={settings}
               hostControls={hostControls} 
               roomHostId={roomHostId}
               onAssignTeam={(id, team) => socket?.send({ type: 'assignTeam', playerId: id, team })}
               onToggleSpymaster={(id) => socket?.send({ type: 'toggleSpymaster', playerId: id })}
               onToggleRepresentative={(id) => socket?.send({ type: 'toggleRepresentative', playerId: id })}
               onToggleMod={(id) => socket?.send({ type: 'toggleMod', playerId: id })}
+              onRejoinTeam={(id) => socket?.send({ type: 'rejoinTeam', playerId: id })}
             />
 
-            <section class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5">
+            <section id="clues" class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5">
               <h2 class="text-xl font-black tracking-tight">Clue log</h2>
               <div class="mt-4 space-y-3">
                 {#each clueLog.slice().reverse() as clue, index (clueLogKey(clue, index))}
                   <article class="rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3">
                     <div class="flex items-center justify-between gap-3">
-                      <span class={['rounded-full px-2.5 py-1 text-xs font-black capitalize', clue.team === 'blue' ? 'bg-blue-300 text-blue-950' : 'bg-red-300 text-red-950']} style={clue.team === 'blue' && settings.customColorBlue ? `background-color: ${settings.customColorBlue}; color: white` : clue.team === 'red' && settings.customColorRed ? `background-color: ${settings.customColorRed}; color: white` : ''}>{clue.team}</span>
+                      <span class={['rounded-full px-2.5 py-1 text-xs font-black capitalize', clue.team === 'blue' ? 'bg-blue-300 text-blue-950' : 'bg-red-300 text-red-950']} style={`background-color: ${teamColor(clue.team, settings)}; color: white`}>{displayTeamName(clue.team, settings)}</span>
                       <span class="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{clue.status}</span>
                     </div>
                     <p class="mt-2 font-black">{clue.text} · {formatClueNumber(clue.number)}</p>
@@ -600,7 +642,7 @@
               onRestartMatch={restartMatch}
             />
 
-            <section class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5">
+            <section id="local-options" class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5">
               <button class="group flex w-full items-center gap-3 text-left" type="button" onclick={() => updatePanelPreferences({ localOptionsOpen: !panelPreferences.localOptionsOpen })} aria-expanded={panelPreferences.localOptionsOpen}>
                 <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-slate-700 bg-slate-950 text-sm font-black text-slate-300 transition group-hover:border-emerald-300/60 group-hover:text-emerald-200">{panelPreferences.localOptionsOpen ? '−' : '+'}</span>
                 <span>
@@ -617,10 +659,13 @@
                   <input type="checkbox" checked={preferences.confirmPasses} onchange={(event) => updatePreferences({ confirmPasses: event.currentTarget.checked })} />
                   <span class="text-sm text-slate-200">Confirm before passing</span>
                 </label>
-                <label class="mt-3 block rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
-                  <span class="text-sm text-slate-200 font-bold">Cards per row: {preferences.cardsPerRow}</span>
-                  <input class="mt-2 w-full accent-emerald-300" type="range" min="1" max="13" value={preferences.cardsPerRow} oninput={(event) => updatePreferences({ cardsPerRow: Number.parseInt(event.currentTarget.value, 10) })} />
-                </label>
+                <div class="mt-3 grid gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
+                  <span class="text-sm text-slate-200 font-bold">Cards per row</span>
+                  <label class="text-xs text-slate-400">Mobile words: {preferences.wordCardsPerRowMobile}<input class="mt-1 w-full accent-emerald-300" type="range" min="1" max="13" value={preferences.wordCardsPerRowMobile} oninput={(event) => updatePreferences({ wordCardsPerRowMobile: Number.parseInt(event.currentTarget.value, 10) })} /></label>
+                  <label class="text-xs text-slate-400">Mobile images: {preferences.imageCardsPerRowMobile}<input class="mt-1 w-full accent-emerald-300" type="range" min="1" max="13" value={preferences.imageCardsPerRowMobile} oninput={(event) => updatePreferences({ imageCardsPerRowMobile: Number.parseInt(event.currentTarget.value, 10) })} /></label>
+                  <label class="text-xs text-slate-400">Desktop words: {preferences.wordCardsPerRowDesktop}<input class="mt-1 w-full accent-emerald-300" type="range" min="1" max="13" value={preferences.wordCardsPerRowDesktop} oninput={(event) => updatePreferences({ wordCardsPerRowDesktop: Number.parseInt(event.currentTarget.value, 10) })} /></label>
+                  <label class="text-xs text-slate-400">Desktop images: {preferences.imageCardsPerRowDesktop}<input class="mt-1 w-full accent-emerald-300" type="range" min="1" max="13" value={preferences.imageCardsPerRowDesktop} oninput={(event) => updatePreferences({ imageCardsPerRowDesktop: Number.parseInt(event.currentTarget.value, 10) })} /></label>
+                </div>
                 <label class="mt-3 block rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
                   <span class="text-sm text-slate-200 font-bold">Spymaster view style</span>
                   <select class="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" bind:value={preferences.spymasterRevealedStyle} onchange={(event) => updatePreferences({ spymasterRevealedStyle: event.currentTarget.value as any })}>
@@ -683,6 +728,8 @@
         passProblem={passProblem}
         activeTeamHasRepresentative={activeTeamHasRepresentative}
         settings={settings}
+        players={players}
+        onNavigate={navigateTo}
         spymasterViewActive={spymasterViewActive}
         onToggleView={() => (spymasterViewActive = !spymasterViewActive)}
         onSubmitClue={submitClue}
