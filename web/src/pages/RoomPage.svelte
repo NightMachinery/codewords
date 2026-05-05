@@ -17,6 +17,8 @@
     defaultGameplayPreferences,
     displayCards,
     displayTeamName,
+    endGameOutcome,
+    buildMemoryCaptureModel,
     findViewerPlayer,
     formatClueNumber,
     mixedCardGridStyle,
@@ -36,8 +38,10 @@
     type GameplayPreferences,
     type LastSelected,
     type PanelPreferences,
+    type EndGameOutcome,
     type RemainingCounts,
   } from '../lib/gameplay';
+  import { downloadMemoryCapture } from '../lib/memoryCapture';
   import { getOrCreateAuthToken, resolveSessionCredential, type SessionCredential } from '../lib/identity';
   import { canManageLobby, playerBuckets, startReadiness, type LobbyPlayer } from '../lib/lobby';
   import { RoomSocket, type RoomSocketMessage } from '../lib/realtime';
@@ -82,6 +86,9 @@
   let copyStatus = $state('');
   let migrateUrl = $state('');
   let cueNotice = $state('');
+  let endGameCue = $state<{ outcome: EndGameOutcome; team: 'blue' | 'red'; text: string } | null>(null);
+  let captureStatus = $state('');
+  let captureBusy = $state(false);
   let socket: RoomSocket | null = null;
   let sawSnapshot = false;
   let previousCardsForCue: GameplayCard[] = [];
@@ -208,6 +215,7 @@
     if (message.type === 'snapshot') {
       const nextClueSignature = clueSignature(message.snapshot.clueLog ?? []);
       const nextCards = message.snapshot.cards ?? [];
+      const enteredGameOver = sawSnapshot && phase !== 'game_over' && message.snapshot.phase === 'game_over' && Boolean(message.snapshot.winner);
       if (sawSnapshot && shouldCueCardReveal(previousCardsForCue, nextCards)) {
         emitCue('cardChoice', 'A card was revealed.');
       }
@@ -228,6 +236,9 @@
       lastSelected = message.snapshot.lastSelected ?? null;
       remainingCounts = message.snapshot.remainingCounts ?? { blue: 0, red: 0, civilian: 0, black: 0 };
       clueLog = message.snapshot.clueLog ?? [];
+      if (enteredGameOver) {
+        emitEndGameCue(message.snapshot.winner as 'blue' | 'red', message.snapshot.viewer, message.snapshot.players);
+      }
     }
     if (message.type === 'chatMessage') {
       chatMessages = [...chatMessages, message.message].slice(-50);
@@ -310,6 +321,22 @@
     writePanelPreferences(localStorage, panelPreferences);
   }
 
+
+  function emitEndGameCue(winningTeam: 'blue' | 'red', snapshotViewer: Viewer | null | undefined, snapshotPlayers: LobbyPlayer[]) {
+    const outcome = endGameOutcome(winningTeam, snapshotViewer, snapshotPlayers);
+    const teamName = displayTeamName(winningTeam, settings);
+    const text = outcome === 'win' ? `${teamName} takes the board.` : outcome === 'loss' ? `${teamName} wins this round.` : `${teamName} wins.`;
+    if (preferences.endGameVisualCue) {
+      endGameCue = { outcome, team: winningTeam, text };
+      window.setTimeout(() => {
+        if (endGameCue?.text === text) endGameCue = null;
+      }, 4200);
+    }
+    if (preferences.endGameSound) {
+      playEndGameCue(outcome);
+    }
+  }
+
   function emitCue(kind: 'chat' | 'cardChoice' | 'clue', notice: string) {
     const soundEnabled = kind === 'chat' ? preferences.chatSound : kind === 'cardChoice' ? preferences.cardChoiceSound : preferences.clueSound;
     const visualEnabled = kind === 'chat' ? preferences.chatVisualCue : kind === 'cardChoice' ? preferences.cardChoiceVisualCue : preferences.clueVisualCue;
@@ -321,6 +348,33 @@
     }
     if (soundEnabled) {
       playCue();
+    }
+  }
+
+
+  function playEndGameCue(outcome: EndGameOutcome) {
+    const notes = outcome === 'win' ? [523.25, 659.25, 783.99, 1046.5] : outcome === 'loss' ? [392, 329.63, 261.63] : [440, 554.37, 659.25];
+    try {
+      const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      notes.forEach((frequency, index) => {
+        const oscillator = ctx.createOscillator();
+        const gain = ctx.createGain();
+        oscillator.type = outcome === 'loss' ? 'triangle' : 'sine';
+        oscillator.frequency.value = frequency;
+        const start = ctx.currentTime + index * 0.11;
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(outcome === 'loss' ? 0.045 : 0.065, start + 0.025);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.26);
+        oscillator.connect(gain);
+        gain.connect(ctx.destination);
+        oscillator.start(start);
+        oscillator.stop(start + 0.28);
+      });
+      window.setTimeout(() => void ctx.close(), 900);
+    } catch {
+      // Browsers may block audio until a user gesture; local visual cues still work.
     }
   }
 
@@ -419,6 +473,30 @@
     document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+
+  async function captureMemory() {
+    if (winner !== 'blue' && winner !== 'red') return;
+    captureBusy = true;
+    captureStatus = '';
+    error = '';
+    try {
+      const model = buildMemoryCaptureModel({ roomId, winner, players, cards, settings });
+      await downloadMemoryCapture(model);
+      captureStatus = 'Memory image downloaded.';
+      clearCaptureStatusSoon(captureStatus);
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Could not capture the memory image.';
+    } finally {
+      captureBusy = false;
+    }
+  }
+
+  function clearCaptureStatusSoon(value: string) {
+    window.setTimeout(() => {
+      if (captureStatus === value) captureStatus = '';
+    }, 2600);
+  }
+
   function rememberCreatorSettings() {
     if (!viewer?.isHost || !viewer.userId) return;
     const saved = { ...settings, seed: undefined };
@@ -465,7 +543,7 @@
         <div class="max-w-5xl">
           <p class="mb-4 text-sm font-semibold uppercase tracking-[0.22em] text-emerald-300">Room {roomId}</p>
           <h1 class="max-w-5xl text-5xl font-black leading-[0.96] tracking-[-0.05em] text-slate-50 sm:text-7xl">
-            {phase === 'lobby' ? 'Gather teams, choose roles, then start.' : phase === 'game_over' ? `${winner || 'A team'} wins the board.` : ''}
+            {phase === 'lobby' ? 'Gather teams, choose roles, then start.' : phase === 'game_over' ? `${displayTeamName(winner, settings)} wins the board.` : ''}
           </h1>
         </div>
 
@@ -536,10 +614,31 @@
         <section class="grid gap-6 xl:grid-cols-[1fr_24rem]">
           <div class="space-y-6">
             {#if phase === 'game_over'}
-              <section class={['rounded-[2rem] border p-6 shadow-2xl shadow-slate-950/30', winner === 'blue' ? 'border-blue-300/50 bg-blue-400/15' : 'border-red-300/50 bg-red-400/15']} style={winner ? `border-color: ${hexWithAlpha(teamColor(winner, settings), '80')}; background-color: ${hexWithAlpha(teamColor(winner, settings), '26')};` : ''}>
-                <p class="text-sm font-black uppercase tracking-[0.25em] text-emerald-200">Game over</p>
-                <h2 class="mt-2 text-4xl font-black tracking-[-0.04em] text-slate-50">{displayTeamName(winner, settings)} wins</h2>
-                <p class="mt-3 text-slate-300">All card colors are now revealed to every viewer.</p>
+              <section class={['relative overflow-hidden rounded-[2rem] border p-6 shadow-2xl shadow-slate-950/30', winner === 'blue' ? 'border-blue-300/50 bg-blue-400/15' : 'border-red-300/50 bg-red-400/15']} style={winner ? `border-color: ${hexWithAlpha(teamColor(winner, settings), '80')}; background-color: ${hexWithAlpha(teamColor(winner, settings), '26')};` : ''}>
+                <div class="pointer-events-none absolute -right-14 -top-16 h-48 w-48 rounded-full opacity-25 blur-2xl" style={`background-color: ${teamColor(winner, settings)}`}></div>
+                <div class="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                  <div>
+                    <p class="text-sm font-black uppercase tracking-[0.25em] text-emerald-200">Game over</p>
+                    <h2 class="mt-2 text-4xl font-black tracking-[-0.04em] text-slate-50">{displayTeamName(winner, settings)} wins</h2>
+                    <p class="mt-3 max-w-2xl text-slate-300">All card colors are revealed. Save the final board, winner, rivals, and team rosters as a keepsake.</p>
+                    {#if captureStatus}
+                      <p class="mt-3 text-sm font-bold text-emerald-200">{captureStatus}</p>
+                    {/if}
+                  </div>
+                  <button
+                    class="inline-flex items-center justify-center gap-3 rounded-2xl bg-slate-100 px-5 py-3 font-black text-slate-950 shadow-xl shadow-slate-950/30 transition hover:bg-emerald-200 disabled:cursor-wait disabled:opacity-70"
+                    type="button"
+                    disabled={captureBusy}
+                    onclick={captureMemory}
+                  >
+                    <svg class="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M5 5.5C5 4.1 6.1 3 7.5 3h9C17.9 3 19 4.1 19 5.5v13c0 .8-.9 1.3-1.6.9L12 16.2l-5.4 3.2c-.7.4-1.6-.1-1.6-.9v-13Z" fill="currentColor" opacity="0.2" />
+                      <path d="M8 7h8M8 10h5M7 3.75h10A1.25 1.25 0 0 1 18.25 5v12.6l-5.6-3.1a1.3 1.3 0 0 0-1.3 0l-5.6 3.1V5A1.25 1.25 0 0 1 7 3.75Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" />
+                      <path d="M15.5 13.2c1.5-.9 2.4-2.1 2.4-3.5 0-2.4-2.6-4.3-5.9-4.3s-5.9 1.9-5.9 4.3c0 1.4.9 2.6 2.4 3.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.4" opacity="0.75" />
+                    </svg>
+                    {captureBusy ? 'Capturing...' : 'Capture Memory'}
+                  </button>
+                </div>
               </section>
             {/if}
 
@@ -699,6 +798,14 @@
                     <input type="checkbox" checked={preferences.clueVisualCue} onchange={(event) => updatePreferences({ clueVisualCue: event.currentTarget.checked })} />
                     Incoming clue visual cue
                   </label>
+                  <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
+                    <input type="checkbox" checked={preferences.endGameSound} onchange={(event) => updatePreferences({ endGameSound: event.currentTarget.checked })} />
+                    End-game sound
+                  </label>
+                  <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
+                    <input type="checkbox" checked={preferences.endGameVisualCue} onchange={(event) => updatePreferences({ endGameVisualCue: event.currentTarget.checked })} />
+                    End-game visual cue
+                  </label>
                 </div>
               {/if}
             </section>
@@ -743,6 +850,15 @@
         <button class="ml-4 opacity-70 hover:opacity-100" onclick={() => error = ''}>✕</button>
       </p>
     {/if}
+    {#if endGameCue}
+      <div class={['pointer-events-none fixed inset-0 z-40 grid place-items-center overflow-hidden', endGameCue.outcome === 'win' ? 'animate-[endgame-pop_4s_ease-out_forwards]' : 'animate-[endgame-fade_4s_ease-out_forwards]'].join(' ')} aria-hidden="true">
+        <div class="absolute inset-0" style={`background: radial-gradient(circle at 50% 38%, ${hexWithAlpha(teamColor(endGameCue.team, settings), endGameCue.outcome === 'loss' ? '33' : '66')}, transparent 55%);`}></div>
+        <div class={['relative rounded-[2rem] border px-8 py-6 text-center shadow-2xl backdrop-blur-sm', endGameCue.outcome === 'loss' ? 'border-slate-400/30 bg-slate-950/80 text-slate-100' : 'border-emerald-200/60 bg-slate-950/70 text-slate-50'].join(' ')}>
+          <p class="text-xs font-black uppercase tracking-[0.28em] text-emerald-200">{endGameCue.outcome === 'win' ? 'Victory' : endGameCue.outcome === 'loss' ? 'Final board' : 'Game over'}</p>
+          <p class="mt-2 text-3xl font-black tracking-[-0.04em]">{endGameCue.text}</p>
+        </div>
+      </div>
+    {/if}
     {#if cueNotice}
       <p class="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full border border-emerald-200/60 bg-emerald-300 px-5 py-3 text-sm font-black text-slate-950 shadow-2xl shadow-emerald-950/40">
         {cueNotice}
@@ -750,3 +866,27 @@
     {/if}
   </div>
 </main>
+
+
+<style>
+  @keyframes endgame-pop {
+    0% { opacity: 0; transform: scale(0.96); }
+    12% { opacity: 1; transform: scale(1); }
+    78% { opacity: 1; transform: scale(1.01); }
+    100% { opacity: 0; transform: scale(1.04); }
+  }
+
+  @keyframes endgame-fade {
+    0% { opacity: 0; }
+    16% { opacity: 1; }
+    78% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(.animate-\[endgame-pop_4s_ease-out_forwards\]),
+    :global(.animate-\[endgame-fade_4s_ease-out_forwards\]) {
+      animation-name: endgame-fade;
+    }
+  }
+</style>

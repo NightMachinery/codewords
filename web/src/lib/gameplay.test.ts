@@ -6,6 +6,8 @@ import {
   cardContentLabel,
   displayCards,
   defaultGameplayPreferences,
+  endGameOutcome,
+  buildMemoryCaptureModel,
   formatClueNumber,
   cardWordTextClasses,
   clampLayoutCardsPerRow,
@@ -109,7 +111,7 @@ describe('local gameplay preferences', () => {
     expect(readGameplayPreferences(storage)).toEqual(defaultGameplayPreferences);
     expect(defaultGameplayPreferences.spymasterRevealedStyle).toBe('invisible');
 
-    const saved: GameplayPreferences = { confirmGuesses: false, confirmPasses: true, wordCardsPerRowMobile: 4, imageCardsPerRowMobile: 2, wordCardsPerRowDesktop: 5, imageCardsPerRowDesktop: 5, chatSound: false, chatVisualCue: false, cardChoiceSound: false, cardChoiceVisualCue: true, clueSound: true, clueVisualCue: false, spymasterRevealedStyle: 'greyed' };
+    const saved: GameplayPreferences = { confirmGuesses: false, confirmPasses: true, wordCardsPerRowMobile: 4, imageCardsPerRowMobile: 2, wordCardsPerRowDesktop: 5, imageCardsPerRowDesktop: 5, chatSound: false, chatVisualCue: false, cardChoiceSound: false, cardChoiceVisualCue: true, clueSound: true, clueVisualCue: false, endGameSound: true, endGameVisualCue: true, spymasterRevealedStyle: 'greyed' };
     writeGameplayPreferences(storage, saved);
     expect(readGameplayPreferences(storage)).toEqual(saved);
 
@@ -265,5 +267,69 @@ describe('regression helpers', () => {
     ];
 
     expect(new Set(clues.map((clue, index) => clueLogKey(clue, index))).size).toBe(3);
+  });
+});
+
+
+describe('end-game memory and cues', () => {
+  const endSettings: Settings = {
+    ...settings,
+    teamNameBlue: 'River Guild',
+    teamNameRed: 'Sun Court',
+    customColorBlue: '#2563eb',
+    customColorRed: '#dc2626',
+    imageCardCount: 1,
+    mixedImageOrderFirst: true,
+  };
+  const endPlayers: LobbyPlayer[] = [
+    { id: 'blueSpy', displayName: 'Blue Spy', team: 'blue', spymaster: true, representative: false, mod: false },
+    { id: 'blueGuess', displayName: 'Blue Guess', team: 'blue', spymaster: false, representative: false, mod: false },
+    { id: 'redSpy', displayName: 'Red Spy', team: 'red', spymaster: true, representative: false, mod: false },
+    { id: 'observer', displayName: 'Observer', team: 'observers', spymaster: false, representative: false, mod: false },
+  ];
+  const endCards: GameplayCard[] = [
+    { contentType: 'word', word: 'river', revealed: true, color: 'blue' },
+    { contentType: 'image', imageId: 'fox', revealed: true, color: 'red' },
+    { contentType: 'word', word: 'shadow', revealed: true, color: 'black' },
+  ];
+
+  it('defaults and persists dedicated end-game cue preferences', () => {
+    const storage = new MemoryStorage();
+    expect(readGameplayPreferences(storage)).toMatchObject({ endGameSound: true, endGameVisualCue: true });
+
+    writeGameplayPreferences(storage, { ...defaultGameplayPreferences, endGameSound: false, endGameVisualCue: false });
+    expect(readGameplayPreferences(storage)).toMatchObject({ endGameSound: false, endGameVisualCue: false });
+
+    storage.setItem('codewords.gameplayPreferences', JSON.stringify({ endGameSound: false }));
+    expect(readGameplayPreferences(storage)).toMatchObject({ endGameSound: false, endGameVisualCue: true });
+  });
+
+  it('classifies the viewer-specific end-game outcome', () => {
+    expect(endGameOutcome('blue', viewer('blueGuess'), endPlayers)).toBe('win');
+    expect(endGameOutcome('blue', viewer('redSpy'), endPlayers)).toBe('loss');
+    expect(endGameOutcome('blue', viewer('observer'), endPlayers)).toBe('neutral');
+    expect(endGameOutcome('', viewer('blueGuess'), endPlayers)).toBe('neutral');
+  });
+
+  it('builds a capture model with winner, loser, rosters, sorted board, and image fallback labels', () => {
+    const model = buildMemoryCaptureModel({
+      roomId: 'abc123',
+      winner: 'blue',
+      players: endPlayers,
+      cards: endCards,
+      settings: endSettings,
+      generatedAt: new Date('2026-05-06T12:00:00.000Z'),
+    });
+
+    expect(model.title).toBe('River Guild wins');
+    expect(model.subtitle).toBe('Sun Court fell at the final board');
+    expect(model.winner.players).toEqual(['Blue Spy', 'Blue Guess']);
+    expect(model.loser.players).toEqual(['Red Spy']);
+    expect(model.generatedLabel).toContain('May 6, 2026');
+    expect(model.cards.map((card) => `${card.badgeNumber}:${card.label}:${card.imageUrl ?? ''}`)).toEqual([
+      '1:Picture #1:/api/pictures/fox',
+      '2:River:',
+      '3:Shadow:',
+    ]);
   });
 });

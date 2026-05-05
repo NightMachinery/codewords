@@ -36,7 +36,7 @@ When a room snapshot is `active` or `game_over`, the room route switches from lo
 - clue composer for the current team's spymaster;
 - clue log with round, team, status, number, and guesses;
 - guess-by-card-click and pass controls for the active guesser;
-- game-over winner summary.
+- game-over winner summary with viewer-specific end-game sound/visual cues and a Capture Memory image download.
 
 Spectators are authenticated browser identities that are not seated in the match, or anonymous `spectator=1` socket viewers. They receive the same safe snapshots as non-spymaster players and cannot submit clues, reveal cards, pass, or write chat.
 
@@ -67,8 +67,14 @@ Picture mode uses the local server catalog only. Hosts can choose words-only (`i
 
 ## Final local preferences and moderator controls
 
-LocalStorage gameplay preferences include confirmations, separate word/image cards-per-row values for mobile and desktop, spymaster revealed-card style, and separate sound/visual cue toggles for chat, card reveals, and incoming clues. Mixed boards use word and image row settings together so picture cards can stay larger while word cards remain compact. The greyed spymaster style makes revealed cards transparent while retaining color hints. Room creators are moderators by default; moderators can promote/demote other players, update room settings, assign teams/roles manually, shuffle unrevealed card roles, reset the current clue, restart an active match back to the lobby, and use the default-on balanced random assignment for new players.
+LocalStorage gameplay preferences include confirmations, separate word/image cards-per-row values for mobile and desktop, spymaster revealed-card style, and separate sound/visual cue toggles for chat, card reveals, incoming clues, and end-game results. Mixed boards use word and image row settings together so picture cards can stay larger while word cards remain compact. The greyed spymaster style makes revealed cards transparent while retaining color hints. Room creators are moderators by default; moderators can promote/demote other players, update room settings, assign teams/roles manually, shuffle unrevealed card roles, reset the current clue, restart an active match back to the lobby, and use the default-on balanced random assignment for new players.
 
 Team display names are configurable room settings. The internal protocol still uses `blue` and `red`, but the default names shown in the UI are `Libertarians` and `Monarchists`. Custom colors and team names flow through lobby panels, player controls, turn indicators, clue rows, winner summaries, and card counts. Invalid custom color hex values fall back to the default team colors.
 
 When a playable-team member becomes an observer, the room remembers that player’s previous team and spymaster/representative role. The observer card shows a compact rejoin control that restores the remembered assignment. Browser-local creator settings are stored per creator identity and reused for newly created rooms with a fresh seed.
+
+## End-game memories
+
+When a live snapshot transitions into `game_over`, each viewer receives a local-only cue based on their own result: winning-team players get a celebratory cue, losing-team players get a subdued cue, and spectators or observers get a neutral winner cue. The cue only fires on the transition, not when loading a room that already ended, and it respects the browser-local end-game sound and visual cue toggles.
+
+The game-over panel includes a **Capture Memory** button. It generates a client-side PNG from the final snapshot with the room id, timestamp, winner, losing team, team rosters, and final board. Word cards render as labeled colored tiles. Picture cards try to draw the same-origin `/api/pictures/{imageId}` thumbnail and fall back to a labeled tile if an image cannot be loaded.

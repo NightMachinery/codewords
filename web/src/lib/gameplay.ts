@@ -61,6 +61,8 @@ export interface GameplayPreferences {
   cardChoiceVisualCue: boolean;
   clueSound: boolean;
   clueVisualCue: boolean;
+  endGameSound: boolean;
+  endGameVisualCue: boolean;
   spymasterRevealedStyle: 'greyed' | 'invisible' | 'omitted';
 }
 
@@ -84,6 +86,8 @@ export const defaultGameplayPreferences: GameplayPreferences = {
   cardChoiceVisualCue: true,
   clueSound: true,
   clueVisualCue: true,
+  endGameSound: true,
+  endGameVisualCue: true,
   spymasterRevealedStyle: 'invisible',
 };
 
@@ -214,6 +218,8 @@ export function readGameplayPreferences(storage: Pick<Storage, 'getItem'>): Game
       cardChoiceVisualCue: typeof parsed.cardChoiceVisualCue === 'boolean' ? parsed.cardChoiceVisualCue : defaultGameplayPreferences.cardChoiceVisualCue,
       clueSound: typeof parsed.clueSound === 'boolean' ? parsed.clueSound : defaultGameplayPreferences.clueSound,
       clueVisualCue: typeof parsed.clueVisualCue === 'boolean' ? parsed.clueVisualCue : defaultGameplayPreferences.clueVisualCue,
+      endGameSound: typeof parsed.endGameSound === 'boolean' ? parsed.endGameSound : defaultGameplayPreferences.endGameSound,
+      endGameVisualCue: typeof parsed.endGameVisualCue === 'boolean' ? parsed.endGameVisualCue : defaultGameplayPreferences.endGameVisualCue,
       spymasterRevealedStyle,
     };
   } catch {
@@ -407,4 +413,84 @@ export function chatCueNotice(message: Pick<{ displayName: string; body: string 
   const compact = message.body.trim().replace(/\s+/g, ' ');
   const truncated = compact.length > 38 ? `${compact.slice(0, 38)}…` : compact;
   return `${name}: ${truncated}`;
+}
+
+
+export type EndGameOutcome = 'win' | 'loss' | 'neutral';
+
+export interface MemoryCaptureTeam {
+  key: 'blue' | 'red';
+  name: string;
+  color: string;
+  players: string[];
+}
+
+export interface MemoryCaptureCard {
+  badgeNumber: number;
+  label: string;
+  color: CardColor | 'hidden';
+  contentType: 'word' | 'image';
+  imageUrl?: string;
+}
+
+export interface MemoryCaptureModel {
+  roomId: string;
+  title: string;
+  subtitle: string;
+  generatedLabel: string;
+  winner: MemoryCaptureTeam;
+  loser: MemoryCaptureTeam;
+  cards: MemoryCaptureCard[];
+}
+
+export function endGameOutcome(winner: 'blue' | 'red' | '', viewer: Viewer | null | undefined, players: LobbyPlayer[]): EndGameOutcome {
+  if (winner !== 'blue' && winner !== 'red') return 'neutral';
+  const player = findViewerPlayer(players, viewer);
+  if (!player || (player.team !== 'blue' && player.team !== 'red')) return 'neutral';
+  return player.team === winner ? 'win' : 'loss';
+}
+
+export function buildMemoryCaptureModel(input: {
+  roomId: string;
+  winner: 'blue' | 'red';
+  players: LobbyPlayer[];
+  cards: GameplayCard[];
+  settings: Settings;
+  generatedAt?: Date;
+}): MemoryCaptureModel {
+  const loser = input.winner === 'blue' ? 'red' : 'blue';
+  const team = (key: 'blue' | 'red'): MemoryCaptureTeam => ({
+    key,
+    name: displayTeamName(key, input.settings),
+    color: teamColor(key, input.settings),
+    players: input.players
+      .filter((player) => player.team === key)
+      .map((player) => player.displayName.trim())
+      .filter(Boolean),
+  });
+  const sorted = displayCards(input.cards, cardModeFromImageCount(input.settings.imageCardCount ?? 0), input.settings.mixedImageOrderFirst);
+  const generatedAt = input.generatedAt ?? new Date();
+  const generatedLabel = new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(generatedAt);
+
+  return {
+    roomId: input.roomId,
+    title: `${displayTeamName(input.winner, input.settings)} wins`,
+    subtitle: `${displayTeamName(loser, input.settings)} fell at the final board`,
+    generatedLabel,
+    winner: team(input.winner),
+    loser: team(loser),
+    cards: sorted.map((card) => ({
+      badgeNumber: card.badgeNumber,
+      label: card.contentType === 'image' ? `Picture #${card.badgeNumber}` : toTitleCase(card.word) || `Card #${card.badgeNumber}`,
+      color: card.color ?? 'hidden',
+      contentType: card.contentType,
+      imageUrl: card.contentType === 'image' ? cardImageUrl(card) : undefined,
+    })),
+  };
 }
