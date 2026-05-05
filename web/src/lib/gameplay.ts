@@ -61,7 +61,13 @@ export interface GameplayPreferences {
   spymasterRevealedStyle: 'greyed' | 'invisible' | 'omitted';
 }
 
+export interface PanelPreferences {
+  modSettingsOpen: boolean;
+  localOptionsOpen: boolean;
+}
+
 export const gameplayPreferencesStorageKey = 'codewords.gameplayPreferences';
+export const panelPreferencesStorageKey = 'codewords.panelPreferences';
 export const defaultGameplayPreferences: GameplayPreferences = {
   confirmGuesses: true,
   confirmPasses: false,
@@ -72,7 +78,12 @@ export const defaultGameplayPreferences: GameplayPreferences = {
   cardChoiceVisualCue: true,
   clueSound: true,
   clueVisualCue: true,
-  spymasterRevealedStyle: 'greyed',
+  spymasterRevealedStyle: 'invisible',
+};
+
+export const defaultPanelPreferences: PanelPreferences = {
+  modSettingsOpen: true,
+  localOptionsOpen: true,
 };
 
 export function viewerId(viewer: Viewer | null | undefined): string {
@@ -205,6 +216,24 @@ export function writeGameplayPreferences(storage: Pick<Storage, 'setItem'>, pref
   storage.setItem(gameplayPreferencesStorageKey, JSON.stringify(preferences));
 }
 
+export function readPanelPreferences(storage: Pick<Storage, 'getItem'>): PanelPreferences {
+  const raw = storage.getItem(panelPreferencesStorageKey);
+  if (!raw) return { ...defaultPanelPreferences };
+  try {
+    const parsed = JSON.parse(raw) as Partial<PanelPreferences>;
+    return {
+      modSettingsOpen: typeof parsed.modSettingsOpen === 'boolean' ? parsed.modSettingsOpen : defaultPanelPreferences.modSettingsOpen,
+      localOptionsOpen: typeof parsed.localOptionsOpen === 'boolean' ? parsed.localOptionsOpen : defaultPanelPreferences.localOptionsOpen,
+    };
+  } catch {
+    return { ...defaultPanelPreferences };
+  }
+}
+
+export function writePanelPreferences(storage: Pick<Storage, 'setItem'>, preferences: PanelPreferences): void {
+  storage.setItem(panelPreferencesStorageKey, JSON.stringify(preferences));
+}
+
 export function shouldAutoJoinRoom(room: RoomSummary, credentialMode: 'auth' | 'migrate' | 'none', displayName: string): boolean {
   return credentialMode === 'auth' && room.status === 'lobby' && displayName.trim().length > 0;
 }
@@ -261,6 +290,24 @@ export function displayCards(cards: GameplayCard[], cardMode: CardMode, imageOrd
   return ordered.map((card, index) => ({ ...card, badgeNumber: index + 1 }));
 }
 
+export function shouldCueCardReveal(previousCards: GameplayCard[], nextCards: GameplayCard[]): boolean {
+  return nextCards.some((card, index) => card.revealed && !previousCards[index]?.revealed);
+}
+
+export function clueLogKey(clue: ClueEntry, displayIndex: number): string {
+  return [
+    clue.round,
+    clue.team,
+    clue.status,
+    clue.text,
+    formatClueNumber(clue.number),
+    clue.guesses,
+    clue.submittedBy ?? '',
+    clue.updatedBy ?? '',
+    displayIndex,
+  ].join(':');
+}
+
 export function cardViewState(
   card: GameplayCard,
   index: number,
@@ -286,7 +333,7 @@ export function cardViewState(
   let styleClasses = '';
   if (card.revealed) {
     if (revealedStyle === 'normal') styleClasses = 'opacity-95';
-    else if (revealedStyle === 'greyed') styleClasses = 'opacity-35 saturate-50 grayscale contrast-75 after:pointer-events-none after:absolute after:right-2 after:top-2 after:h-2.5 after:w-2.5 after:rounded-full after:bg-current after:opacity-70';
+    else if (revealedStyle === 'greyed') styleClasses = 'opacity-45 saturate-75 contrast-90 after:pointer-events-none after:absolute after:right-2 after:top-2 after:h-2.5 after:w-2.5 after:rounded-full after:bg-current after:opacity-70';
     else if (revealedStyle === 'invisible') styleClasses = 'invisible';
     else if (revealedStyle === 'omitted') styleClasses = 'hidden';
   }

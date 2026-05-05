@@ -8,12 +8,17 @@ import {
   defaultGameplayPreferences,
   formatClueNumber,
   cardWordTextClasses,
+  clueLogKey,
   isActiveGuesser,
   parseClueNumber,
+  readPanelPreferences,
   readGameplayPreferences,
   shouldAutoJoinRoom,
+  shouldCueCardReveal,
   viewerRole,
+  writePanelPreferences,
   writeGameplayPreferences,
+  type ClueEntry,
   type GameplayCard,
   type GameplayPreferences,
 } from './gameplay';
@@ -96,6 +101,7 @@ describe('local gameplay preferences', () => {
   it('defaults local cue/layout preferences and persists partial updates', () => {
     const storage = new MemoryStorage();
     expect(readGameplayPreferences(storage)).toEqual(defaultGameplayPreferences);
+    expect(defaultGameplayPreferences.spymasterRevealedStyle).toBe('invisible');
 
     const saved: GameplayPreferences = { confirmGuesses: false, confirmPasses: true, cardsPerRow: 4, chatSound: false, chatVisualCue: false, cardChoiceSound: false, cardChoiceVisualCue: true, clueSound: true, clueVisualCue: false, spymasterRevealedStyle: 'greyed' };
     writeGameplayPreferences(storage, saved);
@@ -103,6 +109,17 @@ describe('local gameplay preferences', () => {
 
     storage.setItem('codewords.gameplayPreferences', JSON.stringify({ confirmGuesses: false }));
     expect(readGameplayPreferences(storage)).toEqual({ ...defaultGameplayPreferences, confirmGuesses: false });
+  });
+
+  it('defaults collapsible panel preferences open and persists changes', () => {
+    const storage = new MemoryStorage();
+    expect(readPanelPreferences(storage)).toEqual({ modSettingsOpen: true, localOptionsOpen: true });
+
+    writePanelPreferences(storage, { modSettingsOpen: false, localOptionsOpen: true });
+    expect(readPanelPreferences(storage)).toEqual({ modSettingsOpen: false, localOptionsOpen: true });
+
+    storage.setItem('codewords.panelPreferences', '{broken');
+    expect(readPanelPreferences(storage)).toEqual({ modSettingsOpen: true, localOptionsOpen: true });
   });
 });
 
@@ -144,6 +161,27 @@ describe('board card state', () => {
     expect(cardViewState(revealedRed, 2, false, { index: 2, team: 'red' })).toMatchObject({ visibleColor: 'red', label: 'Red', isLastSelected: true });
     expect(cardViewState(revealedRed, 2, false, { index: 2, team: 'red' }).classes).toContain('ring-4');
   });
+
+  it('cues only when a card transitions from unrevealed to revealed', () => {
+    const previous: GameplayCard[] = [
+      { contentType: 'word', word: 'river', revealed: false, color: 'blue' },
+      { contentType: 'word', word: 'castle', revealed: true, color: 'red' },
+    ];
+
+    expect(shouldCueCardReveal(previous, previous)).toBe(false);
+    expect(shouldCueCardReveal(previous, [
+      { ...previous[0], color: 'red' },
+      { ...previous[1], color: 'blue' },
+    ])).toBe(false);
+    expect(shouldCueCardReveal(previous, [
+      previous[0],
+      { ...previous[1], color: 'blue', revealed: true },
+    ])).toBe(false);
+    expect(shouldCueCardReveal(previous, [
+      { ...previous[0], revealed: true },
+      previous[1],
+    ])).toBe(true);
+  });
 });
 
 describe('active-room boot behavior', () => {
@@ -175,8 +213,18 @@ describe('regression helpers', () => {
 
   it('keeps greyed revealed cards transparent while preserving color hints', () => {
     const view = cardViewState({ contentType: 'word', word: 'castle', revealed: true, color: 'red' }, 0, true, null, 'greyed');
-    expect(view.classes).toContain('opacity-35');
-    expect(view.classes).toContain('grayscale');
+    expect(view.classes).toContain('opacity-45');
+    expect(view.classes).not.toContain('grayscale');
     expect(view.classes).toContain('after:bg-current');
+  });
+
+  it('builds distinct clue log keys for reset and re-submit rows in the same round', async () => {
+    const clues: ClueEntry[] = [
+      { round: 1, team: 'blue', text: 'Ocean', number: { kind: 'numeric', value: 2 }, status: 'final', submittedBy: 'blueSpy', updatedBy: 'blueSpy', guesses: 0 },
+      { round: 1, team: 'blue', text: 'Forest', number: { kind: 'numeric', value: 2 }, status: 'final', submittedBy: 'blueSpy', updatedBy: 'blueSpy', guesses: 0 },
+      { round: 1, team: 'blue', text: 'Forest', number: { kind: 'numeric', value: 2 }, status: 'final', submittedBy: 'blueSpy', updatedBy: 'blueSpy', guesses: 0 },
+    ];
+
+    expect(new Set(clues.map((clue, index) => clueLogKey(clue, index))).size).toBe(3);
   });
 });

@@ -1,19 +1,20 @@
 <script lang="ts">
   import type { Settings } from './api';
   import { formatClueNumber, type ClueEntry, type GameplayPhase } from './gameplay';
-  import type { Team } from './lobby';
+  import type { LobbyPlayer, Team } from './lobby';
 
   interface Props {
     phase: GameplayPhase;
     currentTeam: Team;
     currentClue: ClueEntry | null;
-    role: { kind: string; activeGuesser: boolean };
+    role: { kind: string; activeGuesser: boolean; team?: Team; player?: LobbyPlayer };
     cluePermission: { allowed: boolean; reason: string };
     clueText: string;
     clueNumber: string;
     clueProblem: string;
     guessProblem: string;
     passProblem: string;
+    activeTeamHasRepresentative: boolean;
     settings: Settings;
     spymasterViewActive: boolean;
     onToggleView: () => void;
@@ -32,12 +33,25 @@
     clueProblem,
     guessProblem,
     passProblem,
+    activeTeamHasRepresentative,
     settings,
     spymasterViewActive,
     onToggleView,
     onSubmitClue,
     onPassTurn
   }: Props = $props();
+
+  let isYourTeam = $derived(role.team === currentTeam);
+  let turnLabel = $derived(isYourTeam ? 'Your Turn' : 'Their Turn');
+  let teamLabel = $derived(currentTeam === 'blue' ? 'Blue team' : currentTeam === 'red' ? 'Red team' : 'Waiting');
+  let controlMessage = $derived.by(() => {
+    if (phase !== 'active') return 'Waiting for the match to start.';
+    if (!role.player) return 'Spectators are read-only.';
+    if (!isYourTeam) return 'Their turn. Watch the board.';
+    if (role.kind === 'spymaster' && !cluePermission.allowed) return 'Your team is guessing. Watch the board.';
+    if (!role.activeGuesser && role.kind !== 'spymaster') return activeTeamHasRepresentative ? 'Your representative will play for you.' : 'Your teammate will guess for you.';
+    return '';
+  });
 </script>
 
 <footer class="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-700/60 bg-slate-900/90 p-3 backdrop-blur-md shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
@@ -49,7 +63,8 @@
         currentTeam === 'red' ? 'border-red-300/40 bg-red-500/20 text-red-100' : 
         'border-slate-700 bg-slate-800 text-slate-400']}>
         <p class="text-[10px] font-black uppercase tracking-widest opacity-70">Turn</p>
-        <h2 class="text-lg font-black tracking-tight capitalize">{currentTeam || 'Waiting'} team</h2>
+        <h2 class="text-lg font-black tracking-tight">{turnLabel}</h2>
+        <p class="text-xs font-bold opacity-75">{teamLabel}</p>
       </div>
 
       {#if currentClue}
@@ -62,7 +77,7 @@
 
     <!-- Controls -->
     <div class="flex flex-1 items-center justify-center gap-3 max-w-2xl">
-      {#if role.kind === 'spymaster' && phase === 'active'}
+      {#if role.kind === 'spymaster' && phase === 'active' && cluePermission.allowed}
         <div class="flex w-full gap-2">
           <input
             class="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-semibold text-slate-50 outline-none ring-emerald-300 transition focus:ring-2 disabled:opacity-50"
@@ -98,6 +113,10 @@
           >
             Pass turn
           </button>
+        </div>
+      {:else if controlMessage}
+        <div class="w-full rounded-2xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-center">
+          <p class="text-sm font-bold text-slate-300">{controlMessage}</p>
         </div>
       {/if}
     </div>

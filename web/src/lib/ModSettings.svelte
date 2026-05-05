@@ -10,7 +10,9 @@
     pictureCatalogAvailable: boolean;
     phase: 'lobby' | 'active' | 'game_over';
     canRandomizeTeams: boolean;
+    open: boolean;
     onSave: () => void;
+    onToggleOpen: () => void;
     onRandomizeTeams: () => void;
     onShuffleRoles: () => void;
     onResetClue: () => void;
@@ -25,7 +27,9 @@
     pictureCatalogAvailable,
     phase,
     canRandomizeTeams,
+    open,
     onSave,
+    onToggleOpen,
     onRandomizeTeams,
     onShuffleRoles,
     onResetClue,
@@ -43,17 +47,39 @@
     settings.imageCardCount = Number.parseInt(count, 10);
     onSave();
   }
+
+  function colorInputLabel(team: 'Blue' | 'Red', color: string | undefined, fallback: string) {
+    return `${team} team color ${color || fallback}`;
+  }
 </script>
 
 <section class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-6 shadow-2xl shadow-slate-950/30">
   <div class="flex items-center justify-between gap-3 mb-6">
-    <h2 class="text-2xl font-black tracking-tight">Mod Settings</h2>
-    {#if !hostControls}
-      <span class="rounded-full bg-slate-800 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-slate-500">Read-only</span>
-    {/if}
+    <button class="group flex min-w-0 flex-1 items-center gap-3 text-left" type="button" onclick={onToggleOpen} aria-expanded={open}>
+      <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-slate-700 bg-slate-950 text-sm font-black text-slate-300 transition group-hover:border-emerald-300/60 group-hover:text-emerald-200">{open ? '−' : '+'}</span>
+      <span>
+        <span class="block text-2xl font-black tracking-tight">Mod Settings</span>
+        <span class="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">{open ? 'Open' : 'Closed'}</span>
+      </span>
+    </button>
+    <div class="flex items-center gap-2">
+      {#if !hostControls}
+        <span class="rounded-full bg-slate-800 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-slate-500">Read-only</span>
+      {/if}
+    </div>
   </div>
 
+  {#if open}
   <fieldset class="space-y-6 disabled:opacity-60" disabled={!hostControls}>
+    {#if phase === 'lobby'}
+      <!-- Lobby Tools -->
+      <div class="space-y-3 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4">
+        <span class="text-xs font-black uppercase tracking-widest text-emerald-200">Randomize teams</span>
+        <button class="w-full rounded-xl border border-emerald-400/60 bg-emerald-400/10 px-4 py-3 text-sm font-black text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50" disabled={!canRandomizeTeams} onclick={onRandomizeTeams}>Randomize Teams</button>
+        <p class="text-xs leading-5 text-emerald-100/70">Balances non-observer and unassigned players, clears rep roles, and picks one spy for each team.</p>
+      </div>
+    {/if}
+
     <!-- Game Rules -->
     <div class="grid gap-4 sm:grid-cols-2">
       <label class="block">
@@ -118,28 +144,29 @@
     <div class="grid gap-4 sm:grid-cols-2">
       <label class="block">
         <span class="text-xs font-bold text-slate-400">Blue team color</span>
-        <div class="mt-2 flex gap-2 rounded-2xl border border-blue-300/20 bg-slate-950/60 p-2 shadow-inner shadow-blue-950/20">
-          <input class="h-11 w-16 cursor-pointer rounded-xl border border-blue-300/40 bg-slate-900 p-1 accent-emerald-300" type="color" value={settings.customColorBlue || '#3b82f6'} onchange={(event) => { settings.customColorBlue = event.currentTarget.value; onSave(); }} />
+        <div class="mt-2 flex gap-2 rounded-2xl border bg-slate-950/60 p-2 shadow-inner shadow-blue-950/20" style={`border-color: ${settings.customColorBlue ? settings.customColorBlue : '#3b82f6'}66;`}>
+          <span class="relative grid h-12 w-20 shrink-0 place-items-center overflow-hidden rounded-xl border border-slate-100/15 shadow-lg shadow-slate-950/30" style={`background-color: ${settings.customColorBlue || '#3b82f6'};`}>
+            <span class="rounded-full bg-slate-950/70 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-slate-50">Pick</span>
+            <input class="absolute inset-0 h-full w-full cursor-pointer opacity-0" aria-label={colorInputLabel('Blue', settings.customColorBlue, '#3b82f6')} type="color" value={settings.customColorBlue || '#3b82f6'} onchange={(event) => { settings.customColorBlue = event.currentTarget.value; onSave(); }} />
+          </span>
+          <span class="flex min-w-0 flex-1 items-center rounded-xl border border-slate-800 bg-slate-900 px-3 text-xs font-black uppercase tracking-wider text-slate-300">{settings.customColorBlue || '#3b82f6'}</span>
           <button class="flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-black uppercase tracking-wider text-slate-300 transition hover:border-blue-300/70 hover:text-blue-100" type="button" onclick={() => { settings.customColorBlue = ''; onSave(); }}>Reset</button>
         </div>
       </label>
       <label class="block">
         <span class="text-xs font-bold text-slate-400">Red team color</span>
-        <div class="mt-2 flex gap-2 rounded-2xl border border-red-300/20 bg-slate-950/60 p-2 shadow-inner shadow-red-950/20">
-          <input class="h-11 w-16 cursor-pointer rounded-xl border border-red-300/40 bg-slate-900 p-1 accent-emerald-300" type="color" value={settings.customColorRed || '#ef4444'} onchange={(event) => { settings.customColorRed = event.currentTarget.value; onSave(); }} />
+        <div class="mt-2 flex gap-2 rounded-2xl border bg-slate-950/60 p-2 shadow-inner shadow-red-950/20" style={`border-color: ${settings.customColorRed ? settings.customColorRed : '#ef4444'}66;`}>
+          <span class="relative grid h-12 w-20 shrink-0 place-items-center overflow-hidden rounded-xl border border-slate-100/15 shadow-lg shadow-slate-950/30" style={`background-color: ${settings.customColorRed || '#ef4444'};`}>
+            <span class="rounded-full bg-slate-950/70 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-slate-50">Pick</span>
+            <input class="absolute inset-0 h-full w-full cursor-pointer opacity-0" aria-label={colorInputLabel('Red', settings.customColorRed, '#ef4444')} type="color" value={settings.customColorRed || '#ef4444'} onchange={(event) => { settings.customColorRed = event.currentTarget.value; onSave(); }} />
+          </span>
+          <span class="flex min-w-0 flex-1 items-center rounded-xl border border-slate-800 bg-slate-900 px-3 text-xs font-black uppercase tracking-wider text-slate-300">{settings.customColorRed || '#ef4444'}</span>
           <button class="flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-black uppercase tracking-wider text-slate-300 transition hover:border-red-300/70 hover:text-red-100" type="button" onclick={() => { settings.customColorRed = ''; onSave(); }}>Reset</button>
         </div>
       </label>
     </div>
 
-    {#if phase === 'lobby'}
-      <!-- Lobby Tools -->
-      <div class="space-y-3 border-t border-slate-700/50 pt-4">
-        <span class="text-xs font-black uppercase tracking-widest text-slate-500">Lobby tools</span>
-        <button class="w-full rounded-xl border border-emerald-400/60 bg-emerald-400/10 px-4 py-3 text-sm font-black text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50" disabled={!canRandomizeTeams} onclick={onRandomizeTeams}>Randomize Teams</button>
-        <p class="text-xs leading-5 text-slate-500">Balances non-observer and unassigned players, clears rep roles, and picks one spy for each team.</p>
-      </div>
-    {:else}
+    {#if phase !== 'lobby'}
       <!-- Round Tools -->
       <div class="space-y-3 border-t border-slate-700/50 pt-4">
         <span class="text-xs font-black uppercase tracking-widest text-slate-500">Round tools</span>
@@ -151,4 +178,5 @@
       </div>
     {/if}
   </fieldset>
+  {/if}
 </section>

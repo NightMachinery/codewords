@@ -10,16 +10,20 @@
     cardModeFromImageCount,
     cardViewState,
     cardWordTextClasses,
+    clueLogKey,
     clueNumberFromInput,
     clueSubmitProblem,
     defaultGameplayPreferences,
     displayCards,
     findViewerPlayer,
     formatClueNumber,
+    readPanelPreferences,
     readGameplayPreferences,
     shouldAutoJoinRoom,
     shouldCueChatMessage,
+    shouldCueCardReveal,
     viewerRole,
+    writePanelPreferences,
     writeGameplayPreferences,
     toTitleCase,
     hexWithAlpha,
@@ -27,6 +31,7 @@
     type GameplayCard,
     type GameplayPreferences,
     type LastSelected,
+    type PanelPreferences,
     type RemainingCounts,
   } from '../lib/gameplay';
   import { getOrCreateAuthToken, resolveSessionCredential, type SessionCredential } from '../lib/identity';
@@ -65,6 +70,7 @@
   let chatMessages = $state<ChatMessage[]>([]);
   let chatDraft = $state('');
   let preferences = $state<GameplayPreferences>({ ...defaultGameplayPreferences });
+  let panelPreferences = $state<PanelPreferences>({ modSettingsOpen: true, localOptionsOpen: true });
   let loading = $state(true);
   let savingName = $state(false);
   let connection = $state('disconnected');
@@ -74,7 +80,7 @@
   let cueNotice = $state('');
   let socket: RoomSocket | null = null;
   let sawSnapshot = false;
-  let lastActionId = 0;
+  let previousCardsForCue: GameplayCard[] = [];
   let lastClueSignature = '';
   let spymasterViewActive = $state(true);
 
@@ -87,6 +93,7 @@
   let currentPlayer = $derived(findViewerPlayer(players, viewer));
   let needsName = $derived(Boolean(credentialMode === 'auth' && !displayName && roomStatus === 'lobby'));
   let role = $derived(viewerRole(players, viewer, currentTeam as any, phase));
+  let activeTeamHasRepresentative = $derived(players.some((player) => player.team === currentTeam && player.representative));
   let cluePermission = $derived(canSubmitClue(players, viewer, currentTeam as any, phase));
   let clueNumberParsed = $derived(clueNumberFromInput(clueNumber));
   let clueProblem = $derived(clueSubmitProblem(clueText, clueNumberParsed as any, settings));
@@ -106,6 +113,7 @@
       roomId = roomIdFromPath(window.location.pathname);
       authToken = getOrCreateAuthToken(localStorage);
       preferences = readGameplayPreferences(localStorage);
+      panelPreferences = readPanelPreferences(localStorage);
       credential = resolveSessionCredential(new URL(window.location.href), localStorage);
       credentialMode = credential.mode;
       const packs = await api.wordpacks();
@@ -183,16 +191,16 @@
 
   function handleSocketMessage(message: RoomSocketMessage) {
     if (message.type === 'snapshot') {
-      const nextActionId = message.snapshot.actionId ?? 0;
       const nextClueSignature = clueSignature(message.snapshot.clueLog ?? []);
-      if (sawSnapshot && nextActionId > lastActionId) {
+      const nextCards = message.snapshot.cards ?? [];
+      if (sawSnapshot && shouldCueCardReveal(previousCardsForCue, nextCards)) {
         emitCue('cardChoice', 'A card was revealed.');
       }
       if (sawSnapshot && nextClueSignature && nextClueSignature !== lastClueSignature) {
         emitCue('clue', 'New clue received.');
       }
       sawSnapshot = true;
-      lastActionId = nextActionId;
+      previousCardsForCue = nextCards;
       lastClueSignature = nextClueSignature;
       players = message.snapshot.players;
       settings = { ...defaultSettings, ...message.snapshot.settings };
@@ -281,6 +289,11 @@
     writeGameplayPreferences(localStorage, preferences);
   }
 
+  function updatePanelPreferences(next: Partial<PanelPreferences>) {
+    panelPreferences = { ...panelPreferences, ...next };
+    writePanelPreferences(localStorage, panelPreferences);
+  }
+
   function emitCue(kind: 'chat' | 'cardChoice' | 'clue', notice: string) {
     const soundEnabled = kind === 'chat' ? preferences.chatSound : kind === 'cardChoice' ? preferences.cardChoiceSound : preferences.clueSound;
     const visualEnabled = kind === 'chat' ? preferences.chatVisualCue : kind === 'cardChoice' ? preferences.cardChoiceVisualCue : preferences.clueVisualCue;
@@ -354,6 +367,14 @@
 
   function randomizeTeams() {
     socket?.send({ type: 'randomizeTeams' });
+  }
+
+  function imageSelectionBorder(color: string) {
+    if (color === 'blue') return settings.customColorBlue || '#93c5fd';
+    if (color === 'red') return settings.customColorRed || '#fca5a5';
+    if (color === 'black') return '#d4d4d8';
+    if (color === 'civilian') return '#fde68a';
+    return '#e5e7eb';
   }
 
   function resetClue() {
@@ -450,6 +471,8 @@
             onSave={() => socket?.send({ type: 'updateSettings', settings })}
             phase={phase}
             canRandomizeTeams={canRandomizeTeams}
+            open={panelPreferences.modSettingsOpen}
+            onToggleOpen={() => updatePanelPreferences({ modSettingsOpen: !panelPreferences.modSettingsOpen })}
             onRandomizeTeams={randomizeTeams}
             onShuffleRoles={shuffleRoles}
             onResetClue={resetClue}
@@ -514,6 +537,9 @@
                     </span>
                     {#if card.contentType === 'image'}
                       <img class="h-full w-full rounded-lg object-cover" src={cardImageUrl(card)} alt="Card illustration" loading="lazy" />
+                      {#if view.isLastSelected}
+                        <span class="pointer-events-none absolute inset-1 rounded-lg border-4" style={`border-color: ${imageSelectionBorder(view.visibleColor)}; box-shadow: inset 0 0 0 2px rgba(16, 185, 129, 0.65);`}></span>
+                      {/if}
                     {:else}
                       <div class="flex h-full items-center justify-center p-2">
                         <span class={cardWordTextClasses(card.word)}>{toTitleCase(card.word) || 'Card'}</span>
@@ -528,21 +554,6 @@
           </div>
 
           <aside class="space-y-6 pb-32">
-            <ModSettings 
-              bind:settings={settings}
-              hostControls={hostControls}
-              wordpacks={wordpacks}
-              pictures={pictures}
-              pictureCatalogAvailable={pictureCatalogAvailable}
-              onSave={() => socket?.send({ type: 'updateSettings', settings })}
-              phase={phase}
-              canRandomizeTeams={canRandomizeTeams}
-              onRandomizeTeams={randomizeTeams}
-              onShuffleRoles={shuffleRoles}
-              onResetClue={resetClue}
-              onRestartMatch={restartMatch}
-            />
-
             <PlayerList 
               players={players} 
               viewer={viewer} 
@@ -557,7 +568,7 @@
             <section class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5">
               <h2 class="text-xl font-black tracking-tight">Clue log</h2>
               <div class="mt-4 space-y-3">
-                {#each clueLog.slice().reverse() as clue (`${clue.round}-${clue.team}-${clue.status}`)}
+                {#each clueLog.slice().reverse() as clue, index (clueLogKey(clue, index))}
                   <article class="rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3">
                     <div class="flex items-center justify-between gap-3">
                       <span class={['rounded-full px-2.5 py-1 text-xs font-black capitalize', clue.team === 'blue' ? 'bg-blue-300 text-blue-950' : 'bg-red-300 text-red-950']} style={clue.team === 'blue' && settings.customColorBlue ? `background-color: ${settings.customColorBlue}; color: white` : clue.team === 'red' && settings.customColorRed ? `background-color: ${settings.customColorRed}; color: white` : ''}>{clue.team}</span>
@@ -572,54 +583,79 @@
               </div>
             </section>
 
+            <ModSettings 
+              bind:settings={settings}
+              hostControls={hostControls}
+              wordpacks={wordpacks}
+              pictures={pictures}
+              pictureCatalogAvailable={pictureCatalogAvailable}
+              onSave={() => socket?.send({ type: 'updateSettings', settings })}
+              phase={phase}
+              canRandomizeTeams={canRandomizeTeams}
+              open={panelPreferences.modSettingsOpen}
+              onToggleOpen={() => updatePanelPreferences({ modSettingsOpen: !panelPreferences.modSettingsOpen })}
+              onRandomizeTeams={randomizeTeams}
+              onShuffleRoles={shuffleRoles}
+              onResetClue={resetClue}
+              onRestartMatch={restartMatch}
+            />
+
             <section class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5">
-              <h2 class="text-xl font-black tracking-tight">Local Options</h2>
-              <label class="mt-4 flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
-                <input type="checkbox" checked={preferences.confirmGuesses} onchange={(event) => updatePreferences({ confirmGuesses: event.currentTarget.checked })} />
-                <span class="text-sm text-slate-200">Confirm before revealing a card</span>
-              </label>
-              <label class="mt-3 flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
-                <input type="checkbox" checked={preferences.confirmPasses} onchange={(event) => updatePreferences({ confirmPasses: event.currentTarget.checked })} />
-                <span class="text-sm text-slate-200">Confirm before passing</span>
-              </label>
-              <label class="mt-3 block rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
-                <span class="text-sm text-slate-200 font-bold">Cards per row: {preferences.cardsPerRow}</span>
-                <input class="mt-2 w-full accent-emerald-300" type="range" min="1" max="13" value={preferences.cardsPerRow} oninput={(event) => updatePreferences({ cardsPerRow: Number.parseInt(event.currentTarget.value, 10) })} />
-              </label>
-              <label class="mt-3 block rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
-                <span class="text-sm text-slate-200 font-bold">Spymaster view style</span>
-                <select class="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" bind:value={preferences.spymasterRevealedStyle} onchange={(event) => updatePreferences({ spymasterRevealedStyle: event.currentTarget.value as any })}>
-                  <option value="greyed">Greyed</option>
-                  <option value="invisible">Invisible</option>
-                  <option value="omitted">Omitted</option>
-                </select>
-              </label>
-              <div class="mt-3 grid gap-2 text-sm text-slate-200">
-                <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
-                  <input type="checkbox" checked={preferences.chatSound} onchange={(event) => updatePreferences({ chatSound: event.currentTarget.checked })} />
-                  Chat sound
+              <button class="group flex w-full items-center gap-3 text-left" type="button" onclick={() => updatePanelPreferences({ localOptionsOpen: !panelPreferences.localOptionsOpen })} aria-expanded={panelPreferences.localOptionsOpen}>
+                <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-slate-700 bg-slate-950 text-sm font-black text-slate-300 transition group-hover:border-emerald-300/60 group-hover:text-emerald-200">{panelPreferences.localOptionsOpen ? '−' : '+'}</span>
+                <span>
+                  <span class="block text-xl font-black tracking-tight">Local Options</span>
+                  <span class="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">{panelPreferences.localOptionsOpen ? 'Open' : 'Closed'}</span>
+                </span>
+              </button>
+              {#if panelPreferences.localOptionsOpen}
+                <label class="mt-4 flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
+                  <input type="checkbox" checked={preferences.confirmGuesses} onchange={(event) => updatePreferences({ confirmGuesses: event.currentTarget.checked })} />
+                  <span class="text-sm text-slate-200">Confirm before revealing a card</span>
                 </label>
-                <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
-                  <input type="checkbox" checked={preferences.chatVisualCue} onchange={(event) => updatePreferences({ chatVisualCue: event.currentTarget.checked })} />
-                  Chat visual cue
+                <label class="mt-3 flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
+                  <input type="checkbox" checked={preferences.confirmPasses} onchange={(event) => updatePreferences({ confirmPasses: event.currentTarget.checked })} />
+                  <span class="text-sm text-slate-200">Confirm before passing</span>
                 </label>
-                <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
-                  <input type="checkbox" checked={preferences.cardChoiceSound} onchange={(event) => updatePreferences({ cardChoiceSound: event.currentTarget.checked })} />
-                  Card-choice sound
+                <label class="mt-3 block rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
+                  <span class="text-sm text-slate-200 font-bold">Cards per row: {preferences.cardsPerRow}</span>
+                  <input class="mt-2 w-full accent-emerald-300" type="range" min="1" max="13" value={preferences.cardsPerRow} oninput={(event) => updatePreferences({ cardsPerRow: Number.parseInt(event.currentTarget.value, 10) })} />
                 </label>
-                <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
-                  <input type="checkbox" checked={preferences.cardChoiceVisualCue} onchange={(event) => updatePreferences({ cardChoiceVisualCue: event.currentTarget.checked })} />
-                  Card-choice visual cue
+                <label class="mt-3 block rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
+                  <span class="text-sm text-slate-200 font-bold">Spymaster view style</span>
+                  <select class="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" bind:value={preferences.spymasterRevealedStyle} onchange={(event) => updatePreferences({ spymasterRevealedStyle: event.currentTarget.value as any })}>
+                    <option value="greyed">Greyed</option>
+                    <option value="invisible">Invisible</option>
+                    <option value="omitted">Omitted</option>
+                  </select>
                 </label>
-                <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
-                  <input type="checkbox" checked={preferences.clueSound} onchange={(event) => updatePreferences({ clueSound: event.currentTarget.checked })} />
-                  Incoming clue sound
-                </label>
-                <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
-                  <input type="checkbox" checked={preferences.clueVisualCue} onchange={(event) => updatePreferences({ clueVisualCue: event.currentTarget.checked })} />
-                  Incoming clue visual cue
-                </label>
-              </div>
+                <div class="mt-3 grid gap-2 text-sm text-slate-200">
+                  <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
+                    <input type="checkbox" checked={preferences.chatSound} onchange={(event) => updatePreferences({ chatSound: event.currentTarget.checked })} />
+                    Chat sound
+                  </label>
+                  <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
+                    <input type="checkbox" checked={preferences.chatVisualCue} onchange={(event) => updatePreferences({ chatVisualCue: event.currentTarget.checked })} />
+                    Chat visual cue
+                  </label>
+                  <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
+                    <input type="checkbox" checked={preferences.cardChoiceSound} onchange={(event) => updatePreferences({ cardChoiceSound: event.currentTarget.checked })} />
+                    Card-choice sound
+                  </label>
+                  <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
+                    <input type="checkbox" checked={preferences.cardChoiceVisualCue} onchange={(event) => updatePreferences({ cardChoiceVisualCue: event.currentTarget.checked })} />
+                    Card-choice visual cue
+                  </label>
+                  <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
+                    <input type="checkbox" checked={preferences.clueSound} onchange={(event) => updatePreferences({ clueSound: event.currentTarget.checked })} />
+                    Incoming clue sound
+                  </label>
+                  <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
+                    <input type="checkbox" checked={preferences.clueVisualCue} onchange={(event) => updatePreferences({ clueVisualCue: event.currentTarget.checked })} />
+                    Incoming clue visual cue
+                  </label>
+                </div>
+              {/if}
             </section>
           </aside>
         </section>
@@ -645,6 +681,7 @@
         clueProblem={clueProblem}
         guessProblem={guessProblem}
         passProblem={passProblem}
+        activeTeamHasRepresentative={activeTeamHasRepresentative}
         settings={settings}
         spymasterViewActive={spymasterViewActive}
         onToggleView={() => (spymasterViewActive = !spymasterViewActive)}
