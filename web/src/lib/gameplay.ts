@@ -253,12 +253,12 @@ export function imageCountForMode(mode: CardMode, currentMixedCount: number): nu
 
 export function displayCards(cards: GameplayCard[], cardMode: CardMode, imageOrderFirst: boolean): DisplayCard[] {
   const list = cards.map((card, index) => ({ ...card, originalIndex: index, badgeNumber: index + 1 }));
-  if (cardMode !== 'mixed' || !imageOrderFirst) return list;
-  return list.sort((a, b) => {
+  const ordered = cardMode !== 'mixed' || !imageOrderFirst ? list : list.sort((a, b) => {
     if (a.contentType === 'image' && b.contentType !== 'image') return -1;
     if (a.contentType !== 'image' && b.contentType === 'image') return 1;
     return a.originalIndex - b.originalIndex;
   });
+  return ordered.map((card, index) => ({ ...card, badgeNumber: index + 1 }));
 }
 
 export function cardViewState(

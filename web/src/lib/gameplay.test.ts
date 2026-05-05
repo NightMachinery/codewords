@@ -116,7 +116,7 @@ describe('board card state', () => {
     expect(cardContentLabel({ contentType: 'word', word: 'river', revealed: false })).toBe('river');
   });
 
-  it('keeps card number badges tied to original board order when images sort first', () => {
+  it('numbers card badges by display order when images sort first', () => {
     const cards: GameplayCard[] = [
       { contentType: 'word', word: 'alpha', revealed: false },
       { contentType: 'image', imageId: 'img-2', revealed: false },
@@ -125,10 +125,10 @@ describe('board card state', () => {
     ];
 
     expect(displayCards(cards, 'mixed', true).map((card) => `${card.contentType}:${card.badgeNumber}:${card.originalIndex}`)).toEqual([
-      'image:2:1',
-      'image:4:3',
-      'word:1:0',
-      'word:3:2',
+      'image:1:1',
+      'image:2:3',
+      'word:3:0',
+      'word:4:2',
     ]);
     expect(displayCards(cards, 'mixed', false).map((card) => card.badgeNumber)).toEqual([1, 2, 3, 4]);
   });
