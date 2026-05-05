@@ -35,13 +35,18 @@ Room sockets connect at `/ws/rooms/{roomId}` with `authToken`, `migrateId`, or `
 - `setTeam` / `assignTeam`
 - `toggleSpymaster`
 - `toggleRepresentative`
+- `toggleMod`
+- `updateSettings`
 - `startGame`
 - `guessCard`
 - `passTurn`
 - `submitClue`
+- `shuffleRoles`
+- `resetClue`
+- `restartMatch`
 - `sendChat`
 
-Accepted game commands are applied through `internal/game`, persisted as ordered events plus latest authoritative snapshot when a match is active, and broadcast as sanitized viewer-specific snapshots to connected clients. `startGame` can be sent over the socket or via `POST /api/rooms/{roomId}/start`. `sendChat` is accepted only from seated room members, stores the message in SQLite, and broadcasts a `chatMessage` event. Anonymous spectators and authenticated non-members receive snapshots but cannot write chat.
+Accepted game commands are applied through `internal/game`, persisted as ordered events plus latest authoritative snapshot when a match is active, and broadcast as sanitized viewer-specific snapshots to connected clients. `updateSettings` is accepted over WebSocket for moderators, persists the room settings, applies them to the runtime state, and records an active-match event when applicable. `restartMatch` is a moderator command that returns the room to lobby status, clears the persisted current match pointer, preserves current settings/player composition, and broadcasts a lobby snapshot. `startGame` can be sent over the socket or via `POST /api/rooms/{roomId}/start`. `sendChat` is accepted only from seated room members; observer-team members may chat only when `observerChatEnabled` is true. Anonymous spectators and authenticated non-members receive snapshots but cannot write chat.
 
 ## Restart restoration
 

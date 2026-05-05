@@ -73,7 +73,7 @@
           />
           <select class="w-24 rounded-xl border border-slate-700 bg-slate-950 px-2 py-2 text-sm text-slate-50" bind:value={clueNumber} disabled={!cluePermission.allowed}>
             <option value="">#</option>
-            {#each [1, 2, 3, 4, 5, 6, 7, 8, 9] as n}
+            {#each [1, 2, 3, 4, 5, 6, 7, 8, 9] as n (n)}
               <option value={String(n)}>{n}</option>
             {/each}
             {#if settings.allowInfinityClue}

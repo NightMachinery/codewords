@@ -19,7 +19,7 @@
   }
 </script>
 
-<aside class={['fixed top-0 right-0 z-40 h-full border-l border-slate-700/70 bg-slate-900/95 shadow-2xl transition-all duration-300 flex flex-col', expanded ? 'w-80' : 'w-12']}>
+<aside class={['fixed bottom-24 right-0 top-0 z-40 border-l border-slate-700/70 bg-slate-900/95 shadow-2xl transition-all duration-300 flex flex-col', expanded ? 'w-80' : 'w-12']}>
   <button 
     class="flex h-12 w-full items-center justify-center border-b border-slate-700/50 hover:bg-slate-800 transition"
     onclick={() => expanded = !expanded}

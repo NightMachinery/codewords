@@ -111,18 +111,24 @@
     <!-- Custom Colors -->
     <div class="grid gap-4 sm:grid-cols-2">
       <label class="block">
-        <span class="text-xs font-bold text-slate-400">Blue team color (hex)</span>
-        <input class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-50" type="text" placeholder="#3b82f6" bind:value={settings.customColorBlue} onchange={onSave} />
+        <span class="text-xs font-bold text-slate-400">Blue team color</span>
+        <div class="mt-1 flex gap-2">
+          <input class="h-10 w-14 rounded-xl border border-slate-700 bg-slate-950 p-1" type="color" value={settings.customColorBlue || '#3b82f6'} onchange={(event) => { settings.customColorBlue = event.currentTarget.value; onSave(); }} />
+          <button class="flex-1 rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 hover:border-slate-500" type="button" onclick={() => { settings.customColorBlue = ''; onSave(); }}>Reset</button>
+        </div>
       </label>
       <label class="block">
-        <span class="text-xs font-bold text-slate-400">Red team color (hex)</span>
-        <input class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-50" type="text" placeholder="#ef4444" bind:value={settings.customColorRed} onchange={onSave} />
+        <span class="text-xs font-bold text-slate-400">Red team color</span>
+        <div class="mt-1 flex gap-2">
+          <input class="h-10 w-14 rounded-xl border border-slate-700 bg-slate-950 p-1" type="color" value={settings.customColorRed || '#ef4444'} onchange={(event) => { settings.customColorRed = event.currentTarget.value; onSave(); }} />
+          <button class="flex-1 rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 hover:border-slate-500" type="button" onclick={() => { settings.customColorRed = ''; onSave(); }}>Reset</button>
+        </div>
       </label>
     </div>
 
     <!-- Mod Tools -->
     <div class="pt-4 border-t border-slate-700/50 space-y-3">
-      <span class="text-xs font-black uppercase tracking-widest text-slate-500">Danger Zone</span>
+      <span class="text-xs font-black uppercase tracking-widest text-slate-500">Round tools</span>
       <div class="grid gap-3 sm:grid-cols-2">
         <button class="rounded-xl border border-amber-500/50 px-4 py-3 text-sm font-black text-amber-200 hover:bg-amber-500/10 transition" onclick={onShuffleRoles}>Shuffle Card Roles</button>
         <button class="rounded-xl border border-amber-500/50 px-4 py-3 text-sm font-black text-amber-200 hover:bg-amber-500/10 transition" onclick={onResetClue}>Reset Current Clue</button>

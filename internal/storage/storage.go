@@ -320,6 +320,14 @@ func (d *DB) SetRoomCurrentMatch(ctx context.Context, roomID, matchID string) er
 	return requireAffected(res)
 }
 
+func (d *DB) ClearRoomCurrentMatch(ctx context.Context, roomID string) error {
+	res, err := d.db.ExecContext(ctx, `UPDATE rooms SET current_match_id = NULL, status = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`, RoomStatusLobby, roomID)
+	if err != nil {
+		return fmt.Errorf("clear current match: %w", err)
+	}
+	return requireAffected(res)
+}
+
 func (d *DB) UpdateRoomSettings(ctx context.Context, roomID, settingsJSON string) error {
 	res, err := d.db.ExecContext(ctx, `UPDATE rooms SET settings_json = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`, settingsJSON, roomID)
 	if err != nil {

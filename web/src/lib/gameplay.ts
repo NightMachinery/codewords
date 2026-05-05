@@ -134,7 +134,12 @@ export function canSubmitClue(
 }
 
 export function parseClueNumber(value: string): ClueNumber {
+  return clueNumberFromInput(value);
+}
+
+export function clueNumberFromInput(value: string): ClueNumber {
   const normalized = value.trim();
+  if (normalized === '') return { kind: 'blank' };
   if (normalized === '∞' || normalized.toLowerCase() === 'infinity') return { kind: 'infinity' };
   const parsed = Number.parseInt(normalized, 10);
   if (String(parsed) === normalized && parsed >= 1 && parsed <= 9) return { kind: 'numeric', value: parsed };
@@ -212,8 +217,13 @@ export function toTitleCase(str: string | undefined): string {
 }
 
 export function hexWithAlpha(hex: string | undefined, alpha: string): string {
-  if (!hex || !hex.startsWith('#') || (hex.length !== 7 && hex.length !== 4)) return hex ?? '';
-  return `${hex}${alpha}`;
+  if (!hex || !hex.startsWith('#')) return hex ?? '';
+  if (hex.length === 4) {
+    const [, r, g, b] = hex;
+    return `#${r}${r}${g}${g}${b}${b}${alpha}`;
+  }
+  if (hex.length === 7) return `${hex}${alpha}`;
+  return '';
 }
 
 export function cardWordTextClasses(word: string | undefined): string {
@@ -259,7 +269,7 @@ export function cardViewState(
   let styleClasses = '';
   if (card.revealed) {
     if (revealedStyle === 'normal') styleClasses = 'opacity-95';
-    else if (revealedStyle === 'greyed') styleClasses = 'opacity-20 saturate-0 grayscale';
+    else if (revealedStyle === 'greyed') styleClasses = 'opacity-35 saturate-50 grayscale contrast-75 after:pointer-events-none after:absolute after:right-2 after:top-2 after:h-2.5 after:w-2.5 after:rounded-full after:bg-current after:opacity-70';
     else if (revealedStyle === 'invisible') styleClasses = 'invisible';
     else if (revealedStyle === 'omitted') styleClasses = 'hidden';
   }
@@ -270,4 +280,10 @@ export function cardViewState(
     isLastSelected,
     classes: [colorClass, styleClasses, showHiddenColor && !card.revealed ? 'shadow-inner shadow-white/10' : '', isLastSelected ? 'ring-4 ring-emerald-200' : ''].filter(Boolean).join(' '),
   };
+}
+
+
+export function shouldCueChatMessage(viewer: Viewer | null | undefined, message: Pick<{ senderUserId: string }, 'senderUserId'>): boolean {
+  const id = viewerId(viewer);
+  return !id || message.senderUserId !== id;
 }

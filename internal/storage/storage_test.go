@@ -107,6 +107,13 @@ func TestUsersRoomsMatchesSnapshotsEventsAndChatPersist(t *testing.T) {
 	if err := db.SetRoomCurrentMatch(ctx, room.ID, match.ID); err != nil {
 		t.Fatalf("set current match: %v", err)
 	}
+	activeRoom, err := db.RoomByID(ctx, room.ID)
+	if err != nil {
+		t.Fatalf("room by id after set match: %v", err)
+	}
+	if activeRoom.Status != storage.RoomStatusActive || activeRoom.CurrentMatchID != match.ID {
+		t.Fatalf("expected active current match, got %#v", activeRoom)
+	}
 	event, err := db.AppendGameEvent(ctx, storage.AppendGameEventParams{MatchID: match.ID, ActorUserID: user.ID, EventType: "match_started", PayloadJSON: `{"ok":true}`})
 	if err != nil {
 		t.Fatalf("append event: %v", err)
@@ -130,6 +137,17 @@ func TestUsersRoomsMatchesSnapshotsEventsAndChatPersist(t *testing.T) {
 	}
 	if snapshot.LatestSequence != 2 || snapshot.StateJSON != `{"phase":"active"}` {
 		t.Fatalf("unexpected snapshot: %#v", snapshot)
+	}
+
+	if err := db.ClearRoomCurrentMatch(ctx, room.ID); err != nil {
+		t.Fatalf("clear current match: %v", err)
+	}
+	lobbyRoom, err := db.RoomByID(ctx, room.ID)
+	if err != nil {
+		t.Fatalf("room by id after clear match: %v", err)
+	}
+	if lobbyRoom.Status != storage.RoomStatusLobby || lobbyRoom.CurrentMatchID != "" {
+		t.Fatalf("expected lobby with no current match after clear, got %#v", lobbyRoom)
 	}
 
 	if _, err := db.AddChatMessage(ctx, storage.AddChatMessageParams{RoomID: room.ID, MatchID: match.ID, SenderUserID: user.ID, DisplayName: "Alice", Body: "hello"}); err != nil {

@@ -19,7 +19,7 @@ Room migrate links call `/api/rooms/{roomId}/migrate-bootstrap` and connect with
 
 ## Lobby
 
-The lobby opens a room WebSocket after the viewer has an identity. Snapshots drive team columns, role badges, settings, host permissions, and start readiness. Hosts can update wordpack, card content mode (words only, images only, or mixed image count), black-card count, enforced clue mode, infinity clues, roles, and team assignments. Non-host players can assign their own team.
+The lobby opens a room WebSocket after the viewer has an identity. Snapshots drive team columns, role badges, settings, host permissions, and start readiness. Moderators can update wordpack, card content mode (words only, images only, or mixed image count), mixed image ordering, black-card count, enforced clue mode, infinity clues, observer chat, custom team colors, roles, and team assignments. Non-host players can assign their own team or move to observer mode.
 
 Clipboard actions first use `navigator.clipboard`, then fall back to a temporary textarea plus `document.execCommand('copy')`, and finally show the raw link for manual copy.
 
@@ -46,8 +46,10 @@ Frontend helper logic mirrors the backend active-guesser rules:
 
 - representatives guess/pass when a team has at least one representative;
 - otherwise non-spymasters guess/pass;
-- if a team has only spymasters, those spymasters may guess/pass;
-- spectators and off-turn players are read-only.
+- spymasters never guess/pass or reveal cards;
+- observers, spectators, and off-turn players are read-only.
+
+Starting a match requires each playable team to have at least one spymaster and at least one non-spymaster guesser. Observer-team members are excluded from start requirements and cannot be made spymaster or representative.
 
 Clue numbers support blank/any, `1..9`, and `∞` only when room settings allow infinity clues. When enforced clue mode is enabled, the UI requires a non-blank clue number before submitting and explains that guesses must wait for a numbered clue.
 
@@ -65,4 +67,4 @@ Picture mode uses the local server catalog only. Hosts can choose words-only (`i
 
 ## Final local preferences and moderator controls
 
-LocalStorage gameplay preferences include confirmations, cards per row, and separate sound/visual cue toggles for chat, card reveals, and incoming clues. Room creators are moderators by default; moderators can promote/demote other players, update room settings, assign teams/roles manually, and use the default-on balanced random assignment for new players.
+LocalStorage gameplay preferences include confirmations, cards per row, spymaster revealed-card style, and separate sound/visual cue toggles for chat, card reveals, and incoming clues. The greyed spymaster style makes revealed cards transparent and grayscale while retaining color hints. Room creators are moderators by default; moderators can promote/demote other players, update room settings, assign teams/roles manually, shuffle unrevealed card roles, reset the current clue, restart an active match back to the lobby, and use the default-on balanced random assignment for new players.

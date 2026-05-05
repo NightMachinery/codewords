@@ -45,7 +45,7 @@
       <div>
         <h3 class="font-black text-slate-50">
           {player.displayName || 'Unnamed player'}
-          {#if player.id === viewer?.playerId}
+          {#if player.id === (viewer?.playerId || viewer?.userId)}
             <span class="ml-1 text-[10px] text-emerald-300 uppercase tracking-wider">(You)</span>
           {/if}
         </h3>
@@ -54,7 +54,7 @@
       <div class="flex flex-wrap justify-end gap-2">{@render roleBadges(player)}</div>
     </div>
     <div class="mt-4 flex flex-wrap gap-2">
-      {#if hostControls || player.id === viewer?.playerId}
+      {#if hostControls || player.id === (viewer?.playerId || viewer?.userId)}
         <button class={['rounded-full border px-3 py-1.5 text-xs font-bold transition', player.team === 'blue' ? 'border-blue-300 bg-blue-400/20 text-blue-100' : 'border-blue-300/50 text-blue-100/60 hover:bg-blue-400/20']} onclick={() => onAssignTeam(player.id, 'blue')}>Blue</button>
         <button class={['rounded-full border px-3 py-1.5 text-xs font-bold transition', player.team === 'red' ? 'border-red-300 bg-red-400/20 text-red-100' : 'border-red-300/50 text-red-100/60 hover:bg-red-400/20']} onclick={() => onAssignTeam(player.id, 'red')}>Red</button>
         <button class={['rounded-full border px-3 py-1.5 text-xs font-bold transition', player.team === 'observers' ? 'border-slate-300 bg-slate-400/20 text-slate-100' : 'border-slate-300/50 text-slate-100/60 hover:bg-slate-400/20']} onclick={() => onAssignTeam(player.id, 'observers')}>Observer</button>

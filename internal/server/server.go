@@ -477,6 +477,41 @@ func (a *app) handleWSMessage(ctx context.Context, roomID string, rt *roomRuntim
 		rt.broadcastLocked(map[string]any{"type": "chatMessage", "message": chatDTO(chat)})
 		return
 	}
+	if t == "updateSettings" {
+		settings, err := settingsFromMessage(msg)
+		if err != nil {
+			_ = conn.WriteJSON(errorMessage("invalid_command", err.Error()))
+			return
+		}
+		settings = normalizeSettings(settings)
+		event, err := game.Apply(&rt.state, game.UpdateSettingsCommand{Settings: settings}, viewerID)
+		if err != nil {
+			_ = conn.WriteJSON(errorMessage("command_rejected", err.Error()))
+			return
+		}
+		room, err := a.store.RoomByID(ctx, roomID)
+		if err != nil {
+			_ = conn.WriteJSON(errorMessage("room_not_found", err.Error()))
+			return
+		}
+		settingsJSON, _ := json.Marshal(settings)
+		if err := a.store.UpdateRoomSettings(ctx, roomID, string(settingsJSON)); err != nil {
+			_ = conn.WriteJSON(errorMessage("settings_failed", err.Error()))
+			return
+		}
+		if err := a.syncRoomPlayers(ctx, roomID, rt.state); err != nil {
+			_ = conn.WriteJSON(errorMessage("players_failed", err.Error()))
+			return
+		}
+		if room.CurrentMatchID != "" {
+			if err := a.persistState(ctx, room.CurrentMatchID, viewerID, string(event.Type), rt.state); err != nil {
+				_ = conn.WriteJSON(errorMessage("persist_failed", err.Error()))
+				return
+			}
+		}
+		rt.broadcastLocked(snapshotMessage(rt.state, ""))
+		return
+	}
 	cmd, err := commandFromMessage(t, msg)
 	if err != nil {
 		_ = conn.WriteJSON(errorMessage("invalid_command", err.Error()))
@@ -488,10 +523,23 @@ func (a *app) handleWSMessage(ctx context.Context, roomID string, rt *roomRuntim
 		return
 	}
 	room, err := a.store.RoomByID(ctx, roomID)
-	if err == nil && room.CurrentMatchID != "" {
-		_ = a.persistState(ctx, room.CurrentMatchID, viewerID, string(event.Type), rt.state)
-	} else if err == nil {
-		_ = a.syncRoomPlayers(ctx, roomID, rt.state)
+	if err == nil {
+		if err := a.syncRoomPlayers(ctx, roomID, rt.state); err != nil {
+			_ = conn.WriteJSON(errorMessage("players_failed", err.Error()))
+			return
+		}
+		if room.CurrentMatchID != "" {
+			if err := a.persistState(ctx, room.CurrentMatchID, viewerID, string(event.Type), rt.state); err != nil {
+				_ = conn.WriteJSON(errorMessage("persist_failed", err.Error()))
+				return
+			}
+			if event.Type == game.EventMatchRestarted {
+				if err := a.store.ClearRoomCurrentMatch(ctx, roomID); err != nil {
+					_ = conn.WriteJSON(errorMessage("restart_failed", err.Error()))
+					return
+				}
+			}
+		}
 	}
 	rt.broadcastLocked(snapshotMessage(rt.state, ""))
 }
@@ -502,7 +550,6 @@ func (a *app) startMatchLocked(ctx context.Context, room storage.Room, rt *roomR
 		u, _ := a.store.UserByID(ctx, p.UserID)
 		_, _ = game.Apply(&rt.state, game.AddPlayerCommand{PlayerID: p.UserID, DisplayName: u.DisplayName}, p.UserID)
 	}
-	a.ensureMinimalRoles(&rt.state, room.HostUserID)
 	pack := a.packs[rt.state.Settings.WordpackID]
 	event, err := game.Apply(&rt.state, game.StartCommand{Words: pack.Words, ImageIDs: a.pictureIDs()}, actorID)
 	if err != nil {
@@ -552,6 +599,22 @@ func (a *app) addChatMessage(ctx context.Context, roomID, viewerID, body string)
 		return storage.ChatMessage{}, err
 	}
 	return a.store.AddChatMessage(ctx, storage.AddChatMessageParams{RoomID: roomID, MatchID: room.CurrentMatchID, SenderUserID: viewerID, DisplayName: user.DisplayName, Body: text})
+}
+
+func settingsFromMessage(msg map[string]any) (game.Settings, error) {
+	raw, ok := msg["settings"]
+	if !ok {
+		return game.Settings{}, fmt.Errorf("missing settings")
+	}
+	payload, err := json.Marshal(raw)
+	if err != nil {
+		return game.Settings{}, err
+	}
+	var settings game.Settings
+	if err := json.Unmarshal(payload, &settings); err != nil {
+		return game.Settings{}, err
+	}
+	return settings, nil
 }
 
 func commandFromMessage(t string, msg map[string]any) (game.Command, error) {
@@ -669,27 +732,6 @@ func (a *app) syncRoomPlayers(ctx context.Context, roomID string, state game.Sta
 		}
 	}
 	return nil
-}
-
-func (a *app) ensureMinimalRoles(state *game.State, hostID string) {
-	if len(state.Players) == 2 {
-		ids := make([]string, 0, 2)
-		for id := range state.Players {
-			ids = append(ids, id)
-		}
-		sort.Strings(ids)
-		first := hostID
-		second := ""
-		for _, id := range ids {
-			if id != hostID {
-				second = id
-			}
-		}
-		if second != "" {
-			state.Players[first] = game.Player{ID: first, DisplayName: state.Players[first].DisplayName, Team: game.TeamBlue, Spymaster: true, Mod: state.Players[first].Mod || first == hostID}
-			state.Players[second] = game.Player{ID: second, DisplayName: state.Players[second].DisplayName, Team: game.TeamRed, Spymaster: true, Mod: state.Players[second].Mod}
-		}
-	}
 }
 
 func (a *app) authUser(ctx context.Context, token string) (storage.User, error) {

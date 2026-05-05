@@ -212,6 +212,9 @@ func (c ToggleSpymasterCommand) apply(state *State, actorID string) (Event, erro
 	if !ok || player.Team == "" {
 		return Event{}, fmt.Errorf("%w: unknown or unassigned player", ErrInvalidCommand)
 	}
+	if player.Team == TeamObservers {
+		return Event{}, fmt.Errorf("%w: observers cannot be spymasters", ErrInvalidCommand)
+	}
 	player.Spymaster = !player.Spymaster
 	if player.Spymaster {
 		player.Representative = false
@@ -227,6 +230,9 @@ func (c ToggleRepresentativeCommand) apply(state *State, actorID string) (Event,
 	player, ok := state.Players[c.PlayerID]
 	if !ok || player.Team == "" {
 		return Event{}, fmt.Errorf("%w: unknown or unassigned player", ErrInvalidCommand)
+	}
+	if player.Team == TeamObservers {
+		return Event{}, fmt.Errorf("%w: observers cannot be representatives", ErrInvalidCommand)
 	}
 	player.Representative = !player.Representative
 	if player.Representative {
@@ -359,7 +365,7 @@ func (c GuessCommand) apply(state *State, actorID string) (Event, error) {
 		state.endRoundAndSwitch()
 	} else if state.Settings.EnforceClueGuessLimit {
 		clue := state.CurrentClue()
-		if clue != nil && clue.Number.Kind == ClueNumberNumeric && clue.Guesses >= clue.Number.Value+1 {
+		if clue != nil && clue.Number.Kind == ClueNumberNumeric && clue.Guesses >= clue.Number.Value {
 			state.endRoundAndSwitch()
 		}
 	}
@@ -467,7 +473,7 @@ func (s State) IsActiveGuesser(playerID string, team Team) bool {
 			nonSpies++
 		}
 	}
-	if teamSize == 0 {
+	if teamSize == 0 || player.Spymaster {
 		return false
 	}
 	if reps > 0 {
@@ -512,6 +518,8 @@ func (s State) SnapshotFor(viewer Viewer) Snapshot {
 func (s State) canStart() bool {
 	blueSpy := false
 	redSpy := false
+	blueGuesser := false
+	redGuesser := false
 	if len(s.Players) == 0 {
 		return false
 	}
@@ -519,14 +527,22 @@ func (s State) canStart() bool {
 		if player.Team != TeamBlue && player.Team != TeamRed && player.Team != TeamObservers {
 			return false
 		}
-		if player.Team == TeamBlue && player.Spymaster {
-			blueSpy = true
-		}
-		if player.Team == TeamRed && player.Spymaster {
-			redSpy = true
+		switch player.Team {
+		case TeamBlue:
+			if player.Spymaster {
+				blueSpy = true
+			} else {
+				blueGuesser = true
+			}
+		case TeamRed:
+			if player.Spymaster {
+				redSpy = true
+			} else {
+				redGuesser = true
+			}
 		}
 	}
-	return blueSpy && redSpy
+	return blueSpy && redSpy && blueGuesser && redGuesser
 }
 
 func validateClueNumber(settings Settings, number ClueNumber, currentGuesses int) error {

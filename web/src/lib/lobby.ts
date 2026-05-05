@@ -45,5 +45,10 @@ export function startReadiness(players: LobbyPlayer[]): { ready: boolean; reason
   if (!blueSpy || !redSpy) {
     return { ready: false, reason: 'Each team needs a spymaster.' };
   }
+  const blueGuesser = players.some((player) => player.team === 'blue' && !player.spymaster);
+  const redGuesser = players.some((player) => player.team === 'red' && !player.spymaster);
+  if (!blueGuesser || !redGuesser) {
+    return { ready: false, reason: 'Each team needs a non-spymaster guesser.' };
+  }
   return { ready: true, reason: '' };
 }

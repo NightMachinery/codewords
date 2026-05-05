@@ -26,7 +26,9 @@ describe('lobby helpers', () => {
 
   it('explains what prevents the host from starting', () => {
     expect(startReadiness(players)).toEqual({ ready: false, reason: 'Assign every player to a team or observer mode first.' });
-    expect(startReadiness(players.slice(0, 2))).toEqual({ ready: true, reason: '' });
+    const startable = [players[0], { ...players[0], id: 'blue-guess', spymaster: false }, players[1], { ...players[1], id: 'red-guess', spymaster: false }];
+    expect(startReadiness(startable)).toEqual({ ready: true, reason: '' });
+    expect(startReadiness(players.slice(0, 2))).toEqual({ ready: false, reason: 'Each team needs a non-spymaster guesser.' });
     expect(startReadiness([{ ...players[0], spymaster: false }, players[1]])).toEqual({
       ready: false,
       reason: 'Each team needs a spymaster.',

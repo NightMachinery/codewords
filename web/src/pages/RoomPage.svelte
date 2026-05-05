@@ -10,12 +10,14 @@
     cardModeFromImageCount,
     cardViewState,
     cardWordTextClasses,
+    clueNumberFromInput,
     clueSubmitProblem,
     defaultGameplayPreferences,
     findViewerPlayer,
     formatClueNumber,
     readGameplayPreferences,
     shouldAutoJoinRoom,
+    shouldCueChatMessage,
     viewerRole,
     writeGameplayPreferences,
     toTitleCase,
@@ -91,7 +93,7 @@
   let needsName = $derived(Boolean(credentialMode === 'auth' && !displayName && roomStatus === 'lobby'));
   let role = $derived(viewerRole(players, viewer, currentTeam as any, phase));
   let cluePermission = $derived(canSubmitClue(players, viewer, currentTeam as any, phase));
-  let clueNumberParsed = $derived(clueNumber === '∞' ? { kind: 'infinity' } : { kind: 'numeric', value: parseInt(clueNumber, 10) });
+  let clueNumberParsed = $derived(clueNumberFromInput(clueNumber));
   let clueProblem = $derived(clueSubmitProblem(clueText, clueNumberParsed as any, settings));
   let currentClue = $derived(clueLog.slice().reverse().find((entry) => entry.status === 'active') ?? null);
   let guessProblem = $derived(guessDisabledReason());
@@ -211,7 +213,9 @@
     }
     if (message.type === 'chatMessage') {
       chatMessages = [...chatMessages, message.message].slice(-50);
-      emitCue('chat', 'New chat message.');
+      if (shouldCueChatMessage(viewer, message.message)) {
+        emitCue('chat', 'New chat message.');
+      }
     }
     if (message.type === 'error') {
       error = message.message;
@@ -359,7 +363,9 @@
   }
 
   function restartMatch() {
-    socket?.send({ type: 'restartMatch' });
+    if (window.confirm('Restart this match and return everyone to the lobby?')) {
+      socket?.send({ type: 'restartMatch' });
+    }
   }
 </script>
 

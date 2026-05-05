@@ -35,7 +35,7 @@ const players: LobbyPlayer[] = [
   { id: 'redSpy', displayName: 'Red Spy', team: 'red', spymaster: true, representative: false, mod: false },
   { id: 'redGuess', displayName: 'Red Guess', team: 'red', spymaster: false, representative: false, mod: false },
 ];
-const settings: Settings = { seed: 1, blackCards: 1, wordpackId: 'english', enforceClueGuessLimit: false, allowInfinityClue: false, imageCardCount: 0, randomizeTeams: true };
+const settings: Settings = { seed: 1, blackCards: 1, wordpackId: 'english', enforceClueGuessLimit: false, allowInfinityClue: false, imageCardCount: 0, randomizeTeams: true, observerChatEnabled: true, mixedImageOrderFirst: false };
 
 function viewer(userId: string): Viewer {
   return { userId, playerId: userId, isHost: false };
@@ -137,5 +137,28 @@ describe('active-room boot behavior', () => {
     expect(shouldAutoJoinRoom(activeRoom, 'auth', 'Alice')).toBe(false);
     expect(shouldAutoJoinRoom(lobbyRoom, 'auth', '')).toBe(false);
     expect(shouldAutoJoinRoom(lobbyRoom, 'migrate', 'Alice')).toBe(false);
+  });
+});
+
+
+describe('regression helpers', () => {
+  it('treats blank clue numbers as blank instead of NaN numeric values', async () => {
+    const { clueNumberFromInput } = await import('./gameplay');
+    expect(clueNumberFromInput('')).toEqual({ kind: 'blank' });
+    expect(clueNumberFromInput('∞')).toEqual({ kind: 'infinity' });
+    expect(clueNumberFromInput('3')).toEqual({ kind: 'numeric', value: 3 });
+  });
+
+  it('suppresses chat cues for messages sent by the current viewer', async () => {
+    const { shouldCueChatMessage } = await import('./gameplay');
+    expect(shouldCueChatMessage({ userId: 'me', playerId: 'me', isHost: false }, { senderUserId: 'me' })).toBe(false);
+    expect(shouldCueChatMessage({ userId: 'me', playerId: 'me', isHost: false }, { senderUserId: 'other' })).toBe(true);
+  });
+
+  it('keeps greyed revealed cards transparent while preserving color hints', () => {
+    const view = cardViewState({ contentType: 'word', word: 'castle', revealed: true, color: 'red' }, 0, true, null, 'greyed');
+    expect(view.classes).toContain('opacity-35');
+    expect(view.classes).toContain('grayscale');
+    expect(view.classes).toContain('after:bg-current');
   });
 });

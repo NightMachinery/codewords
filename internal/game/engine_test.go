@@ -175,8 +175,8 @@ func TestNewTwoPlayerLobbySeatsBothPlayersAsSpymasters(t *testing.T) {
 	if state.Players["p1"].Team != TeamRed || !state.Players["p1"].Spymaster {
 		t.Fatalf("p1 should be red spymaster, got %#v", state.Players["p1"])
 	}
-	if !state.canStart() {
-		t.Fatalf("two-player lobby should satisfy start role requirements")
+	if state.canStart() {
+		t.Fatalf("two-player all-spymaster lobby should not satisfy current start role requirements")
 	}
 }
 
@@ -358,8 +358,8 @@ func TestEnforcedClueLimitRequiresClueAndCapsGuesses(t *testing.T) {
 		t.Fatalf("expected lowering clue below accepted guesses to fail as invalid, got %v", err)
 	}
 	mustApply(t, &state, GuessCommand{Index: 1}, "blueGuess")
-	if _, err := Apply(&state, GuessCommand{Index: 2}, "blueGuess"); !errors.Is(err, ErrGuessLimitReached) {
-		t.Fatalf("expected clue cap reached, got %v", err)
+	if state.CurrentTeam != TeamRed {
+		t.Fatalf("expected clue cap to auto-pass to red, got %s", state.CurrentTeam)
 	}
 }
 
@@ -474,4 +474,60 @@ func makeImageIDs(n int) []string {
 		ids[i] = "image-" + strings.Repeat("x", i+1)
 	}
 	return ids
+}
+
+func TestCannotStartWithAllSpymasterTeams(t *testing.T) {
+	state := NewLobby("host", Settings{Seed: 31, BlackCards: 1})
+	for _, player := range []struct {
+		id   string
+		team Team
+	}{
+		{"blueSpy", TeamBlue},
+		{"redSpy", TeamRed},
+	} {
+		mustApply(t, &state, AddPlayerCommand{PlayerID: player.id, DisplayName: player.id}, player.id)
+		mustApply(t, &state, AssignTeamCommand{PlayerID: player.id, Team: player.team}, "host")
+		mustApply(t, &state, ToggleSpymasterCommand{PlayerID: player.id}, "host")
+	}
+
+	if _, err := Apply(&state, StartCommand{Words: makeWords(40)}, "host"); !errors.Is(err, ErrCannotStart) {
+		t.Fatalf("expected all-spymaster teams to be rejected, got %v", err)
+	}
+}
+
+func TestSpymastersAndObserversCannotRevealOrReceivePlayRoles(t *testing.T) {
+	state := startedState(t, Settings{Seed: 32, BlackCards: 0, WordpackID: "test"})
+	state.CurrentTeam = TeamBlue
+	setCardColors(&state, []Color{ColorBlue, ColorBlue})
+
+	if _, err := Apply(&state, GuessCommand{Index: 0}, "blueSpy"); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("expected spymaster guess to be forbidden, got %v", err)
+	}
+	mustApply(t, &state, AddPlayerCommand{PlayerID: "observer", DisplayName: "Observer"}, "observer")
+	mustApply(t, &state, AssignTeamCommand{PlayerID: "observer", Team: TeamObservers}, "host")
+	if _, err := Apply(&state, ToggleSpymasterCommand{PlayerID: "observer"}, "host"); !errors.Is(err, ErrInvalidCommand) {
+		t.Fatalf("expected observer spymaster toggle to be invalid, got %v", err)
+	}
+	if _, err := Apply(&state, ToggleRepresentativeCommand{PlayerID: "observer"}, "host"); !errors.Is(err, ErrInvalidCommand) {
+		t.Fatalf("expected observer representative toggle to be invalid, got %v", err)
+	}
+}
+
+func TestEnforcedClueLimitAutoPassesAtExactGuessCount(t *testing.T) {
+	state := startedState(t, Settings{Seed: 33, BlackCards: 0, WordpackID: "test", EnforceClueGuessLimit: true})
+	state.CurrentTeam = TeamBlue
+	setCardColors(&state, []Color{ColorBlue, ColorBlue, ColorBlue})
+	mustApply(t, &state, SubmitClueCommand{Text: "Sea", Number: ClueNumber{Kind: ClueNumberNumeric, Value: 2}}, "blueSpy")
+
+	mustApply(t, &state, GuessCommand{Index: 0}, "blueGuess")
+	if state.CurrentTeam != TeamBlue {
+		t.Fatalf("first correct guess should keep blue turn, got %s", state.CurrentTeam)
+	}
+	mustApply(t, &state, GuessCommand{Index: 1}, "blueGuess")
+	if state.CurrentTeam != TeamRed {
+		t.Fatalf("second correct guess should auto-pass to red, got %s", state.CurrentTeam)
+	}
+	if state.ClueLog[0].Status != ClueFinal {
+		t.Fatalf("auto-pass should finalize clue, got %#v", state.ClueLog[0])
+	}
 }

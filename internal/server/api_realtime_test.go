@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NightMachinery/codewords/internal/game"
 	"github.com/NightMachinery/codewords/internal/identity"
 	"github.com/NightMachinery/codewords/internal/storage"
 	"github.com/gorilla/websocket"
@@ -82,9 +83,11 @@ func TestRoomStartPersistsSnapshotAndRestoresOverWebSocket(t *testing.T) {
 	roomResp := postJSON(t, h, "/api/rooms", map[string]any{"authToken": "host", "settings": map[string]any{"wordpackId": "english", "seed": 11}}, http.StatusCreated)
 	roomID := roomResp["room"].(map[string]any)["id"].(string)
 	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "guest", "displayName": "Guest"}, http.StatusOK)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "blue-guess", "displayName": "Blue Guess"}, http.StatusOK)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "red-guess", "displayName": "Red Guess"}, http.StatusOK)
 	postJSON(t, h, "/api/rooms/"+roomID+"/settings", map[string]any{"authToken": "host", "settings": map[string]any{"wordpackId": "english", "seed": 11}}, http.StatusOK)
+	makeRoomStartable(t, h, roomID, map[string]string{"host": "blueSpy", "guest": "redSpy", "blue-guess": "blueGuess", "red-guess": "redGuess"})
 
-	// Lobby commands over HTTP through start endpoint auto-seat the minimal two-team setup from persisted players.
 	start := postJSON(t, h, "/api/rooms/"+roomID+"/start", map[string]any{"authToken": "host"}, http.StatusOK)
 	if start["snapshot"].(map[string]any)["phase"].(string) != "active" {
 		t.Fatalf("expected active snapshot, got %#v", start)
@@ -175,6 +178,9 @@ func TestWebSocketStartGameAndChatMessage(t *testing.T) {
 	roomResp := postJSON(t, h, "/api/rooms", map[string]any{"authToken": "host-ws", "settings": map[string]any{"wordpackId": "english", "seed": 12}}, http.StatusCreated)
 	roomID := roomResp["room"].(map[string]any)["id"].(string)
 	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "guest-ws", "displayName": "Guest"}, http.StatusOK)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "blue-guess-ws", "displayName": "Blue Guess"}, http.StatusOK)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "red-guess-ws", "displayName": "Red Guess"}, http.StatusOK)
+	makeRoomStartable(t, h, roomID, map[string]string{"host-ws": "blueSpy", "guest-ws": "redSpy", "blue-guess-ws": "blueGuess", "red-guess-ws": "redGuess"})
 
 	server := httptest.NewServer(h)
 	defer server.Close()
@@ -199,6 +205,17 @@ func TestWebSocketStartGameAndChatMessage(t *testing.T) {
 		t.Fatalf("expected active snapshot after ws start, got %#v", msg)
 	}
 
+	if err := conn.WriteJSON(map[string]any{"type": "updateSettings", "settings": map[string]any{"wordpackId": "english", "seed": 12, "blackCards": 1, "imageCardCount": 5, "observerChatEnabled": true, "mixedImageOrderFirst": true}}); err != nil {
+		t.Fatalf("write settings: %v", err)
+	}
+	if err := conn.ReadJSON(&msg); err != nil {
+		t.Fatalf("read settings snapshot: %v", err)
+	}
+	settings := msg["snapshot"].(map[string]any)["settings"].(map[string]any)
+	if settings["imageCardCount"] != float64(5) || settings["mixedImageOrderFirst"] != true {
+		t.Fatalf("expected updated websocket settings, got %#v", settings)
+	}
+
 	if err := conn.WriteJSON(map[string]any{"type": "sendChat", "body": "hello team"}); err != nil {
 		t.Fatalf("write chat: %v", err)
 	}
@@ -207,6 +224,24 @@ func TestWebSocketStartGameAndChatMessage(t *testing.T) {
 	}
 	if msg["type"] != "chatMessage" || msg["message"].(map[string]any)["body"] != "hello team" {
 		t.Fatalf("expected chat message broadcast, got %#v", msg)
+	}
+
+	if err := conn.WriteJSON(map[string]any{"type": "restartMatch"}); err != nil {
+		t.Fatalf("write restart: %v", err)
+	}
+	if err := conn.ReadJSON(&msg); err != nil {
+		t.Fatalf("read restart snapshot: %v", err)
+	}
+	if msg["type"] != "snapshot" || msg["snapshot"].(map[string]any)["phase"] != "lobby" {
+		t.Fatalf("expected lobby snapshot after restart, got %#v", msg)
+	}
+	handler := h.(*Handler)
+	room, err := handler.app.store.RoomByID(context.Background(), roomID)
+	if err != nil {
+		t.Fatalf("room after restart: %v", err)
+	}
+	if room.Status != storage.RoomStatusLobby || room.CurrentMatchID != "" {
+		t.Fatalf("restart should clear persisted active match, got %#v", room)
 	}
 }
 
@@ -259,6 +294,38 @@ func TestMigrateIdProvidesRoomViewerContext(t *testing.T) {
 	viewer := room["viewer"].(map[string]any)
 	if viewer["userId"] != hostID || viewer["isHost"] != true {
 		t.Fatalf("expected migrate viewer to resolve host, got %#v", viewer)
+	}
+}
+
+func makeRoomStartable(t *testing.T, h http.Handler, roomID string, tokenRoles map[string]string) {
+	t.Helper()
+	handler := h.(*Handler)
+	rt, err := handler.app.loadRuntime(context.Background(), roomID)
+	if err != nil {
+		t.Fatalf("load runtime: %v", err)
+	}
+	rt.mu.Lock()
+	defer rt.mu.Unlock()
+	for token, role := range tokenRoles {
+		user, err := handler.app.authUser(context.Background(), token)
+		if err != nil {
+			t.Fatalf("auth %s: %v", token, err)
+		}
+		team := game.TeamBlue
+		if strings.HasPrefix(role, "red") {
+			team = game.TeamRed
+		}
+		if _, err := game.Apply(&rt.state, game.AssignTeamCommand{PlayerID: user.ID, Team: team}, rt.state.HostID); err != nil {
+			t.Fatalf("assign %s: %v", role, err)
+		}
+		if strings.HasSuffix(role, "Spy") {
+			if _, err := game.Apply(&rt.state, game.ToggleSpymasterCommand{PlayerID: user.ID}, rt.state.HostID); err != nil {
+				t.Fatalf("spy %s: %v", role, err)
+			}
+		}
+	}
+	if err := handler.app.syncRoomPlayers(context.Background(), roomID, rt.state); err != nil {
+		t.Fatalf("sync room players: %v", err)
 	}
 }
 
