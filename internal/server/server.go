@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -391,17 +392,30 @@ func wordpackSortKey(id string) string {
 
 func (a *app) handlePictureCatalog(w http.ResponseWriter, r *http.Request) {
 	images := a.pictures.listDTO(r)
-	writeJSON(w, http.StatusOK, map[string]any{"available": len(images) > 0, "images": images})
+	available := len(images) > 0 || (a.pictures != nil && len(a.pictures.sourcePaths) > 0)
+	writeJSON(w, http.StatusOK, map[string]any{"available": available, "images": images})
 }
 func (a *app) handlePicture(w http.ResponseWriter, r *http.Request) {
-	asset, ok := a.pictures.images[r.PathValue("imageId")]
-	if !ok {
+	imageID := r.PathValue("imageId")
+	asset, ok := a.pictures.images[imageID]
+	cachePath := ""
+	contentType := "image/avif"
+	if ok {
+		cachePath = asset.CachePath
+		contentType = asset.ContentType
+	} else if a.pictures != nil && !a.pictures.diag.ProcessAVIF && validAVIFCacheBasename.MatchString(imageID+".avif") {
+		cachePath = filepath.Join(a.pictures.cacheDir, imageID+".avif")
+	} else {
 		writeError(w, http.StatusNotFound, "picture_not_found", "local picture not found")
 		return
 	}
-	w.Header().Set("Content-Type", asset.ContentType)
+	if info, err := os.Stat(cachePath); err != nil || info.IsDir() {
+		writeError(w, http.StatusNotFound, "picture_not_found", "local picture not found")
+		return
+	}
+	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-	http.ServeFile(w, r, asset.CachePath)
+	http.ServeFile(w, r, cachePath)
 }
 
 func (a *app) handleWS(w http.ResponseWriter, r *http.Request) {
@@ -900,8 +914,11 @@ func (a *app) pictureIDsForStart(ctx context.Context, settings game.Settings) ([
 	if imageCount > game.BoardSize {
 		imageCount = game.BoardSize
 	}
-	if imageCount == 0 || a.pictures.diag.ProcessAVIF {
+	if imageCount == 0 {
 		return a.pictureIDs(), nil
+	}
+	if a.pictures.diag.ProcessAVIF {
+		return game.ShuffledImageIDs(settings, a.pictureIDs()), nil
 	}
 	selected := a.pictures.cachedImageIDsForStart(ctx, settings, imageCount)
 	if len(selected) < imageCount {
@@ -917,16 +934,21 @@ func (c *pictureCatalog) cachedImageIDsForStart(ctx context.Context, settings ga
 	if c == nil || needed <= 0 {
 		return nil
 	}
-	candidates := game.ShuffledImageIDs(settings, c.ids)
+	candidates := shuffledStrings(settings, c.sourcePaths)
 	selected := make([]string, 0, needed)
+	selectedSeen := map[string]bool{}
 	for start := 0; start < len(candidates) && len(selected) < needed; start += cacheExistenceBatchSize {
 		end := start + cacheExistenceBatchSize
 		if end > len(candidates) {
 			end = len(candidates)
 		}
-		results := c.cachedImageBatch(ctx, candidates[start:end])
-		for _, id := range candidates[start:end] {
-			if results[id] {
+		results := c.cachedSourceImageBatch(ctx, candidates[start:end])
+		for _, path := range candidates[start:end] {
+			if id := results[path]; id != "" {
+				if selectedSeen[id] {
+					continue
+				}
+				selectedSeen[id] = true
 				selected = append(selected, id)
 				if len(selected) == needed {
 					break
@@ -937,13 +959,14 @@ func (c *pictureCatalog) cachedImageIDsForStart(ctx context.Context, settings ga
 	return selected
 }
 
-func (c *pictureCatalog) cachedImageBatch(ctx context.Context, ids []string) map[string]bool {
-	results := make(map[string]bool, len(ids))
+func (c *pictureCatalog) cachedSourceImageBatch(ctx context.Context, paths []string) map[string]string {
+	results := make(map[string]string, len(paths))
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, cacheExistenceParallelism)
-	for _, id := range ids {
-		id := id
+	seen := map[string]bool{}
+	for _, path := range paths {
+		path := path
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -953,21 +976,30 @@ func (c *pictureCatalog) cachedImageBatch(ctx context.Context, ids []string) map
 			case <-ctx.Done():
 				return
 			}
-			asset, ok := c.images[id]
-			if !ok {
+			bytes, err := os.ReadFile(path)
+			if err != nil {
 				return
 			}
-			info, err := os.Stat(asset.CachePath)
+			id := legacyImageID(bytes)
+			cachePath := filepath.Join(c.cacheDir, id+".avif")
+			info, err := os.Stat(cachePath)
 			if err != nil || info.IsDir() {
 				return
 			}
 			mu.Lock()
-			results[id] = true
+			if !seen[id] {
+				seen[id] = true
+				results[path] = id
+			}
 			mu.Unlock()
 		}()
 	}
 	wg.Wait()
 	return results
+}
+
+func shuffledStrings(settings game.Settings, values []string) []string {
+	return game.ShuffledImageIDs(settings, values)
 }
 
 func snapshotMessage(state game.State, viewerID string) map[string]any {

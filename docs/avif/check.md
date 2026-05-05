@@ -1,6 +1,6 @@
 # AVIF Cache Checking
 
-Codewords serves local picture cards only from cached AVIF files. The cache check happens while building the in-memory picture catalog, either on server startup or when running the manual cache command.
+Codewords serves local picture cards only from cached AVIF files. With AVIF processing enabled, cache validation happens while building the in-memory picture catalog. With AVIF processing disabled, startup only discovers source candidates and defers image id hashing plus cache existence checks until a game starts.
 
 ## When checks run
 
@@ -16,13 +16,13 @@ Codewords serves local picture cards only from cached AVIF files. The cache chec
 
   - The backend still scans CODEWORDS_IMAGE_DIR recursively and follows symlinked
     directories.
-  - For each source image, it computes the legacy imageId from the source bytes.
-  - It computes the matching cache path:
+  - It does not read every source image or compute every legacy imageId at startup.
+  - When a game starts with image cards, source candidates are shuffled from the game seed. For selected candidates and replacements, the backend reads the source bytes, computes the legacy imageId, and computes the matching cache path:
 
   <CODEWORDS_IMAGE_CACHE_DIR>/<imageId>.avif
 
-  - The source image is exposed in the catalog without checking that path.
-  - When a game starts with image cards, candidates are shuffled from the game seed, selected candidates are checked in bounded parallel batches, and missing cache files are skipped in favor of later shuffled replacements.
+  - The catalog endpoint reports that source candidates are available, but disabled mode does not expose per-image ids before start.
+  - Selected candidates are checked in bounded parallel batches, and missing cache files are skipped in favor of later shuffled replacements.
   - If not enough cached candidates exist, image/mixed game start fails.
   - It does not run identify.
   - It does not validate dimensions.
@@ -48,7 +48,7 @@ The backend scans `CODEWORDS_IMAGE_DIR` recursively and follows symlinked direct
 - other file extensions whose MIME type is `image/*`, except `.avif`
 - extensionless files that sniff as JPEG, PNG, or WebP
 
-Every source image is read so the backend can compute the legacy-compatible image id. The cache path is then:
+When AVIF processing is enabled, every source image is read during startup so the backend can compute the legacy-compatible image id. When processing is disabled, this read/hash step is deferred until match start for selected candidates and replacements. The cache path is then:
 
 ```text
 <CODEWORDS_IMAGE_CACHE_DIR>/<imageId>.avif
@@ -60,7 +60,7 @@ The id is based on the source bytes plus the fixed transform descriptor, so an A
 
 When `CODEWORDS_AVIF_PROCESS_P` is false, startup does not call `os.Stat` for every expected cache path.
 
-- Discoverable source image: exposed in the picture catalog as a candidate.
+- Discoverable source image: counted by the picture catalog as a candidate.
 - Existing `<imageId>.avif`: eligible to be selected at match start.
 - Missing `<imageId>.avif`: skipped at match start and replaced with a later shuffled candidate.
 - No ImageMagick or `avifenc` commands are run.
@@ -116,7 +116,7 @@ The normalized output contract is:
 
 The expensive parts are:
 
-- reading every source image to compute its legacy image id
+- reading source images to compute legacy image ids (all images when processing is enabled; only selected candidates/replacements when disabled)
 - reading/parsing every existing AVIF cache file when processing is enabled
 - invoking external `identify` processes for batches of cache files, rather than one process per file
 - rebuilding missing or invalid files with `convert` and `avifenc`

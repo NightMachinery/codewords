@@ -29,9 +29,11 @@ const expectedAVIFHeight = 1536
 var validAVIFCacheBasename = regexp.MustCompile(`^[0-9a-f]{64}\.avif$`)
 
 type pictureCatalog struct {
-	images map[string]pictureAsset
-	ids    []string
-	diag   pictureCatalogDiagnostics
+	images      map[string]pictureAsset
+	ids         []string
+	sourcePaths []string
+	cacheDir    string
+	diag        pictureCatalogDiagnostics
 }
 
 type pictureAsset struct {
@@ -111,7 +113,19 @@ func loadPictureCatalog(opts pictureCatalogOptions) (*pictureCatalog, error) {
 	} else {
 		logPictureCatalog(opts, "image catalog: AVIF processing is disabled; cache existence checks are deferred until match start")
 	}
-	catalog := &pictureCatalog{images: map[string]pictureAsset{}, diag: diag}
+	catalog := &pictureCatalog{images: map[string]pictureAsset{}, sourcePaths: append([]string(nil), entries...), cacheDir: opts.ImageCacheDir, diag: diag}
+	if !opts.ProcessAVIF {
+		catalog.diag.EnabledCount = len(catalog.sourcePaths)
+		catalog.diag.CachedAVIFCount = countCachedAVIFFiles(opts.ImageCacheDir)
+		catalog.diag.DisabledReason = catalogDisabledReason(catalog.diag)
+		logPictureCatalog(opts, "image catalog: finished load source_images=%d enabled_image_candidates=%d cache_hits=%d cache_misses=%d duplicates=%d cached_avif_images=%d", catalog.diag.SourceCount, catalog.diag.EnabledCount, catalog.diag.CacheHitCount, catalog.diag.CacheMissCount, catalog.diag.DuplicateCount, catalog.diag.CachedAVIFCount)
+		if catalog.diag.DisabledReason != "" {
+			logPictureCatalog(opts, "image catalog: image mode disabled because %s", catalog.diag.DisabledReason)
+		} else {
+			logPictureCatalog(opts, "image catalog: image mode enabled with %d source candidate(s)", catalog.diag.EnabledCount)
+		}
+		return catalog, nil
+	}
 	expectedCaches := make([]expectedPictureCache, 0, len(entries))
 	sourceByCachePath := make(map[string]string, len(entries))
 
@@ -155,17 +169,8 @@ func loadPictureCatalog(opts pictureCatalogOptions) (*pictureCatalog, error) {
 
 			mu.Lock()
 			defer mu.Unlock()
-			if opts.ProcessAVIF {
-				expectedCaches = append(expectedCaches, expectedPictureCache{SourcePath: p, CachePath: cachePath})
-				sourceByCachePath[cachePath] = p
-			} else {
-				if _, exists := catalog.images[id]; exists {
-					catalog.diag.DuplicateCount++
-				} else {
-					catalog.images[id] = pictureAsset{ID: id, SourcePath: p, CachePath: cachePath, ContentType: "image/avif"}
-					catalog.ids = append(catalog.ids, id)
-				}
-			}
+			expectedCaches = append(expectedCaches, expectedPictureCache{SourcePath: p, CachePath: cachePath})
+			sourceByCachePath[cachePath] = p
 		}(path)
 	}
 
@@ -174,39 +179,37 @@ func loadPictureCatalog(opts pictureCatalogOptions) (*pictureCatalog, error) {
 		return nil, firstErr
 	}
 
-	if opts.ProcessAVIF {
-		results, err := checkExpectedAVIFCaches(context.Background(), dimensionCheckerOrDefault(opts.DimensionChecker), expectedCaches, opts)
+	results, err := checkExpectedAVIFCaches(context.Background(), dimensionCheckerOrDefault(opts.DimensionChecker), expectedCaches, opts)
+	if err != nil {
+		return nil, err
+	}
+	for _, expected := range expectedCaches {
+		if isValidAVIFResult(results[expected.CachePath]) {
+			catalog.diag.CacheHitCount++
+			continue
+		}
+		catalog.diag.CacheMissCount++
+		if err := buildAVIFCache(expected.SourcePath, expected.CachePath); err != nil {
+			return nil, err
+		}
+		ok, err := validCachedAVIF(expected.CachePath)
 		if err != nil {
 			return nil, err
 		}
-		for _, expected := range expectedCaches {
-			if isValidAVIFResult(results[expected.CachePath]) {
-				catalog.diag.CacheHitCount++
-				continue
-			}
-			catalog.diag.CacheMissCount++
-			if err := buildAVIFCache(expected.SourcePath, expected.CachePath); err != nil {
-				return nil, err
-			}
-			ok, err := validCachedAVIF(expected.CachePath)
-			if err != nil {
-				return nil, err
-			}
-			if !ok {
-				return nil, fmt.Errorf("built avif cache has wrong dimensions: %s", expected.CachePath)
-			}
+		if !ok {
+			return nil, fmt.Errorf("built avif cache has wrong dimensions: %s", expected.CachePath)
 		}
-		catalog.images = map[string]pictureAsset{}
-		catalog.ids = catalog.ids[:0]
-		for _, expected := range expectedCaches {
-			id := strings.TrimSuffix(filepath.Base(expected.CachePath), ".avif")
-			if _, exists := catalog.images[id]; exists {
-				catalog.diag.DuplicateCount++
-				continue
-			}
-			catalog.images[id] = pictureAsset{ID: id, SourcePath: sourceByCachePath[expected.CachePath], CachePath: expected.CachePath, ContentType: "image/avif"}
-			catalog.ids = append(catalog.ids, id)
+	}
+	catalog.images = map[string]pictureAsset{}
+	catalog.ids = catalog.ids[:0]
+	for _, expected := range expectedCaches {
+		id := strings.TrimSuffix(filepath.Base(expected.CachePath), ".avif")
+		if _, exists := catalog.images[id]; exists {
+			catalog.diag.DuplicateCount++
+			continue
 		}
+		catalog.images[id] = pictureAsset{ID: id, SourcePath: sourceByCachePath[expected.CachePath], CachePath: expected.CachePath, ContentType: "image/avif"}
+		catalog.ids = append(catalog.ids, id)
 	}
 	sort.Strings(catalog.ids)
 	catalog.diag.EnabledCount = len(catalog.ids)

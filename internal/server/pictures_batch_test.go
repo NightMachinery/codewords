@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -129,8 +130,8 @@ func TestProcessingDisabledDoesNotCallDimensionChecker(t *testing.T) {
 	if checker.calls != 0 {
 		t.Fatalf("expected processing-disabled path not to call checker, got %d calls", checker.calls)
 	}
-	if len(catalog.ids) != 1 {
-		t.Fatalf("expected cached image to be exposed, got %#v", catalog.ids)
+	if len(catalog.ids) != 0 || len(catalog.sourcePaths) != 1 {
+		t.Fatalf("expected source candidate to be indexed without id hashing, got ids=%#v sources=%#v", catalog.ids, catalog.sourcePaths)
 	}
 }
 
@@ -145,8 +146,17 @@ func TestProcessingDisabledDefersCacheExistenceChecks(t *testing.T) {
 		t.Fatalf("write cache file fixture: %v", err)
 	}
 	checker := &recordingDimensionChecker{err: errors.New("checker should not be called")}
+	var logs []string
 
-	catalog, err := loadPictureCatalog(pictureCatalogOptions{ImageDir: imageDir, ImageCacheDir: cacheFile, ProcessAVIF: false, DimensionChecker: checker})
+	catalog, err := loadPictureCatalog(pictureCatalogOptions{
+		ImageDir:         imageDir,
+		ImageCacheDir:    cacheFile,
+		ProcessAVIF:      false,
+		DimensionChecker: checker,
+		Logf: func(format string, args ...any) {
+			logs = append(logs, fmt.Sprintf(format, args...))
+		},
+	})
 	if err != nil {
 		t.Fatalf("load picture catalog should not stat cache paths while processing is disabled: %v", err)
 	}
@@ -154,11 +164,16 @@ func TestProcessingDisabledDefersCacheExistenceChecks(t *testing.T) {
 	if checker.calls != 0 {
 		t.Fatalf("expected processing-disabled path not to call checker, got %d calls", checker.calls)
 	}
-	if len(catalog.ids) != 1 || catalog.ids[0] != legacyImageID(sourceBytes) {
-		t.Fatalf("expected uncached source candidate to be exposed, got %#v", catalog.ids)
+	if len(catalog.ids) != 0 || len(catalog.sourcePaths) != 1 {
+		t.Fatalf("expected uncached source candidate to be deferred without id hashing, got ids=%#v sources=%#v", catalog.ids, catalog.sourcePaths)
 	}
 	if catalog.Diagnostics().CacheHitCount != 0 || catalog.Diagnostics().CacheMissCount != 0 {
 		t.Fatalf("expected no startup cache hit/miss checks, got %#v", catalog.Diagnostics())
+	}
+	for _, line := range logs {
+		if strings.Contains(line, "checking source image") {
+			t.Fatalf("expected processing-disabled startup not to check/hash source images, got log %q in %#v", line, logs)
+		}
 	}
 }
 

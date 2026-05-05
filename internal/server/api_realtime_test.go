@@ -353,18 +353,11 @@ func TestPictureCatalogListsAndServesLocalImages(t *testing.T) {
 		t.Fatalf("expected picture catalog to be available, got %#v", catalog)
 	}
 	images := catalog["images"].([]any)
-	if len(images) != 1 {
-		t.Fatalf("expected one image, got %#v", catalog)
-	}
-	imageID := images[0].(map[string]any)["id"].(string)
-	if imageID == "" || strings.Contains(imageID, "card one") {
-		t.Fatalf("image id should be opaque and non-empty, got %q", imageID)
-	}
-	if imageID != expectedID {
-		t.Fatalf("expected legacy-compatible image id %s, got %s", expectedID, imageID)
+	if len(images) != 0 {
+		t.Fatalf("expected disabled processing to defer image ids until start, got %#v", catalog)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/pictures/"+imageID, nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/pictures/"+expectedID, nil)
 	res := httptest.NewRecorder()
 	h.ServeHTTP(res, req)
 	if res.Code != http.StatusOK || res.Header().Get("Content-Type") != "image/avif" || !bytes.Equal(res.Body.Bytes(), avifBytes) {
@@ -381,8 +374,8 @@ func TestPictureCatalogDisabledWithoutCacheWhenProcessingOff(t *testing.T) {
 	h := newTestHandlerWithPictures(t, imageDir, cacheDir, false)
 
 	catalog := getJSON(t, h, "/api/pictures/catalog", http.StatusOK)
-	if !catalog["available"].(bool) || len(catalog["images"].([]any)) != 1 {
-		t.Fatalf("expected uncached source candidates to be listed while AVIF processing is off, got %#v", catalog)
+	if !catalog["available"].(bool) || len(catalog["images"].([]any)) != 0 {
+		t.Fatalf("expected source candidates to enable image mode without exposing ids while AVIF processing is off, got %#v", catalog)
 	}
 }
 
@@ -481,8 +474,8 @@ func TestPictureCatalogDiscoversImagesThroughSymlinkedDirectories(t *testing.T) 
 		t.Fatalf("load picture catalog: %v", err)
 	}
 
-	if len(catalog.ids) != 1 {
-		t.Fatalf("expected symlinked nested image to be discovered, got ids=%#v diagnostics=%q", catalog.ids, catalog.Diagnostics().StartupLogLine())
+	if len(catalog.sourcePaths) != 1 {
+		t.Fatalf("expected symlinked nested image to be discovered, got sources=%#v diagnostics=%q", catalog.sourcePaths, catalog.Diagnostics().StartupLogLine())
 	}
 	if catalog.Diagnostics().SourceCount != 1 {
 		t.Fatalf("expected diagnostics to count symlinked source image, got %#v", catalog.Diagnostics())
