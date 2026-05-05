@@ -81,6 +81,6 @@ Codewords serves only cached AVIF card images. Image ids match the legacy cache 
 Backend startup behavior:
 
 - `CODEWORDS_AVIF_PROCESS_P=y` (also accepts `yes`, `true`, `1`) discovers source images, checks cached AVIFs, rebuilds missing/wrong-size cache files, and enables cached image cards.
-- Any other value trusts existing cached AVIF files as healthy and does not generate new cache files. Source images without an existing matching cache entry are not exposed in the catalog.
+- Any other value discovers source image candidates without checking whether their matching cache files exist. At match start, image candidates are shuffled from the game seed, the selected candidates are checked in bounded parallel batches, and missing caches are replaced with later shuffled candidates until enough cached images are found. If too few cached images exist, starting an image/mixed game fails.
 
 For planned maintenance, run `bin/codewords avif-cache gen` with the same image/cache env vars, then restart/redeploy normally with `CODEWORDS_AVIF_PROCESS_P` unset or `n` to avoid cache work on backend startup.

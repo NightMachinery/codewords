@@ -134,6 +134,34 @@ func TestProcessingDisabledDoesNotCallDimensionChecker(t *testing.T) {
 	}
 }
 
+func TestProcessingDisabledDefersCacheExistenceChecks(t *testing.T) {
+	imageDir := t.TempDir()
+	cacheFile := filepath.Join(t.TempDir(), "cache-is-file")
+	sourceBytes := []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n', 0, 0, 0, 0}
+	if err := os.WriteFile(filepath.Join(imageDir, "card.png"), sourceBytes, 0o644); err != nil {
+		t.Fatalf("write source image: %v", err)
+	}
+	if err := os.WriteFile(cacheFile, []byte("not a directory"), 0o644); err != nil {
+		t.Fatalf("write cache file fixture: %v", err)
+	}
+	checker := &recordingDimensionChecker{err: errors.New("checker should not be called")}
+
+	catalog, err := loadPictureCatalog(pictureCatalogOptions{ImageDir: imageDir, ImageCacheDir: cacheFile, ProcessAVIF: false, DimensionChecker: checker})
+	if err != nil {
+		t.Fatalf("load picture catalog should not stat cache paths while processing is disabled: %v", err)
+	}
+
+	if checker.calls != 0 {
+		t.Fatalf("expected processing-disabled path not to call checker, got %d calls", checker.calls)
+	}
+	if len(catalog.ids) != 1 || catalog.ids[0] != legacyImageID(sourceBytes) {
+		t.Fatalf("expected uncached source candidate to be exposed, got %#v", catalog.ids)
+	}
+	if catalog.Diagnostics().CacheHitCount != 0 || catalog.Diagnostics().CacheMissCount != 0 {
+		t.Fatalf("expected no startup cache hit/miss checks, got %#v", catalog.Diagnostics())
+	}
+}
+
 func TestProcessingEnabledUsesBatchedDimensionCheckerForValidCaches(t *testing.T) {
 	imageDir := t.TempDir()
 	cacheDir := t.TempDir()

@@ -6,7 +6,7 @@ Codewords serves local picture cards only from cached AVIF files. The cache chec
 
 - `CODEWORDS_AVIF_PROCESS_P=y` on server startup: discover source images, verify each matching AVIF cache file, and rebuild missing or invalid cache files.
 - `bin/codewords avif-cache gen`: same checking and rebuilding path as startup with processing enabled.
-- `CODEWORDS_AVIF_PROCESS_P` unset/false on server startup: discover source images and require a matching cache file to already exist, but do not validate dimensions or rebuild files.
+- `CODEWORDS_AVIF_PROCESS_P` unset/false on server startup: discover source images but defer cache existence checks until a game starts; do not validate dimensions or rebuild files.
 
 ### What Happens if I Set `Export CODEWORDS_AVIF_PROCESS_P=n`? Are Already Cached  Images Still Loaded, Just Without Validation?
   Yes — with export CODEWORDS_AVIF_PROCESS_P=n, already cached images are still
@@ -17,12 +17,13 @@ Codewords serves local picture cards only from cached AVIF files. The cache chec
   - The backend still scans CODEWORDS_IMAGE_DIR recursively and follows symlinked
     directories.
   - For each source image, it computes the legacy imageId from the source bytes.
-  - It checks whether this file exists:
+  - It computes the matching cache path:
 
   <CODEWORDS_IMAGE_CACHE_DIR>/<imageId>.avif
 
-  - If that AVIF exists, the image is exposed in the catalog.
-  - If it is missing, that source image is skipped.
+  - The source image is exposed in the catalog without checking that path.
+  - When a game starts with image cards, candidates are shuffled from the game seed, selected candidates are checked in bounded parallel batches, and missing cache files are skipped in favor of later shuffled replacements.
+  - If not enough cached candidates exist, image/mixed game start fails.
   - It does not run identify.
   - It does not validate dimensions.
   - It does not run convert.
@@ -57,14 +58,15 @@ The id is based on the source bytes plus the fixed transform descriptor, so an A
 
 ## Fast path when processing is off
 
-When `CODEWORDS_AVIF_PROCESS_P` is false, the server only calls `os.Stat` for each expected cache path.
+When `CODEWORDS_AVIF_PROCESS_P` is false, startup does not call `os.Stat` for every expected cache path.
 
-- Existing `<imageId>.avif`: exposed in the picture catalog.
-- Missing `<imageId>.avif`: skipped.
+- Discoverable source image: exposed in the picture catalog as a candidate.
+- Existing `<imageId>.avif`: eligible to be selected at match start.
+- Missing `<imageId>.avif`: skipped at match start and replaced with a later shuffled candidate.
 - No ImageMagick or `avifenc` commands are run.
 - Existing cache bytes are trusted; dimensions are not checked.
 
-This is the intended normal startup mode after a cache has already been generated.
+This is the intended normal startup mode after a cache has already been generated. It keeps startup fast for large catalogs while preserving per-game shuffled image selection.
 
 ## Full check when processing is on
 
@@ -122,7 +124,7 @@ The expensive parts are:
 For a large catalog, prefer this workflow:
 
 1. Run `bin/codewords avif-cache gen` during maintenance.
-2. Start/redeploy the server with `CODEWORDS_AVIF_PROCESS_P` false so startup only checks for matching cache file existence.
+2. Start/redeploy the server with `CODEWORDS_AVIF_PROCESS_P` false so startup only discovers source candidates and defers cache existence checks to match start.
 
 ## Relevant code
 

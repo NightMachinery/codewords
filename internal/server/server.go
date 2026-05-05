@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -551,7 +552,11 @@ func (a *app) startMatchLocked(ctx context.Context, room storage.Room, rt *roomR
 		_, _ = game.Apply(&rt.state, game.AddPlayerCommand{PlayerID: p.UserID, DisplayName: u.DisplayName}, p.UserID)
 	}
 	pack := a.packs[rt.state.Settings.WordpackID]
-	event, err := game.Apply(&rt.state, game.StartCommand{Words: pack.Words, ImageIDs: a.pictureIDs()}, actorID)
+	imageIDs, err := a.pictureIDsForStart(ctx, rt.state.Settings)
+	if err != nil {
+		return storage.Match{}, err
+	}
+	event, err := game.Apply(&rt.state, game.StartCommand{Words: pack.Words, ImageIDs: imageIDs}, actorID)
 	if err != nil {
 		return storage.Match{}, err
 	}
@@ -883,6 +888,88 @@ func (a *app) pictureIDs() []string {
 	copy(ids, a.pictures.ids)
 	return ids
 }
+
+func (a *app) pictureIDsForStart(ctx context.Context, settings game.Settings) ([]string, error) {
+	if a.pictures == nil {
+		return nil, nil
+	}
+	imageCount := settings.ImageCardCount
+	if imageCount < 0 {
+		imageCount = 0
+	}
+	if imageCount > game.BoardSize {
+		imageCount = game.BoardSize
+	}
+	if imageCount == 0 || a.pictures.diag.ProcessAVIF {
+		return a.pictureIDs(), nil
+	}
+	selected := a.pictures.cachedImageIDsForStart(ctx, settings, imageCount)
+	if len(selected) < imageCount {
+		return nil, game.ErrNotEnoughImages
+	}
+	return selected, nil
+}
+
+const cacheExistenceBatchSize = 32
+const cacheExistenceParallelism = 16
+
+func (c *pictureCatalog) cachedImageIDsForStart(ctx context.Context, settings game.Settings, needed int) []string {
+	if c == nil || needed <= 0 {
+		return nil
+	}
+	candidates := game.ShuffledImageIDs(settings, c.ids)
+	selected := make([]string, 0, needed)
+	for start := 0; start < len(candidates) && len(selected) < needed; start += cacheExistenceBatchSize {
+		end := start + cacheExistenceBatchSize
+		if end > len(candidates) {
+			end = len(candidates)
+		}
+		results := c.cachedImageBatch(ctx, candidates[start:end])
+		for _, id := range candidates[start:end] {
+			if results[id] {
+				selected = append(selected, id)
+				if len(selected) == needed {
+					break
+				}
+			}
+		}
+	}
+	return selected
+}
+
+func (c *pictureCatalog) cachedImageBatch(ctx context.Context, ids []string) map[string]bool {
+	results := make(map[string]bool, len(ids))
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, cacheExistenceParallelism)
+	for _, id := range ids {
+		id := id
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			case <-ctx.Done():
+				return
+			}
+			asset, ok := c.images[id]
+			if !ok {
+				return
+			}
+			info, err := os.Stat(asset.CachePath)
+			if err != nil || info.IsDir() {
+				return
+			}
+			mu.Lock()
+			results[id] = true
+			mu.Unlock()
+		}()
+	}
+	wg.Wait()
+	return results
+}
+
 func snapshotMessage(state game.State, viewerID string) map[string]any {
 	return map[string]any{"type": "snapshot", "snapshot": snapshotDTO(state, viewerID)}
 }

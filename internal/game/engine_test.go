@@ -166,6 +166,27 @@ func TestGenerateBoardValidatesImageAndWordCounts(t *testing.T) {
 	}
 }
 
+func TestShuffledImageIDsIsSeededAndDeterministic(t *testing.T) {
+	ids := []string{"img-4", "img-1", "img-3", "img-2", "img-1", ""}
+
+	one := ShuffledImageIDs(Settings{Seed: 123}, ids)
+	again := ShuffledImageIDs(Settings{Seed: 123}, ids)
+	other := ShuffledImageIDs(Settings{Seed: 456}, ids)
+
+	if strings.Join(one, ",") != strings.Join(again, ",") {
+		t.Fatalf("expected same seed to produce same order, got %#v and %#v", one, again)
+	}
+	if strings.Join(one, ",") == strings.Join(other, ",") {
+		t.Fatalf("expected different seed to change image order, got %#v", one)
+	}
+	if strings.Join(one, ",") == "img-1,img-2,img-3,img-4" {
+		t.Fatalf("expected shuffled order, got sorted order %#v", one)
+	}
+	if len(one) != 4 {
+		t.Fatalf("expected unique non-empty ids, got %#v", one)
+	}
+}
+
 func TestNewTwoPlayerLobbySeatsBothPlayersAsSpymasters(t *testing.T) {
 	state := NewTwoPlayerLobby("p0", "p1", Settings{Seed: 3})
 

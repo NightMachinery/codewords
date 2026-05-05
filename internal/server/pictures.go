@@ -109,7 +109,7 @@ func loadPictureCatalog(opts pictureCatalogOptions) (*pictureCatalog, error) {
 		}
 		logPictureCatalog(opts, "image catalog: AVIF processing is enabled; missing or invalid cache files will be generated")
 	} else {
-		logPictureCatalog(opts, "image catalog: AVIF processing is disabled; only source images with matching existing cache files will be exposed")
+		logPictureCatalog(opts, "image catalog: AVIF processing is disabled; cache existence checks are deferred until match start")
 	}
 	catalog := &pictureCatalog{images: map[string]pictureAsset{}, diag: diag}
 	expectedCaches := make([]expectedPictureCache, 0, len(entries))
@@ -153,41 +153,12 @@ func loadPictureCatalog(opts pictureCatalogOptions) (*pictureCatalog, error) {
 			id := legacyImageID(bytes)
 			cachePath := filepath.Join(opts.ImageCacheDir, id+".avif")
 
-			var statErr error
-			var statNotExist bool
-			var doProcess bool
-
-			if !opts.ProcessAVIF {
-				_, err := os.Stat(cachePath)
-				if err != nil {
-					if os.IsNotExist(err) {
-						statNotExist = true
-					} else {
-						statErr = err
-					}
-				}
-			} else {
-				doProcess = true
-			}
-
-			if statErr != nil {
-				mu.Lock()
-				if firstErr == nil {
-					firstErr = fmt.Errorf("stat cached picture %s: %w", cachePath, statErr)
-				}
-				mu.Unlock()
-				return
-			}
-
 			mu.Lock()
 			defer mu.Unlock()
-			if doProcess {
+			if opts.ProcessAVIF {
 				expectedCaches = append(expectedCaches, expectedPictureCache{SourcePath: p, CachePath: cachePath})
 				sourceByCachePath[cachePath] = p
-			} else if statNotExist {
-				catalog.diag.CacheMissCount++
 			} else {
-				catalog.diag.CacheHitCount++
 				if _, exists := catalog.images[id]; exists {
 					catalog.diag.DuplicateCount++
 				} else {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -380,8 +381,79 @@ func TestPictureCatalogDisabledWithoutCacheWhenProcessingOff(t *testing.T) {
 	h := newTestHandlerWithPictures(t, imageDir, cacheDir, false)
 
 	catalog := getJSON(t, h, "/api/pictures/catalog", http.StatusOK)
-	if catalog["available"].(bool) || len(catalog["images"].([]any)) != 0 {
-		t.Fatalf("expected uncached pictures to stay disabled while AVIF processing is off, got %#v", catalog)
+	if !catalog["available"].(bool) || len(catalog["images"].([]any)) != 1 {
+		t.Fatalf("expected uncached source candidates to be listed while AVIF processing is off, got %#v", catalog)
+	}
+}
+
+func TestStartWithProcessingOffReplacesMissingSelectedImageCaches(t *testing.T) {
+	imageDir := t.TempDir()
+	cacheDir := t.TempDir()
+	ids := writePictureSources(t, imageDir, 8)
+	settings := game.Settings{WordpackID: "english", Seed: 777, ImageCardCount: 3, ObserverChatEnabled: true}
+	order := game.ShuffledImageIDs(settings, ids)
+	missingSelected := order[0]
+	wantSelected := order[1:4]
+	for _, id := range wantSelected {
+		if err := os.WriteFile(filepath.Join(cacheDir, id+".avif"), []byte("cached "+id), 0o644); err != nil {
+			t.Fatalf("write cache %s: %v", id, err)
+		}
+	}
+	h := newTestHandlerWithPictures(t, imageDir, cacheDir, false)
+	postJSON(t, h, "/api/identity/bootstrap", map[string]any{"authToken": "host-images", "displayName": "Host"}, http.StatusOK)
+	roomResp := postJSON(t, h, "/api/rooms", map[string]any{"authToken": "host-images", "settings": map[string]any{"wordpackId": "english", "seed": 777, "imageCardCount": 3}}, http.StatusCreated)
+	roomID := roomResp["room"].(map[string]any)["id"].(string)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "red-spy-images", "displayName": "Red Spy"}, http.StatusOK)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "blue-guess-images", "displayName": "Blue Guess"}, http.StatusOK)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "red-guess-images", "displayName": "Red Guess"}, http.StatusOK)
+	makeRoomStartable(t, h, roomID, map[string]string{"host-images": "blueSpy", "red-spy-images": "redSpy", "blue-guess-images": "blueGuess", "red-guess-images": "redGuess"})
+
+	start := postJSON(t, h, "/api/rooms/"+roomID+"/start", map[string]any{"authToken": "host-images"}, http.StatusOK)
+	cards := start["snapshot"].(map[string]any)["cards"].([]any)
+	gotImages := map[string]bool{}
+	for _, raw := range cards {
+		card := raw.(map[string]any)
+		if card["contentType"] == "image" {
+			gotImages[card["imageId"].(string)] = true
+		}
+	}
+
+	if gotImages[missingSelected] {
+		t.Fatalf("expected missing selected cache %s to be replaced, got images %#v", missingSelected, gotImages)
+	}
+	for _, id := range wantSelected {
+		if !gotImages[id] {
+			t.Fatalf("expected replacement-selected cached image %s in board, got %#v", id, gotImages)
+		}
+	}
+	if len(gotImages) != 3 {
+		t.Fatalf("expected exactly 3 image cards, got %#v", gotImages)
+	}
+}
+
+func TestStartWithProcessingOffFailsWhenNotEnoughCachedImageCandidates(t *testing.T) {
+	imageDir := t.TempDir()
+	cacheDir := t.TempDir()
+	ids := writePictureSources(t, imageDir, 4)
+	settings := game.Settings{WordpackID: "english", Seed: 778, ImageCardCount: 3, ObserverChatEnabled: true}
+	order := game.ShuffledImageIDs(settings, ids)
+	for _, id := range order[:2] {
+		if err := os.WriteFile(filepath.Join(cacheDir, id+".avif"), []byte("cached "+id), 0o644); err != nil {
+			t.Fatalf("write cache %s: %v", id, err)
+		}
+	}
+	h := newTestHandlerWithPictures(t, imageDir, cacheDir, false)
+	postJSON(t, h, "/api/identity/bootstrap", map[string]any{"authToken": "host-few-images", "displayName": "Host"}, http.StatusOK)
+	roomResp := postJSON(t, h, "/api/rooms", map[string]any{"authToken": "host-few-images", "settings": map[string]any{"wordpackId": "english", "seed": 778, "imageCardCount": 3}}, http.StatusCreated)
+	roomID := roomResp["room"].(map[string]any)["id"].(string)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "red-spy-few-images", "displayName": "Red Spy"}, http.StatusOK)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "blue-guess-few-images", "displayName": "Blue Guess"}, http.StatusOK)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "red-guess-few-images", "displayName": "Red Guess"}, http.StatusOK)
+	makeRoomStartable(t, h, roomID, map[string]string{"host-few-images": "blueSpy", "red-spy-few-images": "redSpy", "blue-guess-few-images": "blueGuess", "red-guess-few-images": "redGuess"})
+
+	res := postJSON(t, h, "/api/rooms/"+roomID+"/start", map[string]any{"authToken": "host-few-images"}, http.StatusBadRequest)
+	if !strings.Contains(res["error"].(map[string]any)["message"].(string), game.ErrNotEnoughImages.Error()) {
+		t.Fatalf("expected not enough images error, got %#v", res)
 	}
 }
 
@@ -548,4 +620,17 @@ func newTestHandlerWithPictures(t *testing.T, picturesDir, cacheDir string, proc
 		t.Fatalf("new handler: %v", err)
 	}
 	return h
+}
+
+func writePictureSources(t *testing.T, imageDir string, count int) []string {
+	t.Helper()
+	ids := make([]string, 0, count)
+	for i := 0; i < count; i++ {
+		sourceBytes := []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n', byte(i), byte(i >> 8), 0, 0}
+		if err := os.WriteFile(filepath.Join(imageDir, fmt.Sprintf("card-%02d.png", i)), sourceBytes, 0o644); err != nil {
+			t.Fatalf("write source image %d: %v", i, err)
+		}
+		ids = append(ids, legacyImageID(sourceBytes))
+	}
+	return ids
 }
