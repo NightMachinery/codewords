@@ -5,6 +5,7 @@
 - `self-hosting.md` documents the current `self_host.zsh` lifecycle script.
 - `http-and-realtime.md` documents the Milestone 4 backend API/WebSocket wiring.
 - `frontend-lobby-and-identity.md` documents the Milestone 5/6 browser lobby, identity, and gameplay flow.
+- `room/GC.md` documents current room retention and garbage-collection behavior.
 
 ## Current implementation status
 
