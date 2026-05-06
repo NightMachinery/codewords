@@ -11,10 +11,11 @@ describe('HomePage minimal landing surface', () => {
     expect(source).not.toContain('Create a room, share the link');
   });
 
-  it('uses an animated aurora layer with reduced-motion handling', () => {
-    expect(source).toContain('aurora-background');
-    expect(source).toContain('aurora-ribbon');
-    expect(source).toContain('@keyframes aurora-drift');
-    expect(source).toContain('prefers-reduced-motion: reduce');
+  it('renders the reusable WebGL aurora background behind the hero surface', () => {
+    expect(source).toContain("import AuroraBackground from '../lib/backgrounds/AuroraBackground.svelte'");
+    expect(source).toContain('<AuroraBackground');
+    expect(source).toContain('hero-shell');
+    expect(source).not.toContain('aurora-ribbon');
+    expect(source).not.toContain('@keyframes aurora-drift');
   });
 });
