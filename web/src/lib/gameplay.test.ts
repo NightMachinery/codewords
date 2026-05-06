@@ -33,6 +33,9 @@ import {
   shouldCueCardReveal,
   chatCueNotice,
   colorPickerCtaLabel,
+  colorSettingsGridClasses,
+  teamColorControlClasses,
+  modSettingsShellClasses,
   viewerRole,
   bottomShortcutItems,
   ownTeamPlayerNames,
@@ -416,6 +419,15 @@ describe('regression helpers', () => {
     expect(isValidHexColor('123abc')).toBe(false);
     expect(isValidHexColor('#12zzzz')).toBe(false);
     expect(colorPickerCtaLabel('River Guild', '#14b8a6')).toBe('Choose River Guild color, currently #14b8a6');
+  });
+
+  it('uses mobile-safe mod settings and team color layout classes', () => {
+    expect(modSettingsShellClasses()).toContain('max-w-full');
+    expect(modSettingsShellClasses()).toContain('overflow-hidden');
+    expect(colorSettingsGridClasses()).toBe('grid min-w-0 gap-4 md:grid-cols-2');
+    expect(teamColorControlClasses()).toContain('flex-col');
+    expect(teamColorControlClasses()).toContain('sm:flex-row');
+    expect(teamColorControlClasses()).toContain('min-w-0');
   });
 
   it('treats blank clue numbers as blank instead of NaN numeric values', async () => {

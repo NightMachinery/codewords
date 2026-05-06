@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { PictureAsset, Settings, Wordpack } from './api';
-  import { cardModeFromImageCount, colorPickerCtaLabel, displayTeamName, imageCountForMode, isValidHexColor, normalizeLobbySettingsForSave, teamColor } from './gameplay';
+  import { cardModeFromImageCount, colorPickerCtaLabel, colorSettingsGridClasses, displayTeamName, imageCountForMode, isValidHexColor, modSettingsShellClasses, normalizeLobbySettingsForSave, teamColor, teamColorControlClasses } from './gameplay';
 
   interface Props {
     settings: Settings;
@@ -116,7 +116,7 @@
   }
 </script>
 
-<section id="settings" class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-6 shadow-2xl shadow-slate-950/30">
+<section id="settings" class={modSettingsShellClasses()}>
   <div class="flex items-center justify-between gap-3 mb-6">
     <button class="group flex min-w-0 flex-1 items-center gap-3 text-left" type="button" onclick={onToggleOpen} aria-expanded={open}>
       <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-slate-700 bg-slate-950 text-sm font-black text-slate-300 transition group-hover:border-emerald-300/60 group-hover:text-emerald-200">{open ? '−' : '+'}</span>
@@ -144,7 +144,7 @@
     {/if}
 
     <!-- Game Rules -->
-    <div class="grid gap-4 sm:grid-cols-2">
+    <div class={colorSettingsGridClasses()}>
       <label class="block">
         <span class="text-sm font-bold text-slate-300">Wordpack</span>
         <select class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" bind:value={settings.wordpackId} onchange={saveNormalizedSettings}>
@@ -259,11 +259,11 @@
       ] as picker (picker.team)}
         {@const currentColor = teamColor(picker.team, settings)}
         {@const teamName = displayTeamName(picker.team, settings)}
-        <div class="relative block">
+        <div class="relative block min-w-0">
           <span class="text-xs font-bold text-slate-400">{teamName} color</span>
-          <div class="mt-2 flex items-stretch gap-2 rounded-2xl border bg-slate-950/60 p-2 shadow-inner shadow-slate-950/30" style={`border-color: ${currentColor}66;`}>
+          <div class={teamColorControlClasses()} style={`border-color: ${currentColor}66;`}>
             <button
-              class="group flex min-w-0 flex-1 items-center gap-3 rounded-xl border border-slate-100/15 bg-slate-900/90 px-3 py-2 text-left shadow-lg shadow-slate-950/30 transition hover:-translate-y-0.5 hover:border-slate-100/30 hover:bg-slate-800/90"
+              class="group flex min-w-0 items-center gap-3 rounded-xl border border-slate-100/15 bg-slate-900/90 px-3 py-2 text-left shadow-lg shadow-slate-950/30 transition hover:-translate-y-0.5 hover:border-slate-100/30 hover:bg-slate-800/90 sm:flex-[1_1_8rem]"
               type="button"
               aria-label={colorPickerCtaLabel(teamName, currentColor)}
               aria-expanded={openColorPicker === picker.team}
@@ -275,8 +275,8 @@
                 <span class="block truncate text-[11px] font-bold uppercase tracking-wider text-slate-500">{currentColor}</span>
               </span>
             </button>
-            <input class="min-w-0 flex-1 rounded-xl border border-slate-800 bg-slate-900 px-3 text-xs font-black uppercase tracking-wider text-slate-300" value={colorInputValue(picker.team)} placeholder={picker.fallback} onchange={(event) => setColorInputValue(picker.team, event.currentTarget.value)} />
-            <button class="shrink-0 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-black uppercase tracking-wider text-slate-300 transition hover:border-slate-300/70 hover:text-slate-100" type="button" onclick={() => resetTeamColor(picker.team)}>Reset</button>
+            <input class="min-w-0 rounded-xl border border-slate-800 bg-slate-900 px-3 py-3 text-xs font-black uppercase tracking-wider text-slate-300 sm:flex-[1_1_7rem]" value={colorInputValue(picker.team)} placeholder={picker.fallback} onchange={(event) => setColorInputValue(picker.team, event.currentTarget.value)} />
+            <button class="rounded-xl border border-slate-700 bg-slate-900 px-3 py-3 text-xs font-black uppercase tracking-wider text-slate-300 transition hover:border-slate-300/70 hover:text-slate-100 sm:w-auto sm:shrink-0" type="button" onclick={() => resetTeamColor(picker.team)}>Reset</button>
           </div>
 
           {#if openColorPicker === picker.team}

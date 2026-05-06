@@ -344,6 +344,18 @@ export function colorPickerCtaLabel(teamName: string, color: string): string {
   return `Choose ${teamName} color, currently ${color}`;
 }
 
+export function modSettingsShellClasses(): string {
+  return 'max-w-full overflow-hidden rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-4 shadow-2xl shadow-slate-950/30 sm:p-6';
+}
+
+export function colorSettingsGridClasses(): string {
+  return 'grid min-w-0 gap-4 md:grid-cols-2';
+}
+
+export function teamColorControlClasses(): string {
+  return 'mt-2 flex min-w-0 flex-col items-stretch gap-2 overflow-hidden rounded-2xl border bg-slate-950/60 p-2 shadow-inner shadow-slate-950/30 sm:flex-row';
+}
+
 export function displayTeamName(team: Team | 'blue' | 'red' | '', settings: Settings | undefined): string {
   if (team === 'blue') return (settings?.teamNameBlue?.trim() || defaultTeamNames.blue).slice(0, 30);
   if (team === 'red') return (settings?.teamNameRed?.trim() || defaultTeamNames.red).slice(0, 30);

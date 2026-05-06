@@ -597,8 +597,8 @@
       </header>
 
       {#if phase === 'lobby'}
-      <section class="grid gap-6 lg:grid-cols-[1fr_24rem]">
-        <div class="space-y-6">
+      <section class="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
+        <div class="min-w-0 space-y-6">
           <PlayerList 
             players={players} 
             viewer={viewer} 
@@ -613,7 +613,7 @@
           />
         </div>
 
-        <aside class="space-y-6">
+        <aside class="min-w-0 space-y-6">
           <ModSettings 
             bind:settings={settings}
             hostControls={hostControls}
