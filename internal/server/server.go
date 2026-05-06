@@ -190,7 +190,11 @@ func (a *app) handleCreateRoom(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized", err.Error())
 		return
 	}
-	settings := normalizeSettings(req.Settings)
+	settings, err := normalizeSettings(req.Settings)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_settings", err.Error())
+		return
+	}
 	settingsJSON, _ := json.Marshal(settings)
 	room, err := a.store.CreateRoom(r.Context(), storage.CreateRoomParams{HostUserID: user.ID, SettingsJSON: string(settingsJSON)})
 	if err != nil {
@@ -301,7 +305,11 @@ func (a *app) handleSettings(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	settings := normalizeSettings(req.Settings)
+	settings, err := normalizeSettings(req.Settings)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_settings", err.Error())
+		return
+	}
 	settingsJSON, _ := json.Marshal(settings)
 	if err := a.store.UpdateRoomSettings(r.Context(), room.ID, string(settingsJSON)); err != nil {
 		writeError(w, http.StatusInternalServerError, "settings_failed", err.Error())
@@ -518,7 +526,11 @@ func (a *app) handleWSMessage(ctx context.Context, roomID string, rt *roomRuntim
 			_ = conn.WriteJSON(errorMessage("invalid_command", err.Error()))
 			return
 		}
-		settings = normalizeSettings(settings)
+		settings, err = normalizeSettings(settings)
+		if err != nil {
+			_ = conn.WriteJSON(errorMessage("invalid_settings", err.Error()))
+			return
+		}
 		event, err := game.Apply(&rt.state, game.UpdateSettingsCommand{Settings: settings}, viewerID)
 		if err != nil {
 			_ = conn.WriteJSON(errorMessage("command_rejected", err.Error()))
@@ -569,7 +581,12 @@ func (a *app) handleWSMessage(ctx context.Context, roomID string, rt *roomRuntim
 				return
 			}
 			if event.Type == game.EventMatchRestarted {
-				settingsJSON, _ := json.Marshal(normalizeSettings(rt.state.Settings))
+				settings, err := normalizeSettings(rt.state.Settings)
+				if err != nil {
+					_ = conn.WriteJSON(errorMessage("invalid_settings", err.Error()))
+					return
+				}
+				settingsJSON, _ := json.Marshal(settings)
 				if err := a.store.UpdateRoomSettings(ctx, roomID, string(settingsJSON)); err != nil {
 					_ = conn.WriteJSON(errorMessage("settings_failed", err.Error()))
 					return
@@ -858,7 +875,8 @@ func (a *app) readyOrError(w http.ResponseWriter) bool {
 	return true
 }
 
-func normalizeSettings(s game.Settings) game.Settings {
+func normalizeSettings(s game.Settings) (game.Settings, error) {
+	s = game.SettingsWithDefaults(s)
 	if s.WordpackID == "" {
 		s.WordpackID = "english"
 	}
@@ -866,7 +884,10 @@ func normalizeSettings(s game.Settings) game.Settings {
 	s.CustomColorRed = normalizeHexColor(s.CustomColorRed)
 	s.TeamNameBlue = normalizeTeamName(s.TeamNameBlue, defaultBlueTeamName)
 	s.TeamNameRed = normalizeTeamName(s.TeamNameRed, defaultRedTeamName)
-	return s
+	if err := game.ValidateSettings(s); err != nil {
+		return game.Settings{}, err
+	}
+	return s, nil
 }
 
 func normalizeTeamName(name string, fallback string) string {
@@ -911,7 +932,11 @@ func isHexRune(r rune) bool {
 func mustSettings(raw string) game.Settings {
 	var s game.Settings
 	_ = json.Unmarshal([]byte(raw), &s)
-	return normalizeSettings(s)
+	settings, err := normalizeSettings(s)
+	if err != nil {
+		return game.SettingsWithDefaults(game.Settings{WordpackID: "english", RandomizeTeams: true, ObserverChatEnabled: true})
+	}
+	return settings
 }
 func tokenFromRequest(r *http.Request) string {
 	if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
@@ -984,13 +1009,8 @@ func (a *app) pictureIDsForStart(ctx context.Context, settings game.Settings) ([
 	if a.pictures == nil {
 		return nil, nil
 	}
+	settings = game.SettingsWithDefaults(settings)
 	imageCount := settings.ImageCardCount
-	if imageCount < 0 {
-		imageCount = 0
-	}
-	if imageCount > game.BoardSize {
-		imageCount = game.BoardSize
-	}
 	if imageCount == 0 {
 		return a.pictureIDs(), nil
 	}

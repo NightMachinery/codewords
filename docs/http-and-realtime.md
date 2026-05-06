@@ -25,6 +25,8 @@ Implemented JSON endpoints:
 
 Authentication uses explicit bearer/query/body auth tokens from browser storage. Migrate bootstrap accepts only room-scoped migrate ids and never exposes the global auth token. Error responses contain stable `error.code` and English `error.message` fields.
 
+Room settings are strictly validated by HTTP and WebSocket update paths. Dynamic board settings include `totalCards` (`9..100`, default `25`), `imageCardCount` (`0..totalCards`), `autoColorCounts`, optional manual `blueCards`/`redCards`/`neutralCards`, and `blackCards` as assassins within neutral cards. Invalid explicit counts are rejected with `invalid_settings` rather than silently clamped.
+
 Picture catalog endpoints report whether local `.jpg`, `.jpeg`, `.png`, `.webp`, and sniffed extensionless source candidates exist. The backend serves `<imageId>.avif` cache files with long-lived cache headers; file paths are never exposed to clients. AVIF cache generation/checking runs on backend startup only when `CODEWORDS_AVIF_PROCESS_P` is truthy, or manually through `codewords avif-cache gen`. When AVIF processing is disabled, image ids and cache existence checks are deferred until match start and only run against the per-game shuffled selected source candidates plus replacements.
 
 ## WebSocket API

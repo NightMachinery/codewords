@@ -74,26 +74,82 @@ func TestGenerateBoardIsDeterministicAndHasExpectedCounts(t *testing.T) {
 	}
 }
 
-func TestGenerateBoardClampsBlackCardsAndRejectsSmallWordpacks(t *testing.T) {
-	board, err := GenerateWordBoard(Settings{Seed: 1, BlackCards: -5}, makeWords(25))
-	if err != nil {
-		t.Fatalf("generate board with negative black cards: %v", err)
+func TestGenerateBoardRejectsInvalidCountsAndSmallWordpacks(t *testing.T) {
+	if _, err := GenerateWordBoard(Settings{Seed: 1, BlackCards: -5}, makeWords(25)); !errors.Is(err, ErrInvalidSettings) {
+		t.Fatalf("expected ErrInvalidSettings for negative black cards, got %v", err)
 	}
-	if got := countColors(board.Cards)[ColorBlack]; got != 0 {
-		t.Fatalf("expected negative black cards to clamp to 0, got %d", got)
+	if _, err := GenerateWordBoard(Settings{Seed: 1, BlackCards: 9}, makeWords(40)); !errors.Is(err, ErrInvalidSettings) {
+		t.Fatalf("expected ErrInvalidSettings when assassins exceed neutral cards, got %v", err)
 	}
-
-	board, err = GenerateWordBoard(Settings{Seed: 1, BlackCards: 99}, makeWords(40))
-	if err != nil {
-		t.Fatalf("generate board with high black cards: %v", err)
-	}
-	if got := countColors(board.Cards)[ColorBlack]; got != MaxBlackCards {
-		t.Fatalf("expected high black cards to clamp to %d, got %d", MaxBlackCards, got)
-	}
-
-	_, err = GenerateWordBoard(Settings{Seed: 1}, makeWords(24))
+	_, err := GenerateWordBoard(Settings{Seed: 1}, makeWords(24))
 	if !errors.Is(err, ErrNotEnoughWords) {
 		t.Fatalf("expected ErrNotEnoughWords, got %v", err)
+	}
+}
+
+func TestGenerateBoardSupportsAutomaticDynamicTotals(t *testing.T) {
+	board, err := GenerateWordBoard(Settings{Seed: 4, TotalCards: 30, AutoColorCounts: true, BlackCards: 2}, makeWords(40))
+	if err != nil {
+		t.Fatalf("generate dynamic board: %v", err)
+	}
+	if len(board.Cards) != 30 {
+		t.Fatalf("expected 30 cards, got %d", len(board.Cards))
+	}
+	counts := countColors(board.Cards)
+	if counts[ColorBlack] != 2 {
+		t.Fatalf("expected 2 assassins, got %#v", counts)
+	}
+	if counts[ColorCivilian] != 9 {
+		t.Fatalf("expected 9 civilians after assassins consume neutral cards, got %#v", counts)
+	}
+	if counts[board.StartingTeam.Color()] != 10 {
+		t.Fatalf("starting team should have one extra card, got %#v", counts)
+	}
+	if counts[board.StartingTeam.Opponent().Color()] != 9 {
+		t.Fatalf("opposing team should have the smaller team count, got %#v", counts)
+	}
+}
+
+func TestGenerateBoardRandomizesAutomaticStartingTeamBySeed(t *testing.T) {
+	seen := map[Team]bool{}
+	for seed := int64(1); seed <= 20; seed++ {
+		board, err := GenerateWordBoard(Settings{Seed: seed, TotalCards: 30, AutoColorCounts: true, BlackCards: 1}, makeWords(40))
+		if err != nil {
+			t.Fatalf("generate board for seed %d: %v", seed, err)
+		}
+		seen[board.StartingTeam] = true
+		counts := countColors(board.Cards)
+		if counts[board.StartingTeam.Color()] != counts[board.StartingTeam.Opponent().Color()]+1 {
+			t.Fatalf("seed %d starting team %s should have exactly one extra card, got %#v", seed, board.StartingTeam, counts)
+		}
+	}
+	if !seen[TeamBlue] || !seen[TeamRed] {
+		t.Fatalf("expected different seeds to produce both starting teams, got %#v", seen)
+	}
+}
+
+func TestGenerateBoardSupportsManualDynamicTotals(t *testing.T) {
+	settings := Settings{
+		Seed:            5,
+		TotalCards:      18,
+		AutoColorCounts: false,
+		BlueCards:       4,
+		RedCards:        6,
+		NeutralCards:    8,
+		BlackCards:      3,
+	}
+	board, err := GenerateWordBoard(settings, makeWords(30))
+	if err != nil {
+		t.Fatalf("generate manual board: %v", err)
+	}
+	counts := countColors(board.Cards)
+	if counts[ColorBlue] != 4 || counts[ColorRed] != 6 || counts[ColorBlack] != 3 || counts[ColorCivilian] != 5 {
+		t.Fatalf("manual counts not honored: %#v", counts)
+	}
+
+	settings.NeutralCards = 7
+	if _, err := GenerateWordBoard(settings, makeWords(30)); !errors.Is(err, ErrInvalidSettings) {
+		t.Fatalf("expected invalid settings for manual counts that do not sum to total, got %v", err)
 	}
 }
 
@@ -155,14 +211,9 @@ func TestGenerateBoardValidatesImageAndWordCounts(t *testing.T) {
 		t.Fatalf("expected ErrNotEnoughWords for missing remaining word, got %v", err)
 	}
 
-	board, err := GenerateBoard(Settings{Seed: 1, ImageCardCount: 30}, makeWords(40), makeImageIDs(30))
-	if err != nil {
-		t.Fatalf("expected high image count to clamp to image-only: %v", err)
-	}
-	for _, card := range board.Cards {
-		if card.Content.Type != ContentImage {
-			t.Fatalf("expected image-only card, got %#v", card)
-		}
+	_, err = GenerateBoard(Settings{Seed: 1, ImageCardCount: 30}, makeWords(40), makeImageIDs(30))
+	if !errors.Is(err, ErrInvalidSettings) {
+		t.Fatalf("expected high image count to be invalid, got %v", err)
 	}
 }
 

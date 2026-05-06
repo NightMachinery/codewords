@@ -9,7 +9,9 @@ import {
   defaultGameplayPreferences,
   endGameOutcome,
   buildMemoryCaptureModel,
+  cardModeFromImageCount,
   formatClueNumber,
+  imageCountForMode,
   cardWordTextClasses,
   cardWordTextSegments,
   clampBoardColumns,
@@ -33,6 +35,7 @@ import {
   chatToggleEventName,
   writePanelPreferences,
   writeGameplayPreferences,
+  normalizeLobbySettingsForSave,
   type ClueEntry,
   type GameplayCard,
   type GameplayPreferences,
@@ -56,7 +59,22 @@ const players: LobbyPlayer[] = [
   { id: 'redSpy', displayName: 'Red Spy', team: 'red', spymaster: true, representative: false, mod: false },
   { id: 'redGuess', displayName: 'Red Guess', team: 'red', spymaster: false, representative: false, mod: false },
 ];
-const settings: Settings = { seed: 1, blackCards: 1, wordpackId: 'english', enforceClueGuessLimit: false, allowInfinityClue: false, imageCardCount: 0, randomizeTeams: true, observerChatEnabled: true, mixedImageOrderFirst: false };
+const settings: Settings = {
+  seed: 1,
+  blackCards: 1,
+  totalCards: 25,
+  autoColorCounts: true,
+  blueCards: 9,
+  redCards: 8,
+  neutralCards: 8,
+  wordpackId: 'english',
+  enforceClueGuessLimit: false,
+  allowInfinityClue: false,
+  imageCardCount: 0,
+  randomizeTeams: true,
+  observerChatEnabled: true,
+  mixedImageOrderFirst: false,
+};
 
 function viewer(userId: string): Viewer {
   return { userId, playerId: userId, isHost: false };
@@ -273,6 +291,69 @@ describe('board card state', () => {
       { ...previous[0], revealed: true },
       previous[1],
     ])).toBe(true);
+  });
+});
+
+describe('lobby card count helpers', () => {
+  it('derives card content modes from the dynamic total card count', () => {
+    expect(cardModeFromImageCount(0, 30)).toBe('words');
+    expect(cardModeFromImageCount(30, 30)).toBe('images');
+    expect(cardModeFromImageCount(12, 30)).toBe('mixed');
+
+    expect(imageCountForMode('images', 8, 30)).toBe(30);
+    expect(imageCountForMode('mixed', 35, 30)).toBe(29);
+    expect(imageCountForMode('mixed', 0, 30)).toBe(8);
+  });
+
+  it('normalizes lobby card settings before saving', () => {
+    const next = normalizeLobbySettingsForSave({
+      ...settings,
+      totalCards: 30,
+      autoColorCounts: false,
+      blueCards: 9,
+      redCards: 8,
+      neutralCards: 1,
+      blackCards: 6,
+      imageCardCount: 35,
+    });
+
+    expect(next.totalCards).toBe(30);
+    expect(next.blueCards).toBe(9);
+    expect(next.redCards).toBe(8);
+    expect(next.neutralCards).toBe(13);
+    expect(next.blackCards).toBe(6);
+    expect(next.imageCardCount).toBe(30);
+  });
+
+  it('keeps automatic team counts independent of a fixed starting team', () => {
+    const next = normalizeLobbySettingsForSave({
+      ...settings,
+      totalCards: 30,
+      autoColorCounts: true,
+      blueCards: 99,
+      redCards: 99,
+    });
+
+    expect(next.blueCards).toBe(0);
+    expect(next.redCards).toBe(0);
+    expect(next.neutralCards).toBe(11);
+  });
+
+  it('keeps manual frontend counts within the total before saving', () => {
+    const next = normalizeLobbySettingsForSave({
+      ...settings,
+      totalCards: 12,
+      autoColorCounts: false,
+      blueCards: 20,
+      redCards: 7,
+      neutralCards: 8,
+      blackCards: 2,
+    });
+
+    expect(next.blueCards).toBe(12);
+    expect(next.redCards).toBe(0);
+    expect(next.neutralCards).toBe(0);
+    expect(next.blackCards).toBe(0);
   });
 });
 

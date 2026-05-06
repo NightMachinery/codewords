@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -323,13 +324,16 @@ func TestLobbyWebSocketRandomizeTeamsPersistsBalancedRoles(t *testing.T) {
 }
 
 func TestNormalizeSettingsDefaultsTeamNamesAndRejectsInvalidColors(t *testing.T) {
-	settings := normalizeSettings(game.Settings{
+	settings, err := normalizeSettings(game.Settings{
 		WordpackID:      "english",
 		CustomColorBlue: "not-a-color",
 		CustomColorRed:  "#123abc",
 		TeamNameBlue:    "  ",
 		TeamNameRed:     " Guild of a Very Long Name That Should Be Trimmed Past The Limit ",
 	})
+	if err != nil {
+		t.Fatalf("normalize settings: %v", err)
+	}
 
 	if settings.TeamNameBlue != "Libertarians" {
 		t.Fatalf("expected default blue team name, got %q", settings.TeamNameBlue)
@@ -342,6 +346,24 @@ func TestNormalizeSettingsDefaultsTeamNamesAndRejectsInvalidColors(t *testing.T)
 	}
 	if settings.CustomColorRed != "#123abc" {
 		t.Fatalf("valid red color should be preserved, got %q", settings.CustomColorRed)
+	}
+	if settings.TotalCards != game.DefaultTotalCards || !settings.AutoColorCounts {
+		t.Fatalf("expected dynamic board defaults, got %#v", settings)
+	}
+}
+
+func TestNormalizeSettingsRejectsInvalidCardCounts(t *testing.T) {
+	cases := []game.Settings{
+		{WordpackID: "english", TotalCards: 8, AutoColorCounts: true},
+		{WordpackID: "english", TotalCards: 101, AutoColorCounts: true},
+		{WordpackID: "english", TotalCards: 25, AutoColorCounts: true, ImageCardCount: 26},
+		{WordpackID: "english", TotalCards: 25, AutoColorCounts: true, BlackCards: 9},
+		{WordpackID: "english", TotalCards: 20, AutoColorCounts: false, BlueCards: 8, RedCards: 8, NeutralCards: 3},
+	}
+	for _, tc := range cases {
+		if _, err := normalizeSettings(tc); !errors.Is(err, game.ErrInvalidSettings) {
+			t.Fatalf("expected ErrInvalidSettings for %#v, got %v", tc, err)
+		}
 	}
 }
 

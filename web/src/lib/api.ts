@@ -8,6 +8,11 @@ export interface ApiErrorBody {
 export interface Settings {
   seed: number;
   blackCards: number;
+  totalCards: number;
+  autoColorCounts: boolean;
+  blueCards: number;
+  redCards: number;
+  neutralCards: number;
   wordpackId: string;
   enforceClueGuessLimit: boolean;
   allowInfinityClue: boolean;
@@ -149,6 +154,11 @@ export class ApiClient {
 export const defaultSettings: Settings = {
   seed: Date.now(),
   blackCards: 1,
+  totalCards: 25,
+  autoColorCounts: true,
+  blueCards: 9,
+  redCards: 8,
+  neutralCards: 8,
   wordpackId: 'english',
   enforceClueGuessLimit: false,
   allowInfinityClue: false,

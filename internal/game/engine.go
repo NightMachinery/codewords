@@ -3,6 +3,7 @@ package game
 import (
 	"fmt"
 	"hash/fnv"
+	"math"
 	"math/rand"
 	"sort"
 	"strings"
@@ -84,6 +85,7 @@ type RestartMatchCommand struct{}
 
 // NewLobby creates a lobby state.
 func NewLobby(hostID string, settings Settings) State {
+	settings = SettingsWithDefaults(settings)
 	return State{HostID: hostID, Settings: settings, Phase: PhaseLobby, Players: map[string]Player{}}
 }
 
@@ -103,7 +105,97 @@ func Apply(state *State, command Command, actorID string) (Event, error) {
 	return command.apply(state, actorID)
 }
 
-// GenerateWordBoard generates a deterministic 25-card word board.
+// CardCounts is the effective hidden-color allocation for a generated board.
+type CardCounts struct {
+	Blue     int
+	Red      int
+	Neutral  int
+	Black    int
+	Civilian int
+}
+
+// SettingsWithDefaults returns settings with backwards-compatible board defaults.
+func SettingsWithDefaults(settings Settings) Settings {
+	if settings.TotalCards == 0 {
+		settings.TotalCards = DefaultTotalCards
+	}
+	if !settings.AutoColorCounts && settings.BlueCards == 0 && settings.RedCards == 0 && settings.NeutralCards == 0 {
+		settings.AutoColorCounts = true
+	}
+	if settings.AutoColorCounts {
+		settings.NeutralCards = AutoNeutralCards(settings.TotalCards)
+		settings.BlueCards = 0
+		settings.RedCards = 0
+	}
+	return settings
+}
+
+// AutoNeutralCards computes the neutral-card share for automatic color counts.
+func AutoNeutralCards(totalCards int) int {
+	neutral := int(math.Round(float64(totalCards) / 3.0))
+	if (totalCards-neutral)%2 == 0 {
+		neutral++
+	}
+	return neutral
+}
+
+// EffectiveCardCounts returns the hidden-color counts for settings and starting team.
+func EffectiveCardCounts(settings Settings, startingTeam Team) CardCounts {
+	settings = SettingsWithDefaults(settings)
+	black := settings.BlackCards
+	if settings.AutoColorCounts {
+		neutral := AutoNeutralCards(settings.TotalCards)
+		teamCards := settings.TotalCards - neutral
+		smaller := teamCards / 2
+		larger := smaller + 1
+		counts := CardCounts{Neutral: neutral, Black: black, Civilian: neutral - black}
+		if startingTeam == TeamBlue {
+			counts.Blue = larger
+			counts.Red = smaller
+		} else {
+			counts.Blue = smaller
+			counts.Red = larger
+		}
+		return counts
+	}
+	return CardCounts{
+		Blue:     settings.BlueCards,
+		Red:      settings.RedCards,
+		Neutral:  settings.NeutralCards,
+		Black:    black,
+		Civilian: settings.NeutralCards - black,
+	}
+}
+
+// ValidateSettings rejects board settings outside supported bounds.
+func ValidateSettings(settings Settings) error {
+	settings = SettingsWithDefaults(settings)
+	if settings.TotalCards < MinTotalCards || settings.TotalCards > MaxTotalCards {
+		return fmt.Errorf("%w: totalCards must be between %d and %d", ErrInvalidSettings, MinTotalCards, MaxTotalCards)
+	}
+	if settings.ImageCardCount < 0 || settings.ImageCardCount > settings.TotalCards {
+		return fmt.Errorf("%w: imageCardCount must be between 0 and totalCards", ErrInvalidSettings)
+	}
+	if settings.BlackCards < 0 {
+		return fmt.Errorf("%w: blackCards cannot be negative", ErrInvalidSettings)
+	}
+	neutral := AutoNeutralCards(settings.TotalCards)
+	if !settings.AutoColorCounts {
+		if settings.BlueCards < 0 || settings.RedCards < 0 || settings.NeutralCards < 0 {
+			return fmt.Errorf("%w: manual card counts cannot be negative", ErrInvalidSettings)
+		}
+		if settings.BlueCards+settings.RedCards+settings.NeutralCards != settings.TotalCards {
+			return fmt.Errorf("%w: manual card counts must sum to totalCards", ErrInvalidSettings)
+		}
+		neutral = settings.NeutralCards
+	}
+	if settings.BlackCards > neutral {
+		return fmt.Errorf("%w: blackCards cannot exceed neutralCards", ErrInvalidSettings)
+	}
+	return nil
+}
+
+// GenerateWordBoard generates a deterministic word board.
 func GenerateWordBoard(settings Settings, words []string) (Board, error) {
 	settings.ImageCardCount = 0
 	return GenerateBoard(settings, words, nil)
@@ -111,8 +203,13 @@ func GenerateWordBoard(settings Settings, words []string) (Board, error) {
 
 // GenerateBoard generates a deterministic board with words, images, or a mix of both.
 func GenerateBoard(settings Settings, words []string, imageIDs []string) (Board, error) {
-	imageCount := clamp(settings.ImageCardCount, 0, BoardSize)
-	wordCount := BoardSize - imageCount
+	settings = SettingsWithDefaults(settings)
+	if err := ValidateSettings(settings); err != nil {
+		return Board{}, err
+	}
+	totalCards := settings.TotalCards
+	imageCount := settings.ImageCardCount
+	wordCount := totalCards - imageCount
 	uniqueWords := uniqueWords(words)
 	uniqueImages := uniqueImageIDs(imageIDs)
 	if len(uniqueWords) < wordCount {
@@ -122,7 +219,7 @@ func GenerateBoard(settings Settings, words []string, imageIDs []string) (Board,
 		return Board{}, ErrNotEnoughImages
 	}
 	rng := rand.New(rand.NewSource(settings.Seed))
-	cards := make([]Card, 0, BoardSize)
+	cards := make([]Card, 0, totalCards)
 	wordPerm := rng.Perm(len(uniqueWords))
 	for i := 0; i < wordCount; i++ {
 		cards = append(cards, Card{Content: CardContent{Type: ContentWord, Text: uniqueWords[wordPerm[i]]}})
@@ -131,8 +228,8 @@ func GenerateBoard(settings Settings, words []string, imageIDs []string) (Board,
 	for i := 0; i < imageCount; i++ {
 		cards = append(cards, Card{Content: CardContent{Type: ContentImage, ImageID: uniqueImages[imagePerm[i]]}})
 	}
-	contentPerm := rng.Perm(BoardSize)
-	mixed := make([]Card, BoardSize)
+	contentPerm := rng.Perm(totalCards)
+	mixed := make([]Card, totalCards)
 	for i, contentIndex := range contentPerm {
 		mixed[i] = cards[contentIndex]
 	}
@@ -141,7 +238,7 @@ func GenerateBoard(settings Settings, words []string, imageIDs []string) (Board,
 		startingTeam = TeamRed
 	}
 	colors := colorsFor(settings, startingTeam)
-	colorPerm := rng.Perm(BoardSize)
+	colorPerm := rng.Perm(totalCards)
 	for i, colorIndex := range colorPerm {
 		mixed[i].Color = colors[colorIndex]
 	}
@@ -149,25 +246,19 @@ func GenerateBoard(settings Settings, words []string, imageIDs []string) (Board,
 }
 
 func colorsFor(settings Settings, startingTeam Team) []Color {
-	blackCards := clamp(settings.BlackCards, 0, MaxBlackCards)
-	colors := make([]Color, 0, BoardSize)
-	for i := 0; i < blackCards; i++ {
+	settings = SettingsWithDefaults(settings)
+	counts := EffectiveCardCounts(settings, startingTeam)
+	colors := make([]Color, 0, settings.TotalCards)
+	for i := 0; i < counts.Black; i++ {
 		colors = append(colors, ColorBlack)
 	}
-	blueCount := 8
-	redCount := 8
-	if startingTeam == TeamBlue {
-		blueCount++
-	} else {
-		redCount++
-	}
-	for i := 0; i < blueCount; i++ {
+	for i := 0; i < counts.Blue; i++ {
 		colors = append(colors, ColorBlue)
 	}
-	for i := 0; i < redCount; i++ {
+	for i := 0; i < counts.Red; i++ {
 		colors = append(colors, ColorRed)
 	}
-	for len(colors) < BoardSize {
+	for len(colors) < settings.TotalCards {
 		colors = append(colors, ColorCivilian)
 	}
 	return colors
@@ -357,7 +448,10 @@ func (c UpdateSettingsCommand) apply(state *State, actorID string) (Event, error
 	if !state.CanManage(actorID) {
 		return Event{}, ErrForbidden
 	}
-	c.Settings.BlackCards = clamp(c.Settings.BlackCards, 0, MaxBlackCards)
+	if err := ValidateSettings(c.Settings); err != nil {
+		return Event{}, err
+	}
+	c.Settings = SettingsWithDefaults(c.Settings)
 	state.Settings = c.Settings
 	if state.Settings.RandomizeTeams {
 		for id, player := range state.Players {

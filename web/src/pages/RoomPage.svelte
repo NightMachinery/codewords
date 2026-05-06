@@ -25,6 +25,7 @@
     findViewerPlayer,
     formatClueNumber,
     imageCardGridStyle,
+    normalizeLobbySettingsForSave,
     readPanelPreferences,
     readGameplayPreferences,
     shouldAutoJoinRoom,
@@ -100,7 +101,7 @@
   let spymasterViewActive = $state(true);
 
   let buckets = $derived(playerBuckets(players));
-  let cardMode = $derived(cardModeFromImageCount(settings.imageCardCount ?? 0));
+  let cardMode = $derived(cardModeFromImageCount(settings.imageCardCount ?? 0, settings.totalCards ?? 25));
   let sortedCards = $derived(displayCards(cards, cardMode, settings.mixedImageOrderFirst));
   let canRandomizeTeams = $derived(players.filter((player) => player.team !== 'observers').length >= 2);
   let startState = $derived(startReadiness(players));
@@ -498,6 +499,11 @@
     const saved = { ...settings, seed: undefined };
     localStorage.setItem(`codewords.creatorSettings.${viewer.userId}`, JSON.stringify(saved));
   }
+
+  function saveRoomSettings() {
+    settings = normalizeLobbySettingsForSave(settings);
+    socket?.send({ type: 'updateSettings', settings });
+  }
 </script>
 
 <main class="min-h-screen w-full overflow-x-hidden bg-[oklch(14%_0.018_255)] text-slate-100 pb-32 pr-12">
@@ -582,7 +588,7 @@
             wordpacks={wordpacks}
             pictures={pictures}
             pictureCatalogAvailable={pictureCatalogAvailable}
-            onSave={() => socket?.send({ type: 'updateSettings', settings })}
+            onSave={saveRoomSettings}
             phase={phase}
             canRandomizeTeams={canRandomizeTeams}
             open={panelPreferences.modSettingsOpen}
@@ -731,7 +737,7 @@
               wordpacks={wordpacks}
               pictures={pictures}
               pictureCatalogAvailable={pictureCatalogAvailable}
-              onSave={() => socket?.send({ type: 'updateSettings', settings })}
+              onSave={saveRoomSettings}
               phase={phase}
               canRandomizeTeams={canRandomizeTeams}
               open={panelPreferences.modSettingsOpen}

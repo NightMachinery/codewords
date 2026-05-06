@@ -43,6 +43,10 @@ export interface GameplayCard {
 
 export type CardMode = 'words' | 'images' | 'mixed';
 
+export const minTotalCards = 9;
+export const maxTotalCards = 100;
+export const defaultTotalCards = 25;
+
 export interface DisplayCard extends GameplayCard {
   originalIndex: number;
   badgeNumber: number;
@@ -400,16 +404,68 @@ export function cardWordTextClasses(word: string | undefined): string {
   return ['block max-w-full overflow-hidden whitespace-normal break-keep hyphens-none text-center font-black leading-none tracking-[0.02em]', size].join(' ');
 }
 
-export function cardModeFromImageCount(imageCardCount: number): CardMode {
+export function clampTotalCards(value: unknown): number {
+  const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+  if (!Number.isFinite(parsed)) return defaultTotalCards;
+  return Math.min(maxTotalCards, Math.max(minTotalCards, Math.round(parsed)));
+}
+
+export function autoNeutralCards(totalCards: number): number {
+  const total = clampTotalCards(totalCards);
+  let neutral = Math.round(total / 3);
+  if ((total - neutral) % 2 === 0) neutral += 1;
+  return neutral;
+}
+
+export function normalizeLobbySettingsForSave(settings: Settings): Settings {
+  const totalCards = clampTotalCards(settings.totalCards ?? defaultTotalCards);
+  const imageCardCount = Math.min(totalCards, Math.max(0, Math.round(settings.imageCardCount ?? 0)));
+  if (settings.autoColorCounts !== false) {
+    const neutralCards = autoNeutralCards(totalCards);
+    return {
+      ...settings,
+      totalCards,
+      autoColorCounts: true,
+      blueCards: 0,
+      redCards: 0,
+      neutralCards,
+      blackCards: Math.min(neutralCards, Math.max(0, Math.round(settings.blackCards ?? 0))),
+      imageCardCount,
+    };
+  }
+
+  let blueCards = Math.max(0, Math.round(settings.blueCards ?? 0));
+  let redCards = Math.max(0, Math.round(settings.redCards ?? 0));
+  if (blueCards > totalCards) {
+    blueCards = totalCards;
+    redCards = 0;
+  } else if (blueCards + redCards > totalCards) {
+    redCards = totalCards - blueCards;
+  }
+  const neutralCards = Math.max(0, totalCards - blueCards - redCards);
+  return {
+    ...settings,
+    totalCards,
+    autoColorCounts: false,
+    blueCards,
+    redCards,
+    neutralCards,
+    blackCards: Math.min(neutralCards, Math.max(0, Math.round(settings.blackCards ?? 0))),
+    imageCardCount,
+  };
+}
+
+export function cardModeFromImageCount(imageCardCount: number, totalCards = defaultTotalCards): CardMode {
   if (imageCardCount <= 0) return 'words';
-  if (imageCardCount >= 25) return 'images';
+  if (imageCardCount >= clampTotalCards(totalCards)) return 'images';
   return 'mixed';
 }
 
-export function imageCountForMode(mode: CardMode, currentMixedCount: number): number {
+export function imageCountForMode(mode: CardMode, currentMixedCount: number, totalCards = defaultTotalCards): number {
+  const total = clampTotalCards(totalCards);
   if (mode === 'words') return 0;
-  if (mode === 'images') return 25;
-  return Math.min(24, Math.max(1, currentMixedCount || 8));
+  if (mode === 'images') return total;
+  return Math.min(total - 1, Math.max(1, currentMixedCount || 8));
 }
 
 export function displayCards(cards: GameplayCard[], cardMode: CardMode, imageOrderFirst: boolean): DisplayCard[] {
@@ -544,7 +600,7 @@ export function buildMemoryCaptureModel(input: {
       .map((player) => player.displayName.trim())
       .filter(Boolean),
   });
-  const sorted = displayCards(input.cards, cardModeFromImageCount(input.settings.imageCardCount ?? 0), input.settings.mixedImageOrderFirst);
+  const sorted = displayCards(input.cards, cardModeFromImageCount(input.settings.imageCardCount ?? 0, input.settings.totalCards ?? defaultTotalCards), input.settings.mixedImageOrderFirst);
   const generatedAt = input.generatedAt ?? new Date();
   const generatedLabel = new Intl.DateTimeFormat('en-US', {
     month: 'short',

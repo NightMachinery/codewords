@@ -9,8 +9,12 @@ import (
 const (
 	// BoardSize is the number of cards in a Codewords match.
 	BoardSize = 25
-	// MaxBlackCards is the maximum supported assassin card count.
-	MaxBlackCards = 8
+	// DefaultTotalCards is the classic Codewords board size.
+	DefaultTotalCards = 25
+	// MinTotalCards is the minimum supported configurable board size.
+	MinTotalCards = 9
+	// MaxTotalCards is the maximum supported configurable board size.
+	MaxTotalCards = 100
 )
 
 var (
@@ -18,6 +22,8 @@ var (
 	ErrForbidden = errors.New("forbidden")
 	// ErrInvalidCommand means a command payload is malformed or invalid for state.
 	ErrInvalidCommand = errors.New("invalid command")
+	// ErrInvalidSettings means room or match settings are outside supported bounds.
+	ErrInvalidSettings = errors.New("invalid settings")
 	// ErrNotEnoughWords means a wordpack cannot provide enough unique words.
 	ErrNotEnoughWords = errors.New("not enough unique words")
 	// ErrNotEnoughImages means the local picture catalog cannot provide enough unique images.
@@ -108,6 +114,11 @@ type Card struct {
 type Settings struct {
 	Seed                  int64  `json:"seed"`
 	BlackCards            int    `json:"blackCards"`
+	TotalCards            int    `json:"totalCards"`
+	AutoColorCounts       bool   `json:"autoColorCounts"`
+	BlueCards             int    `json:"blueCards"`
+	RedCards              int    `json:"redCards"`
+	NeutralCards          int    `json:"neutralCards"`
 	WordpackID            string `json:"wordpackId"`
 	EnforceClueGuessLimit bool   `json:"enforceClueGuessLimit"`
 	AllowInfinityClue     bool   `json:"allowInfinityClue"`
@@ -125,7 +136,7 @@ type Settings struct {
 // assignment while still allowing clients to explicitly save false.
 func (s *Settings) UnmarshalJSON(data []byte) error {
 	type settingsAlias Settings
-	next := settingsAlias{RandomizeTeams: true, ObserverChatEnabled: true}
+	next := settingsAlias{RandomizeTeams: true, ObserverChatEnabled: true, TotalCards: DefaultTotalCards, AutoColorCounts: true}
 	if err := json.Unmarshal(data, &next); err != nil {
 		return err
 	}

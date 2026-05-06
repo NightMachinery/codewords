@@ -29,7 +29,7 @@ Named browser identities auto-join only while a room is still in `lobby` status.
 
 When a room snapshot is `active` or `game_over`, the room route switches from lobby controls to gameplay:
 
-- responsive 5x5 board with word cards, image cards, or a mixed board; the active board uses the full desktop row before player and clue panels so the player controls do not collapse in a narrow right rail;
+- responsive board with word cards, image cards, or a mixed board; the active board uses the full desktop row before player and clue panels so the player controls do not collapse in a narrow right rail;
 - revealed card colors for all viewers, hidden-color tinting for spymasters, and all colors revealed after game over; word labels shrink inside their cards, and only spaces or Persian half-spaces create deliberate wrap opportunities;
 - last-selected card highlighting;
 - current-team banner and remaining blue/red counts;
@@ -64,7 +64,9 @@ Local-only confirmation preferences are stored in LocalStorage under `codewords.
 
 Milestone 7 adds room chat to the lobby and gameplay sidebars. Seated players can send messages; spectators can read the log but see the composer disabled. The room load response includes recent chat history, and live WebSocket `chatMessage` events append new messages.
 
-Picture mode uses the local server catalog only. Hosts can choose words-only (`imageCardCount=0`), images-only (`imageCardCount=25`), or mixed boards (`1..24` image cards). Image cards render with `/api/pictures/{imageId}` URLs; clients never receive local filesystem paths.
+Picture mode uses the local server catalog only. Hosts can choose words-only (`imageCardCount=0`), images-only (`imageCardCount=totalCards`), or mixed boards (`1..totalCards-1` image cards). Image cards render with `/api/pictures/{imageId}` URLs; clients never receive local filesystem paths.
+
+Lobby moderators can set the total board size from 9 to 100 cards. The classic default is 25. Automatic hidden-color counts set neutral cards to `round(totalCards / 3)`, increase neutral by one when needed so team cards are odd, then give the random starting team one extra card. Manual mode lets moderators choose any blue/red/neutral split whose sum equals the total. Assassins are configured as a subset of neutral cards, so the visible civilian count is neutral minus assassins.
 
 
 ## Final local preferences and moderator controls
