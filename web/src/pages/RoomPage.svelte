@@ -29,6 +29,7 @@
     findViewerPlayer,
     formatClueNumber,
     imageCardGridStyle,
+    lobbyStartPanelClasses,
     pressableButtonClasses,
     normalizeLobbySettingsForSave,
     readPanelPreferences,
@@ -651,18 +652,21 @@
             onRestartMatch={restartMatch}
           />
 
-          <section class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5">
-            <h2 class="text-xl font-black tracking-tight">Start match</h2>
-            <p class="mt-3 text-sm leading-6 text-slate-300">{startState.ready ? 'The lobby is ready.' : startState.reason}</p>
-            <button
-              class="mt-5 w-full rounded-2xl bg-emerald-300 px-5 py-3 font-black text-slate-950 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={!hostControls || !startState.ready}
-              onclick={() => socket?.send({ type: 'startGame' })}
-            >
-              Start game
-            </button>
-          </section>
         </aside>
+      </section>
+      <section class={lobbyStartPanelClasses()} aria-label="Start match">
+        <div class="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p class="min-w-0 text-sm font-bold text-slate-300">
+            {hostControls ? (startState.ready ? 'Lobby ready.' : startState.reason) : 'Waiting for a moderator to start.'}
+          </p>
+          <button
+            class={pressableButtonClasses('w-full rounded-2xl bg-emerald-300 px-5 py-3 text-sm font-black text-slate-950 hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-40')}
+            disabled={!hostControls || !startState.ready}
+            onclick={() => socket?.send({ type: 'startGame' })}
+          >
+            Start match
+          </button>
+        </div>
       </section>
       {:else}
         <section class={activeMatchLayoutClasses()}>

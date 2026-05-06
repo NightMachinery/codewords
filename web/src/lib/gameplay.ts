@@ -345,11 +345,15 @@ export function colorSettingsGridClasses(): string {
 }
 
 export function teamColorControlClasses(): string {
-  return 'mt-2 flex min-w-0 flex-col items-stretch gap-2 overflow-hidden rounded-2xl border bg-slate-950/60 p-2 shadow-inner shadow-slate-950/30 sm:flex-row';
+  return 'mt-2 grid min-w-0 grid-cols-1 items-stretch gap-2 overflow-hidden rounded-2xl border bg-slate-950/60 p-2 shadow-inner shadow-slate-950/30';
 }
 
 export function roomMainClasses(): string {
   return 'min-h-screen w-full overflow-x-hidden bg-[oklch(14%_0.018_255)] pb-32 text-slate-100';
+}
+
+export function lobbyStartPanelClasses(): string {
+  return 'fixed bottom-0 left-0 right-0 z-30 border-t border-slate-700/60 bg-slate-900/92 p-3 shadow-[0_-10px_30px_rgba(0,0,0,0.45)] backdrop-blur-md';
 }
 
 export function pressableButtonClasses(classes = ''): string {

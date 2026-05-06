@@ -22,6 +22,7 @@ import {
   clampImageCardScale,
   pressableButtonClasses,
   imageCardGridStyle,
+  lobbyStartPanelClasses,
   roomMainClasses,
   clueLogKey,
   defaultTeamNames,
@@ -430,9 +431,15 @@ describe('regression helpers', () => {
     expect(modSettingsShellClasses()).toContain('max-w-full');
     expect(modSettingsShellClasses()).toContain('overflow-hidden');
     expect(colorSettingsGridClasses()).toBe('grid min-w-0 gap-4 md:grid-cols-2');
-    expect(teamColorControlClasses()).toContain('flex-col');
-    expect(teamColorControlClasses()).toContain('sm:flex-row');
+    expect(teamColorControlClasses()).toContain('grid-cols-1');
+    expect(teamColorControlClasses()).not.toContain('sm:flex-row');
     expect(teamColorControlClasses()).toContain('min-w-0');
+  });
+
+  it('uses a minimal fixed bottom start panel in the lobby', () => {
+    expect(lobbyStartPanelClasses()).toContain('fixed');
+    expect(lobbyStartPanelClasses()).toContain('bottom-0');
+    expect(lobbyStartPanelClasses()).toContain('backdrop-blur-md');
   });
 
   it('treats blank clue numbers as blank instead of NaN numeric values', async () => {
