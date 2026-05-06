@@ -14,6 +14,7 @@ import {
   imageCountForMode,
   cardWordTextClasses,
   cardWordTextSegments,
+  cardAspectRatioClasses,
   clampBoardColumns,
   clampImageCardScale,
   imageCardGridStyle,
@@ -136,7 +137,7 @@ describe('local gameplay preferences', () => {
     expect(readGameplayPreferences(storage)).toEqual(defaultGameplayPreferences);
     expect(defaultGameplayPreferences.spymasterRevealedStyle).toBe('invisible');
 
-    const saved: GameplayPreferences = { confirmGuesses: false, confirmPasses: true, boardColumnsMobile: 4, boardColumnsDesktop: 5, imageCardScale: 8, chatSound: false, chatVisualCue: false, cardChoiceSound: false, cardChoiceVisualCue: true, clueSound: true, clueVisualCue: false, endGameSound: true, endGameVisualCue: true, spymasterRevealedStyle: 'greyed' };
+    const saved: GameplayPreferences = { confirmGuesses: false, confirmPasses: true, boardColumnsMobile: 4, boardColumnsDesktop: 5, imageCardScale: 8, strictCardAspectRatios: true, chatSound: false, chatVisualCue: false, cardChoiceSound: false, cardChoiceVisualCue: true, clueSound: true, clueVisualCue: false, endGameSound: true, endGameVisualCue: true, spymasterRevealedStyle: 'greyed' };
     writeGameplayPreferences(storage, saved);
     expect(readGameplayPreferences(storage)).toEqual(saved);
 
@@ -148,6 +149,7 @@ describe('local gameplay preferences', () => {
       boardColumnsMobile: 7,
       boardColumnsDesktop: 7,
       imageCardScale: 4,
+      strictCardAspectRatios: false,
     });
   });
 
@@ -156,6 +158,7 @@ describe('local gameplay preferences', () => {
       boardColumnsMobile: 4,
       boardColumnsDesktop: 5,
       imageCardScale: 4,
+      strictCardAspectRatios: false,
     });
     expect(clampBoardColumns(99)).toBe(13);
     expect(clampBoardColumns(0)).toBe(1);
@@ -164,6 +167,17 @@ describe('local gameplay preferences', () => {
     expect(clampImageCardScale(4)).toBe(4);
     expect(clampImageCardScale(8)).toBe(8);
     expect(clampImageCardScale(3)).toBe(4);
+  });
+
+  it('persists strict card aspect ratios and maps card type to aspect classes', () => {
+    const storage = new MemoryStorage();
+    storage.setItem('codewords.gameplayPreferences', JSON.stringify({ strictCardAspectRatios: true }));
+
+    expect(readGameplayPreferences(storage).strictCardAspectRatios).toBe(true);
+    expect(cardAspectRatioClasses({ contentType: 'word' }, true)).toBe('aspect-[4/3]');
+    expect(cardAspectRatioClasses({ contentType: 'word' }, false)).toBe('min-h-20 sm:min-h-28');
+    expect(cardAspectRatioClasses({ contentType: 'image' }, true)).toBe('aspect-[2/3]');
+    expect(cardAspectRatioClasses({ contentType: 'image' }, false)).toBe('aspect-[2/3]');
   });
 
   it('migrates legacy word/image row preferences to base board columns and image scale', () => {

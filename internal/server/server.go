@@ -559,6 +559,15 @@ func (a *app) handleWSMessage(ctx context.Context, roomID string, rt *roomRuntim
 		rt.broadcastLocked(snapshotMessage(rt.state, ""))
 		return
 	}
+	if t == "forceBoardLayout" {
+		if !rt.state.CanManage(viewerID) {
+			_ = conn.WriteJSON(errorMessage("command_rejected", "moderator only"))
+			return
+		}
+		preferences := boardLayoutPreferencesFromMessage(msg)
+		rt.broadcastLocked(map[string]any{"type": "boardLayoutForced", "preferences": preferences, "by": viewerID})
+		return
+	}
 	cmd, err := commandFromMessage(t, msg)
 	if err != nil {
 		_ = conn.WriteJSON(errorMessage("invalid_command", err.Error()))
@@ -676,6 +685,46 @@ func settingsFromMessage(msg map[string]any) (game.Settings, error) {
 		return game.Settings{}, err
 	}
 	return settings, nil
+}
+
+func boardLayoutPreferencesFromMessage(msg map[string]any) map[string]any {
+	raw, _ := msg["preferences"].(map[string]any)
+	return map[string]any{
+		"boardColumnsMobile":     clampBoardLayoutColumns(raw, "boardColumnsMobile", 4),
+		"boardColumnsDesktop":    clampBoardLayoutColumns(raw, "boardColumnsDesktop", 5),
+		"imageCardScale":         clampImageCardScale(raw["imageCardScale"]),
+		"strictCardAspectRatios": boolValue(raw["strictCardAspectRatios"]),
+	}
+}
+
+func clampBoardLayoutColumns(raw map[string]any, key string, fallback int) int {
+	v, ok := raw[key]
+	if !ok {
+		return fallback
+	}
+	n := int(number(v))
+	if n < 1 {
+		return 1
+	}
+	if n > 13 {
+		return 13
+	}
+	return n
+}
+
+func clampImageCardScale(v any) int {
+	n := int(number(v))
+	switch n {
+	case 1, 2, 4, 8:
+		return n
+	default:
+		return 4
+	}
+}
+
+func boolValue(v any) bool {
+	b, _ := v.(bool)
+	return b
 }
 
 func commandFromMessage(t string, msg map[string]any) (game.Command, error) {

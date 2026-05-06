@@ -6,6 +6,7 @@
   import {
     activeMatchLayoutClasses,
     canSubmitClue,
+    cardAspectRatioClasses,
     cardContentLabel,
     cardImageUrl,
     cardModeFromImageCount,
@@ -49,7 +50,7 @@
   import { downloadMemoryCapture } from '../lib/memoryCapture';
   import { getOrCreateAuthToken, resolveSessionCredential, type SessionCredential } from '../lib/identity';
   import { canManageLobby, playerBuckets, startReadiness, type LobbyPlayer } from '../lib/lobby';
-  import { RoomSocket, type RoomSocketMessage } from '../lib/realtime';
+  import { RoomSocket, type BoardLayoutPreferences, type RoomSocketMessage } from '../lib/realtime';
   import { roomIdFromPath, roomPath, websocketRoomUrl } from '../lib/routes';
 
   import PlayerList from '../lib/PlayerList.svelte';
@@ -243,6 +244,12 @@
         emitCue('chat', chatCueNotice(message.message));
       }
     }
+    if (message.type === 'boardLayoutForced') {
+      applyBoardLayoutPreferences(message.preferences);
+      if (message.by !== viewer?.userId) {
+        error = 'Board layout options were updated by a moderator.';
+      }
+    }
     if (message.type === 'error') {
       error = message.message;
     }
@@ -311,6 +318,27 @@
   function updatePreferences(next: Partial<GameplayPreferences>) {
     preferences = { ...preferences, ...next };
     writeGameplayPreferences(localStorage, preferences);
+  }
+
+  function currentBoardLayoutPreferences(): BoardLayoutPreferences {
+    return {
+      boardColumnsMobile: preferences.boardColumnsMobile,
+      boardColumnsDesktop: preferences.boardColumnsDesktop,
+      imageCardScale: preferences.imageCardScale,
+      strictCardAspectRatios: preferences.strictCardAspectRatios,
+    };
+  }
+
+  function applyBoardLayoutPreferences(layout: BoardLayoutPreferences) {
+    updatePreferences(layout);
+  }
+
+  function forceBoardLayoutForRoom() {
+    if (!hostControls) {
+      error = 'Only moderators can force board layout options.';
+      return;
+    }
+    socket?.send({ type: 'forceBoardLayout', preferences: currentBoardLayoutPreferences() });
   }
 
   function updatePanelPreferences(next: Partial<PanelPreferences>) {
@@ -667,7 +695,7 @@
                   {@const view = cardViewState(card, card.originalIndex, showHiddenColor, lastSelected, revealedStyle)}
                   {@const customColor = card.color === 'blue' ? teamColor('blue', settings) : card.color === 'red' ? teamColor('red', settings) : ''}
                   <button
-                    class={['group relative col-span-[var(--card-mobile-col-span)] row-span-[var(--card-mobile-row-span)] md:col-span-[var(--card-col-span)] md:row-span-[var(--card-row-span)] rounded-xl border p-1 text-left shadow-xl shadow-slate-950/25 transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', card.contentType === 'image' ? 'aspect-[2/3] overflow-hidden border-4' : 'min-h-20 overflow-visible sm:min-h-28', view.classes, !role.activeGuesser || card.revealed || phase !== 'active' ? 'disabled:opacity-80' : ''].join(' ')}
+                    class={['group relative col-span-[var(--card-mobile-col-span)] row-span-[var(--card-mobile-row-span)] md:col-span-[var(--card-col-span)] md:row-span-[var(--card-row-span)] rounded-xl border p-1 text-left shadow-xl shadow-slate-950/25 transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', cardAspectRatioClasses(card, preferences.strictCardAspectRatios), card.contentType === 'image' ? 'overflow-hidden border-4' : 'overflow-visible', view.classes, !role.activeGuesser || card.revealed || phase !== 'active' ? 'disabled:opacity-80' : ''].join(' ')}
                     style={`${imageCardGridStyle(card, activeColumns, preferences.imageCardScale, mobileColumns)} ${view.visibleColor !== 'hidden' && customColor ? `border-color: ${hexWithAlpha(customColor, 'B3')}; background-color: ${hexWithAlpha(customColor, '40')}; color: white` : ''}`}
                     disabled={Boolean(guessDisabledReason(card))}
                     title={guessDisabledReason(card) || `Reveal ${cardContentLabel(card)}`}
@@ -769,15 +797,24 @@
                   <span class="text-sm font-bold text-slate-200">Board layout</span>
                   <label class="text-xs text-slate-400">Mobile columns: {preferences.boardColumnsMobile}<input class="mt-1 w-full accent-emerald-300" type="range" min="1" max="13" value={preferences.boardColumnsMobile} oninput={(event) => updatePreferences({ boardColumnsMobile: Number.parseInt(event.currentTarget.value, 10) })} /></label>
                   <label class="text-xs text-slate-400">Desktop columns: {preferences.boardColumnsDesktop}<input class="mt-1 w-full accent-emerald-300" type="range" min="1" max="13" value={preferences.boardColumnsDesktop} oninput={(event) => updatePreferences({ boardColumnsDesktop: Number.parseInt(event.currentTarget.value, 10) })} /></label>
+                  <label class="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs text-slate-300 cursor-pointer">
+                    <input type="checkbox" checked={preferences.strictCardAspectRatios} onchange={(event) => updatePreferences({ strictCardAspectRatios: event.currentTarget.checked })} />
+                    Strictly enforce 4:3 word cards and 2:3 image cards
+                  </label>
                   <label class="block text-xs text-slate-400">
                     Image size
-                    <select class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" value={preferences.imageCardScale} onchange={(event) => updatePreferences({ imageCardScale: Number.parseInt(event.currentTarget.value, 10) as ImageCardScale })}>
+                    <select class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" value={String(preferences.imageCardScale)} onchange={(event) => updatePreferences({ imageCardScale: Number.parseInt(event.currentTarget.value, 10) as ImageCardScale })}>
                       <option value="1">Compact, 1×1</option>
                       <option value="2">Tall, 1×2</option>
                       <option value="4">Large, 2×4</option>
                       <option value="8">Poster, 4×8</option>
                     </select>
                   </label>
+                  {#if hostControls}
+                    <button class="rounded-xl border border-emerald-300/40 bg-emerald-300/10 px-3 py-2 text-left text-xs font-black uppercase tracking-[0.16em] text-emerald-100 transition hover:border-emerald-200 hover:bg-emerald-300/20" type="button" onclick={forceBoardLayoutForRoom}>
+                      Force these board layout options to all players
+                    </button>
+                  {/if}
                 </div>
                 <label class="mt-3 block rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
                   <span class="text-sm text-slate-200 font-bold">Spymaster view style</span>

@@ -323,6 +323,78 @@ func TestLobbyWebSocketRandomizeTeamsPersistsBalancedRoles(t *testing.T) {
 	assertBalancedRandomizedPlayers(t, persisted["players"].([]any))
 }
 
+func TestWebSocketForceBoardLayoutRequiresModAndBroadcastsSanitizedPreferences(t *testing.T) {
+	h := newTestHandler(t)
+	postJSON(t, h, "/api/identity/bootstrap", map[string]any{"authToken": "host-layout", "displayName": "Host"}, http.StatusOK)
+	roomResp := postJSON(t, h, "/api/rooms", map[string]any{"authToken": "host-layout", "settings": map[string]any{"wordpackId": "english", "seed": 41}}, http.StatusCreated)
+	roomID := roomResp["room"].(map[string]any)["id"].(string)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "guest-layout", "displayName": "Guest"}, http.StatusOK)
+
+	server := httptest.NewServer(h)
+	defer server.Close()
+	hostURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws/rooms/" + roomID + "?authToken=host-layout"
+	hostConn, _, err := websocket.DefaultDialer.Dial(hostURL, nil)
+	if err != nil {
+		t.Fatalf("dial host websocket: %v", err)
+	}
+	defer hostConn.Close()
+	guestURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws/rooms/" + roomID + "?authToken=guest-layout"
+	guestConn, _, err := websocket.DefaultDialer.Dial(guestURL, nil)
+	if err != nil {
+		t.Fatalf("dial guest websocket: %v", err)
+	}
+	defer guestConn.Close()
+	if err := hostConn.SetReadDeadline(testDeadline()); err != nil {
+		t.Fatalf("set host read deadline: %v", err)
+	}
+	if err := guestConn.SetReadDeadline(testDeadline()); err != nil {
+		t.Fatalf("set guest read deadline: %v", err)
+	}
+
+	var msg map[string]any
+	if err := hostConn.ReadJSON(&msg); err != nil {
+		t.Fatalf("read host initial snapshot: %v", err)
+	}
+	if err := guestConn.ReadJSON(&msg); err != nil {
+		t.Fatalf("read guest initial snapshot: %v", err)
+	}
+
+	if err := guestConn.WriteJSON(map[string]any{"type": "forceBoardLayout", "preferences": map[string]any{"boardColumnsMobile": 4}}); err != nil {
+		t.Fatalf("write guest force layout: %v", err)
+	}
+	if err := guestConn.ReadJSON(&msg); err != nil {
+		t.Fatalf("read guest rejection: %v", err)
+	}
+	if msg["type"] != "error" || msg["code"] != "command_rejected" {
+		t.Fatalf("expected non-mod rejection, got %#v", msg)
+	}
+
+	if err := hostConn.WriteJSON(map[string]any{"type": "forceBoardLayout", "preferences": map[string]any{
+		"boardColumnsMobile":     0,
+		"boardColumnsDesktop":    99,
+		"imageCardScale":         8,
+		"strictCardAspectRatios": true,
+	}}); err != nil {
+		t.Fatalf("write host force layout: %v", err)
+	}
+	if err := guestConn.ReadJSON(&msg); err != nil {
+		t.Fatalf("read layout broadcast: %v", err)
+	}
+	if msg["type"] != "boardLayoutForced" {
+		t.Fatalf("expected boardLayoutForced broadcast, got %#v", msg)
+	}
+	preferences := msg["preferences"].(map[string]any)
+	if preferences["boardColumnsMobile"] != float64(1) ||
+		preferences["boardColumnsDesktop"] != float64(13) ||
+		preferences["imageCardScale"] != float64(8) ||
+		preferences["strictCardAspectRatios"] != true {
+		t.Fatalf("expected sanitized layout preferences, got %#v", preferences)
+	}
+	if msg["by"] == "" {
+		t.Fatalf("expected broadcaster id, got %#v", msg)
+	}
+}
+
 func TestNormalizeSettingsDefaultsTeamNamesAndRejectsInvalidColors(t *testing.T) {
 	settings, err := normalizeSettings(game.Settings{
 		WordpackID:      "english",

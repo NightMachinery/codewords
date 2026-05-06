@@ -60,6 +60,7 @@ export interface GameplayPreferences {
   boardColumnsMobile: number;
   boardColumnsDesktop: number;
   imageCardScale: ImageCardScale;
+  strictCardAspectRatios: boolean;
   chatSound: boolean;
   chatVisualCue: boolean;
   cardChoiceSound: boolean;
@@ -110,6 +111,7 @@ export const defaultGameplayPreferences: GameplayPreferences = {
   boardColumnsMobile: 4,
   boardColumnsDesktop: 5,
   imageCardScale: 4,
+  strictCardAspectRatios: false,
   chatSound: true,
   chatVisualCue: true,
   cardChoiceSound: true,
@@ -241,6 +243,7 @@ export function readGameplayPreferences(storage: Pick<Storage, 'getItem'>): Game
       boardColumnsMobile: clampBoardColumns(parsed.boardColumnsMobile ?? parsed.wordCardsPerRowMobile ?? parsed.cardsPerRow, defaultGameplayPreferences.boardColumnsMobile),
       boardColumnsDesktop: clampBoardColumns(parsed.boardColumnsDesktop ?? parsed.wordCardsPerRowDesktop ?? parsed.cardsPerRow, defaultGameplayPreferences.boardColumnsDesktop),
       imageCardScale: clampImageCardScale(parsed.imageCardScale),
+      strictCardAspectRatios: typeof parsed.strictCardAspectRatios === 'boolean' ? parsed.strictCardAspectRatios : defaultGameplayPreferences.strictCardAspectRatios,
       chatSound: typeof parsed.chatSound === 'boolean' ? parsed.chatSound : defaultGameplayPreferences.chatSound,
       chatVisualCue: typeof parsed.chatVisualCue === 'boolean' ? parsed.chatVisualCue : defaultGameplayPreferences.chatVisualCue,
       cardChoiceSound: typeof parsed.cardChoiceSound === 'boolean' ? parsed.cardChoiceSound : defaultGameplayPreferences.cardChoiceSound,
@@ -352,6 +355,11 @@ export function imageCardGridStyle(card: Pick<DisplayCard, 'contentType'>, colum
   if (mobileColumns === undefined) return desktopVars;
   const mobileSpan = cardGridSpan(card, mobileColumns, scale);
   return `--card-mobile-col-span: ${mobileSpan.columns}; --card-mobile-row-span: ${mobileSpan.rows}; ${desktopVars}`;
+}
+
+export function cardAspectRatioClasses(card: Pick<DisplayCard, 'contentType'>, strictCardAspectRatios: boolean): string {
+  if (card.contentType === 'image') return 'aspect-[2/3]';
+  return strictCardAspectRatios ? 'aspect-[4/3]' : 'min-h-20 sm:min-h-28';
 }
 
 function cardGridSpan(card: Pick<DisplayCard, 'contentType'>, columns: number, scale: ImageCardScale): { columns: number; rows: number } {

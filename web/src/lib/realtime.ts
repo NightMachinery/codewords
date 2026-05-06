@@ -1,9 +1,18 @@
 import type { ChatMessage, RoomSnapshot } from './api';
+import type { ImageCardScale } from './gameplay';
+
+export interface BoardLayoutPreferences {
+  boardColumnsMobile: number;
+  boardColumnsDesktop: number;
+  imageCardScale: ImageCardScale;
+  strictCardAspectRatios: boolean;
+}
 
 export type RoomSocketMessage =
   | { type: 'snapshot'; snapshot: RoomSnapshot }
   | { type: 'error'; code: string; message: string }
   | { type: 'chatMessage'; message: ChatMessage }
+  | { type: 'boardLayoutForced'; preferences: BoardLayoutPreferences; by: string }
   | { type: 'pong' };
 
 export interface RoomSocketHandlers {
