@@ -154,8 +154,8 @@ describe('local gameplay preferences', () => {
     expect(readGameplayPreferences(storage)).toMatchObject({
       boardColumnsMobile: 7,
       boardColumnsDesktop: 7,
-      imageCardScale: 4,
-      strictCardAspectRatios: false,
+      imageCardScale: 2,
+      strictCardAspectRatios: true,
       cardGridMode: 'footprint',
     });
   });
@@ -163,9 +163,9 @@ describe('local gameplay preferences', () => {
   it('defaults and clamps base board columns, grid mode, plus image-card scale', () => {
     expect(defaultGameplayPreferences).toMatchObject({
       boardColumnsMobile: 4,
-      boardColumnsDesktop: 5,
-      imageCardScale: 4,
-      strictCardAspectRatios: false,
+      boardColumnsDesktop: 7,
+      imageCardScale: 2,
+      strictCardAspectRatios: true,
       cardGridMode: 'footprint',
     });
     expect(clampBoardColumns(99)).toBe(13);
@@ -174,7 +174,7 @@ describe('local gameplay preferences', () => {
     expect(clampImageCardScale(2)).toBe(2);
     expect(clampImageCardScale(4)).toBe(4);
     expect(clampImageCardScale(8)).toBe(8);
-    expect(clampImageCardScale(3)).toBe(4);
+    expect(clampImageCardScale(3)).toBe(2);
     expect(clampCardGridMode('footprint')).toBe('footprint');
     expect(clampCardGridMode('exactAspect')).toBe('exactAspect');
     expect(clampCardGridMode('calibratedRows')).toBe('calibratedRows');
@@ -186,7 +186,7 @@ describe('local gameplay preferences', () => {
     storage.setItem('codewords.gameplayPreferences', JSON.stringify({ strictCardAspectRatios: true }));
 
     expect(readGameplayPreferences(storage).strictCardAspectRatios).toBe(true);
-    expect(cardAspectRatioClasses({ contentType: 'word' }, true)).toBe('aspect-[4/3]');
+    expect(cardAspectRatioClasses({ contentType: 'word' }, true)).toBe('h-full');
     expect(cardAspectRatioClasses({ contentType: 'word' }, false)).toBe('min-h-20 sm:min-h-28');
     expect(cardAspectRatioClasses({ contentType: 'image' }, true)).toBe('aspect-[2/3]');
     expect(cardAspectRatioClasses({ contentType: 'image' }, false)).toBe('aspect-[2/3]');
@@ -204,7 +204,7 @@ describe('local gameplay preferences', () => {
     expect(readGameplayPreferences(storage)).toMatchObject({
       boardColumnsMobile: 3,
       boardColumnsDesktop: 6,
-      imageCardScale: 4,
+      imageCardScale: 2,
     });
   });
 
@@ -223,9 +223,9 @@ describe('local gameplay preferences', () => {
   });
 
   it('builds board grid styles for normal and calibrated row modes', () => {
-    expect(boardGridStyle(4, 5, 'footprint')).toBe('--mobile-card-columns: 4; --card-columns: 5; --card-mobile-grid-row: calc((100cqw - 3 * 0.5rem) / 4 * 0.75); --card-grid-row: calc((100cqw - 4 * 0.75rem) / 5 * 0.75);');
-    expect(boardGridStyle(4, 5, 'exactAspect')).toBe('--mobile-card-columns: 4; --card-columns: 5; --card-mobile-grid-row: calc((100cqw - 3 * 0.5rem) / 4 * 0.75); --card-grid-row: calc((100cqw - 4 * 0.75rem) / 5 * 0.75);');
-    expect(boardGridStyle(4, 5, 'calibratedRows')).toBe('--mobile-card-columns: 4; --card-columns: 5; --card-mobile-grid-row: calc((100cqw - 3 * 0.5rem) / 4 * 0.75); --card-grid-row: calc((100cqw - 4 * 0.75rem) / 5 * 0.75);');
+    expect(boardGridStyle(4, 5, 'footprint')).toBe('--mobile-card-columns: 4; --card-columns: 5; --card-mobile-grid-row: calc(((100cqw - 3 * 0.5rem) / 4 * 0.75) - 0.25rem); --card-grid-row: calc(((100cqw - 4 * 0.75rem) / 5 * 0.75) - 0.375rem);');
+    expect(boardGridStyle(4, 5, 'exactAspect')).toBe('--mobile-card-columns: 4; --card-columns: 5; --card-mobile-grid-row: calc(((100cqw - 3 * 0.5rem) / 4 * 0.75) - 0.25rem); --card-grid-row: calc(((100cqw - 4 * 0.75rem) / 5 * 0.75) - 0.375rem);');
+    expect(boardGridStyle(4, 5, 'calibratedRows')).toBe('--mobile-card-columns: 4; --card-columns: 5; --card-mobile-grid-row: calc(((100cqw - 3 * 0.5rem) / 4 * 0.75) - 0.25rem); --card-grid-row: calc(((100cqw - 4 * 0.75rem) / 5 * 0.75) - 0.375rem);');
     expect(boardGridClasses('footprint')).toBe('[container-type:inline-size] [grid-auto-rows:var(--card-mobile-grid-row)] md:[grid-auto-rows:var(--card-grid-row)]');
     expect(boardGridClasses('exactAspect')).toBe('[container-type:inline-size] [grid-auto-rows:var(--card-mobile-grid-row)] md:[grid-auto-rows:var(--card-grid-row)]');
     expect(boardGridClasses('calibratedRows')).toBe('[container-type:inline-size] [grid-auto-rows:var(--card-mobile-grid-row)] md:[grid-auto-rows:var(--card-grid-row)]');

@@ -111,9 +111,9 @@ export const defaultGameplayPreferences: GameplayPreferences = {
   confirmGuesses: true,
   confirmPasses: false,
   boardColumnsMobile: 4,
-  boardColumnsDesktop: 5,
-  imageCardScale: 4,
-  strictCardAspectRatios: false,
+  boardColumnsDesktop: 7,
+  imageCardScale: 2,
+  strictCardAspectRatios: true,
   cardGridMode: 'footprint',
   chatSound: true,
   chatVisualCue: true,
@@ -373,7 +373,7 @@ export function boardGridStyle(mobileColumns: number, columns: number, gridMode:
   const safeMobileColumns = clampBoardColumns(mobileColumns, defaultGameplayPreferences.boardColumnsMobile);
   const safeColumns = clampBoardColumns(columns, defaultGameplayPreferences.boardColumnsDesktop);
   const baseVars = `--mobile-card-columns: ${safeMobileColumns}; --card-columns: ${safeColumns};`;
-  return `${baseVars} --card-mobile-grid-row: calc((100cqw - ${safeMobileColumns - 1} * 0.5rem) / ${safeMobileColumns} * 0.75); --card-grid-row: calc((100cqw - ${safeColumns - 1} * 0.75rem) / ${safeColumns} * 0.75);`;
+  return `${baseVars} --card-mobile-grid-row: calc(((100cqw - ${safeMobileColumns - 1} * 0.5rem) / ${safeMobileColumns} * 0.75) - 0.25rem); --card-grid-row: calc(((100cqw - ${safeColumns - 1} * 0.75rem) / ${safeColumns} * 0.75) - 0.375rem);`;
 }
 
 export function boardGridClasses(gridMode: CardGridMode): string {
@@ -390,7 +390,7 @@ export function imageCardGridStyle(card: Pick<DisplayCard, 'contentType'>, colum
 
 export function cardAspectRatioClasses(card: Pick<DisplayCard, 'contentType'>, strictCardAspectRatios: boolean): string {
   if (card.contentType === 'image') return 'aspect-[2/3]';
-  return strictCardAspectRatios ? 'aspect-[4/3]' : 'min-h-20 sm:min-h-28';
+  return strictCardAspectRatios ? 'h-full' : 'min-h-20 sm:min-h-28';
 }
 
 function cardGridSpan(card: Pick<DisplayCard, 'contentType'>, columns: number, scale: ImageCardScale, gridMode: CardGridMode): { columns: number; rows: number } {
