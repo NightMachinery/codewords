@@ -4,7 +4,7 @@ Milestones 5 and 6 replace the scaffold screen with a Svelte 5, Tailwind-styled 
 
 ## Routes
 
-- `/` bootstraps the browser identity, prompts for a display name when needed, creates rooms, and accepts pasted room links or ids.
+- `/` bootstraps the browser identity, prompts for a display name when needed, creates rooms, and accepts pasted room links or ids. The landing surface is intentionally minimal: CODEWORDS branding, the room entry controls, and a CSS-only animated aurora background with reduced-motion handling.
 - `/rooms/{roomId}` is the canonical lobby URL.
 - `/room/{roomId}` remains accepted as a frontend alias.
 - `/rooms/{roomId}?migrateId=...` uses the room-scoped migrate identity for that room only and does not overwrite the browser's global auth token.
