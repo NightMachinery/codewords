@@ -9,3 +9,16 @@ body {
   min-width: 320px;
   min-height: 100vh;
 }
+
+button {
+  touch-action: manipulation;
+}
+
+button:not(:disabled):active {
+  translate: 0 1px;
+}
+
+button:focus-visible {
+  outline: 2px solid oklch(84% 0.13 164);
+  outline-offset: 2px;
+}

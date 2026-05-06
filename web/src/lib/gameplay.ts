@@ -348,6 +348,17 @@ export function teamColorControlClasses(): string {
   return 'mt-2 flex min-w-0 flex-col items-stretch gap-2 overflow-hidden rounded-2xl border bg-slate-950/60 p-2 shadow-inner shadow-slate-950/30 sm:flex-row';
 }
 
+export function roomMainClasses(): string {
+  return 'min-h-screen w-full overflow-x-hidden bg-[oklch(14%_0.018_255)] pb-32 text-slate-100';
+}
+
+export function pressableButtonClasses(classes = ''): string {
+  return [
+    classes,
+    'transition active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:active:translate-y-0',
+  ].filter(Boolean).join(' ');
+}
+
 export function displayTeamName(team: Team | 'blue' | 'red' | '', settings: Settings | undefined): string {
   if (team === 'blue') return (settings?.teamNameBlue?.trim() || defaultTeamNames.blue).slice(0, 30);
   if (team === 'red') return (settings?.teamNameRed?.trim() || defaultTeamNames.red).slice(0, 30);
@@ -437,7 +448,7 @@ export function cardWordTextClasses(word: string | undefined): string {
         : length > 14
           ? 'text-[clamp(0.88rem,8.2cqw,1.5rem)]'
           : 'text-[clamp(1.1rem,12cqw,2rem)]';
-  return ['block max-w-full overflow-hidden whitespace-normal break-keep hyphens-none text-center font-black leading-none tracking-[0.02em]', size].join(' ');
+  return ['block max-w-full whitespace-normal break-keep hyphens-none text-center font-black leading-[1.16] tracking-[0.02em]', size].join(' ');
 }
 
 export function clampTotalCards(value: unknown): number {

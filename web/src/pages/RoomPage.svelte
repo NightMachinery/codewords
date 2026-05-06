@@ -29,9 +29,11 @@
     findViewerPlayer,
     formatClueNumber,
     imageCardGridStyle,
+    pressableButtonClasses,
     normalizeLobbySettingsForSave,
     readPanelPreferences,
     readGameplayPreferences,
+    roomMainClasses,
     shouldAutoJoinRoom,
     shouldCueChatMessage,
     shouldCueCardReveal,
@@ -59,6 +61,7 @@
   import PlayerList from '../lib/PlayerList.svelte';
   import ChatSidebar from '../lib/ChatSidebar.svelte';
   import BottomControls from '../lib/BottomControls.svelte';
+  import FitCardWord from '../lib/FitCardWord.svelte';
   import ModSettings from '../lib/ModSettings.svelte';
 
   let roomId = $state('');
@@ -554,8 +557,8 @@
   }
 </script>
 
-<main class="min-h-screen w-full overflow-x-hidden bg-[oklch(14%_0.018_255)] text-slate-100 pb-32 pr-12">
-  <div class="mx-auto w-full max-w-7xl px-5 py-6 sm:px-8">
+<main class={roomMainClasses()}>
+  <div class="mx-auto w-full max-w-7xl px-2 py-4 sm:px-8 sm:py-6">
     <nav class="flex flex-wrap items-center justify-between gap-3 rounded-full border border-slate-700/70 bg-slate-900/75 px-5 py-3 shadow-2xl shadow-slate-950/40">
       <a class="text-lg font-black tracking-tight text-slate-50" href="/">Codewords</a>
       <div class="flex items-center gap-3 text-sm text-slate-300">
@@ -580,7 +583,7 @@
             placeholder="Your table name"
           />
           <button
-            class="mt-4 w-full rounded-2xl bg-emerald-300 px-5 py-3 font-black text-slate-950 transition hover:bg-emerald-200 disabled:opacity-60"
+            class={pressableButtonClasses('mt-4 w-full rounded-2xl bg-emerald-300 px-5 py-3 font-black text-slate-950 hover:bg-emerald-200 disabled:opacity-60')}
             disabled={savingName}
             onclick={saveNameAndJoin}
           >
@@ -589,9 +592,9 @@
         </div>
       </section>
     {:else}
-      <header class="grid gap-8 py-12 lg:grid-cols-[1fr_22rem] lg:py-16">
+      {#if phase !== 'active'}
+      <header class="grid gap-8 px-3 py-8 sm:px-0 lg:grid-cols-[1fr_22rem] lg:py-16">
         <div class="max-w-5xl">
-          <p class="mb-4 text-sm font-semibold uppercase tracking-[0.22em] text-emerald-300">Room {roomId}</p>
           <h1 class="max-w-5xl text-5xl font-black leading-[0.96] tracking-[-0.05em] text-slate-50 sm:text-7xl">
             {phase === 'lobby' ? 'Gather teams, choose roles, then start.' : phase === 'game_over' ? `${displayTeamName(winner, settings)} wins the board.` : ''}
           </h1>
@@ -599,9 +602,9 @@
 
         <aside class="self-start rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5 shadow-2xl shadow-slate-950/40">
           <div class="grid gap-3">
-            <button class="rounded-2xl bg-slate-100 px-5 py-3 font-black text-slate-950 transition hover:bg-white" onclick={copyRoomLink}>Copy room link</button>
+            <button class={pressableButtonClasses('rounded-2xl bg-slate-100 px-5 py-3 font-black text-slate-950 hover:bg-white')} onclick={copyRoomLink}>Copy room link</button>
             {#if currentPlayer}
-              <button class="rounded-2xl border border-slate-600 px-5 py-3 font-bold text-slate-100 transition hover:border-emerald-300 hover:text-emerald-200" onclick={copyMigrateLink}>
+              <button class={pressableButtonClasses('rounded-2xl border border-slate-600 px-5 py-3 font-bold text-slate-100 hover:border-emerald-300 hover:text-emerald-200')} onclick={copyMigrateLink}>
                 Copy migrate-device link
               </button>
             {/if}
@@ -611,6 +614,7 @@
           </div>
         </aside>
       </header>
+      {/if}
 
       {#if phase === 'lobby'}
       <section class="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
@@ -692,17 +696,14 @@
               </section>
             {/if}
 
-            <section class="rounded-[2rem] border border-slate-700/70 bg-slate-900/70 p-4 shadow-2xl shadow-slate-950/35 sm:p-5">
-              <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <section class="rounded-[1.5rem] border border-slate-700/70 bg-slate-900/70 p-2 shadow-2xl shadow-slate-950/35 sm:rounded-[2rem] sm:p-5">
+              <div class="mb-3 flex flex-wrap items-center justify-between gap-3 sm:mb-5">
                 <div>
                   <p class="text-xs font-black uppercase tracking-[0.22em] text-slate-400">Board</p>
-                  <div class="flex items-center gap-3">
-                    <h2 class="text-2xl font-black tracking-tight">Code grid</h2>
-                  </div>
                 </div>
                 <div class="flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-widest">
-                  <span class="rounded-full border border-blue-300/40 bg-blue-400/15 px-3 py-1.5 text-blue-100" style={`border-color: ${hexWithAlpha(teamColor('blue', settings), '66')}; background-color: ${hexWithAlpha(teamColor('blue', settings), '26')}; color: ${teamColor('blue', settings)}`}>{displayTeamName('blue', settings)} {remainingCounts.blue}</span>
-                  <span class="rounded-full border border-red-300/40 bg-red-400/15 px-3 py-1.5 text-red-100" style={`border-color: ${hexWithAlpha(teamColor('red', settings), '66')}; background-color: ${hexWithAlpha(teamColor('red', settings), '26')}; color: ${teamColor('red', settings)}`}>{displayTeamName('red', settings)} {remainingCounts.red}</span>
+                  <span class="relative isolate rounded-full border border-blue-300/40 bg-blue-400/15 px-3 py-1.5 text-blue-100" style={`border-color: ${hexWithAlpha(teamColor('blue', settings), '66')}; background-color: ${hexWithAlpha(teamColor('blue', settings), currentTeam === 'blue' ? '33' : '26')}; color: ${teamColor('blue', settings)}; ${currentTeam === 'blue' ? `box-shadow: 0 0 0 1px ${hexWithAlpha(teamColor('blue', settings), '55')}, 0 0 28px ${hexWithAlpha(teamColor('blue', settings), '55')};` : ''}`}>{displayTeamName('blue', settings)} {remainingCounts.blue}</span>
+                  <span class="relative isolate rounded-full border border-red-300/40 bg-red-400/15 px-3 py-1.5 text-red-100" style={`border-color: ${hexWithAlpha(teamColor('red', settings), '66')}; background-color: ${hexWithAlpha(teamColor('red', settings), currentTeam === 'red' ? '33' : '26')}; color: ${teamColor('red', settings)}; ${currentTeam === 'red' ? `box-shadow: 0 0 0 1px ${hexWithAlpha(teamColor('red', settings), '55')}, 0 0 28px ${hexWithAlpha(teamColor('red', settings), '55')};` : ''}`}>{displayTeamName('red', settings)} {remainingCounts.red}</span>
                   <span class="rounded-full border border-amber-200/40 bg-amber-200/10 px-3 py-1.5 text-amber-100">Civilian {remainingCounts.civilian}</span>
                   <span class="rounded-full border border-zinc-500/40 bg-zinc-950 px-3 py-1.5 text-zinc-100">Assassin {remainingCounts.black}</span>
                 </div>
@@ -716,7 +717,7 @@
                     {@const view = cardViewState(card, card.originalIndex, showHiddenColor, lastSelected, revealedStyle)}
                     {@const customColor = card.color === 'blue' ? teamColor('blue', settings) : card.color === 'red' ? teamColor('red', settings) : ''}
                     <button
-                      class={['group relative col-span-[var(--card-mobile-col-span)] row-span-[var(--card-mobile-row-span)] md:col-span-[var(--card-col-span)] md:row-span-[var(--card-row-span)] rounded-xl border p-1 text-left transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', cardAspectRatioClasses(card, preferences.strictCardAspectRatios), card.contentType === 'image' ? 'overflow-hidden border-4' : 'overflow-visible', view.classes, !role.activeGuesser || card.revealed || phase !== 'active' ? 'disabled:opacity-80' : ''].join(' ')}
+                      class={pressableButtonClasses(['group relative col-span-[var(--card-mobile-col-span)] row-span-[var(--card-mobile-row-span)] md:col-span-[var(--card-col-span)] md:row-span-[var(--card-row-span)] rounded-xl border p-1 text-left duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', cardAspectRatioClasses(card, preferences.strictCardAspectRatios), card.contentType === 'image' ? 'overflow-hidden border-4' : 'overflow-visible', view.classes, !role.activeGuesser || card.revealed || phase !== 'active' ? 'disabled:opacity-80' : ''].join(' '))}
                       style={`${imageCardGridStyle(card, activeColumns, preferences.imageCardScale, mobileColumns)} ${view.visibleColor !== 'hidden' && customColor ? `border-color: ${hexWithAlpha(customColor, 'B3')}; background-color: ${hexWithAlpha(customColor, '40')}; color: white` : ''}`}
                       disabled={Boolean(guessDisabledReason(card))}
                       title={guessDisabledReason(card) || `Reveal ${cardContentLabel(card)}`}
@@ -732,13 +733,7 @@
                         {/if}
                       {:else}
                         {@const wordSegments = cardWordTextSegments(toTitleCase(card.word) || 'Card')}
-                        <div class="flex h-full min-h-16 items-center justify-center p-1.5 [container-type:inline-size]">
-                          <span class={cardWordTextClasses(card.word)}>
-                            {#each wordSegments as segment, segmentIndex}
-                              {segment}{#if segmentIndex < wordSegments.length - 1}<wbr />{/if}
-                            {/each}
-                          </span>
-                        </div>
+                        <FitCardWord segments={wordSegments} classes={cardWordTextClasses(card.word)} />
                       {/if}
                     </button>
                   {:else}

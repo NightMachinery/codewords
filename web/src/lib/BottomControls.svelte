@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Settings } from './api';
-  import { bottomShortcutItems, displayTeamName, formatClueNumber, hexWithAlpha, ownTeamPlayerNames, teamColor, type ClueEntry, type GameplayPhase } from './gameplay';
+  import { bottomShortcutItems, displayTeamName, formatClueNumber, hexWithAlpha, pressableButtonClasses, teamColor, type ClueEntry, type GameplayPhase } from './gameplay';
   import type { LobbyPlayer, Team } from './lobby';
 
   interface Props {
@@ -45,11 +45,15 @@
     onPassTurn
   }: Props = $props();
 
+  let controlsExpanded = $state(true);
   let isYourTeam = $derived(role.team === currentTeam);
-  let turnLabel = $derived(isYourTeam ? 'Your Turn' : 'Their Turn');
   let teamLabel = $derived(displayTeamName(currentTeam, settings));
-  let ownTeamPlayers = $derived(players.filter((player) => player.team === role.team && (role.team === 'blue' || role.team === 'red')));
-  let ownTeamNames = $derived(ownTeamPlayerNames(players, role.team));
+  let currentTeamPlayers = $derived(players.filter((player) => player.team === currentTeam && (currentTeam === 'blue' || currentTeam === 'red')));
+  let canActNow = $derived(Boolean(phase === 'active' && isYourTeam && (role.activeGuesser || (role.kind === 'spymaster' && cluePermission.allowed))));
+  let turnColor = $derived(teamColor(currentTeam, settings));
+  let turnGlowStyle = $derived(currentTeam === 'blue' || currentTeam === 'red'
+    ? `background-color: ${turnColor}; box-shadow: 0 0 0 1px ${hexWithAlpha(turnColor, '88')}, 0 0 ${canActNow ? '34px' : '18px'} ${hexWithAlpha(turnColor, canActNow ? 'AA' : '66')};`
+    : '');
   let controlMessage = $derived.by(() => {
     if (phase !== 'active') return 'Waiting for the match to start.';
     if (!role.player) return 'Spectators are read-only.';
@@ -86,50 +90,74 @@
   </svg>
 {/snippet}
 
-<footer class="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-700/60 bg-slate-900/90 p-3 backdrop-blur-md shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
-  <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">
-    <!-- Turn Info -->
-    <div class="flex flex-1 basis-full flex-wrap items-center gap-4 md:basis-auto">
-      <div class={['rounded-2xl px-4 py-2 border transition', 
-        currentTeam === 'blue' ? 'border-blue-300/40 bg-blue-500/20 text-blue-100' : 
-        currentTeam === 'red' ? 'border-red-300/40 bg-red-500/20 text-red-100' : 
-        'border-slate-700 bg-slate-800 text-slate-400']}
-        style={currentTeam === 'blue' || currentTeam === 'red' ? `border-color: ${hexWithAlpha(teamColor(currentTeam, settings), '80')}; background-color: ${hexWithAlpha(teamColor(currentTeam, settings), '2b')}; color: ${teamColor(currentTeam, settings)};` : ''}>
-        <h2 class="text-lg font-black tracking-tight">{turnLabel}</h2>
-        <p class="text-xs font-bold opacity-75">{teamLabel}</p>
+{#if !controlsExpanded}
+  <button
+    class={pressableButtonClasses('fixed bottom-3 left-1/2 z-30 inline-flex -translate-x-1/2 items-center gap-2 rounded-full border border-slate-600/70 bg-slate-950/95 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-100 shadow-2xl backdrop-blur-md hover:border-emerald-300/70 hover:text-emerald-100')}
+    onclick={() => (controlsExpanded = true)}
+    aria-label="Expand bottom controls"
+  >
+    <span class="h-2.5 w-2.5 rounded-full" style={turnGlowStyle}></span>
+    Controls
+  </button>
+{:else}
+<footer class="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-700/60 bg-slate-900/90 p-2 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] backdrop-blur-md sm:p-3">
+  <div class="relative mx-auto flex max-w-7xl flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-4">
+    <button
+      class={pressableButtonClasses('absolute -top-10 right-2 rounded-full border border-slate-700/80 bg-slate-950/95 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-300 shadow-xl hover:border-emerald-300/60 hover:text-emerald-100')}
+      onclick={() => (controlsExpanded = false)}
+      aria-label="Collapse bottom controls"
+    >
+      Collapse
+    </button>
+
+    <!-- Turn/team row -->
+    <div class="relative flex min-w-0 flex-1 flex-col gap-2 md:max-w-sm">
+      <div class="relative isolate min-h-10 overflow-hidden rounded-2xl border border-slate-700/70 bg-slate-950/55 px-3 py-2">
+        {#if currentTeam === 'blue' || currentTeam === 'red'}
+          <span class="pointer-events-none absolute -left-5 top-1/2 h-20 w-20 -translate-y-1/2 rounded-full opacity-35 blur-xl" style={`background-color: ${turnColor};`}></span>
+        {/if}
+        <div class="relative z-10 flex min-w-0 items-center gap-3">
+          <span
+            class={['h-4 w-4 shrink-0 rounded-full', canActNow ? 'animate-pulse' : ''].join(' ')}
+            style={turnGlowStyle}
+            title={`${teamLabel} turn`}
+            aria-label={`${teamLabel} turn${canActNow ? ', you can act now' : ''}`}
+          ></span>
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-xs font-black uppercase tracking-[0.18em]" style={currentTeam === 'blue' || currentTeam === 'red' ? `color: ${turnColor};` : ''}>{teamLabel}</p>
+            {#if currentTeamPlayers.length}
+              <div class="mt-0.5 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-xs font-bold text-slate-200">
+                {#each currentTeamPlayers as player (player.id)}
+                  <span class="max-w-28 truncate">{player.displayName.trim() || 'Player'}</span>
+                {/each}
+              </div>
+            {:else}
+              <p class="text-xs font-bold text-slate-500">Waiting for team.</p>
+            {/if}
+          </div>
+        </div>
       </div>
 
       {#if currentClue}
-        <div class="rounded-2xl border border-slate-700 bg-slate-950/50 px-4 py-2">
+        <div class="rounded-2xl border border-slate-700 bg-slate-950/50 px-3 py-2">
           <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Active Clue</p>
-          <p class="font-black text-slate-100">{currentClue.text} · {formatClueNumber(currentClue.number)}</p>
-        </div>
-      {/if}
-      {#if ownTeamNames.length}
-        <div class="order-last w-full rounded-2xl border border-slate-700 bg-slate-950/50 px-3 py-2 md:order-none md:w-auto md:max-w-72">
-          <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs font-bold text-slate-200">
-            {#each ownTeamPlayers as player (player.id)}
-              <span class="max-w-28 truncate">
-                {player.displayName.trim() || 'Player'}
-              </span>
-            {/each}
-          </div>
+          <p class="truncate font-black text-slate-100">{currentClue.text} · {formatClueNumber(currentClue.number)}</p>
         </div>
       {/if}
     </div>
 
     <!-- Controls -->
-    <div class="flex flex-1 items-center justify-center gap-3 max-w-2xl">
+    <div class="flex min-w-0 flex-1 items-center justify-center gap-3 md:max-w-2xl">
       {#if role.kind === 'spymaster' && phase === 'active' && cluePermission.allowed}
         <div class="flex w-full gap-2">
           <input
-            class="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-semibold text-slate-50 outline-none ring-emerald-300 transition focus:ring-2 disabled:opacity-50"
+            class="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-semibold text-slate-50 outline-none ring-emerald-300 transition focus:ring-2 disabled:opacity-50"
             bind:value={clueText}
             maxlength="40"
             placeholder="One-word clue"
             disabled={!cluePermission.allowed}
           />
-          <select class="w-24 rounded-xl border border-slate-700 bg-slate-950 px-2 py-2 text-sm text-slate-50" bind:value={clueNumber} disabled={!cluePermission.allowed}>
+          <select class="w-20 rounded-xl border border-slate-700 bg-slate-950 px-2 py-2 text-sm text-slate-50 sm:w-24" bind:value={clueNumber} disabled={!cluePermission.allowed}>
             <option value="">#</option>
             {#each [1, 2, 3, 4, 5, 6, 7, 8, 9] as n (n)}
               <option value={String(n)}>{n}</option>
@@ -138,23 +166,23 @@
               <option value="∞">∞</option>
             {/if}
           </select>
-          <button 
-            class="rounded-xl bg-emerald-300 px-4 py-2 text-sm font-black text-slate-950 transition hover:bg-emerald-200 disabled:opacity-50" 
-            disabled={Boolean(clueProblem) || !cluePermission.allowed} 
+          <button
+            class={pressableButtonClasses('rounded-xl bg-emerald-300 px-4 py-2 text-sm font-black text-slate-950 hover:bg-emerald-200 disabled:opacity-50')}
+            disabled={Boolean(clueProblem) || !cluePermission.allowed}
             onclick={onSubmitClue}
           >
             Submit
           </button>
         </div>
       {:else if role.activeGuesser && phase === 'active'}
-        <div class="flex items-center gap-4 w-full">
-          <p class="text-xs font-bold text-slate-400 flex-1 text-center">{guessProblem || 'Select a card to guess'}</p>
-          <button 
-            class="rounded-xl border border-slate-500 px-6 py-2 text-sm font-black text-slate-100 transition hover:border-emerald-300 hover:text-emerald-200 disabled:opacity-50" 
-            disabled={Boolean(passProblem)} 
+        <div class="flex w-full items-center gap-3">
+          <p class="min-w-0 flex-1 text-center text-xs font-bold text-slate-400">{guessProblem || 'Select a card to guess'}</p>
+          <button
+            class={pressableButtonClasses('rounded-xl border border-slate-500 px-5 py-2 text-sm font-black text-slate-100 hover:border-emerald-300 hover:text-emerald-200 disabled:opacity-50')}
+            disabled={Boolean(passProblem)}
             onclick={onPassTurn}
           >
-            Pass turn
+            Pass
           </button>
         </div>
       {:else if controlMessage}
@@ -165,22 +193,33 @@
     </div>
 
     <!-- Actions -->
-    <div class="flex items-center gap-2">
+    <div class="flex items-center justify-end gap-2">
       <div class="flex items-center gap-1 rounded-2xl border border-slate-700 bg-slate-950/50 p-1">
         {#each bottomShortcutItems as shortcut (shortcut.target)}
-          <button class="grid h-8 w-8 place-items-center rounded-xl text-slate-300 transition hover:bg-slate-800 hover:text-emerald-200" title={shortcut.label} aria-label={shortcut.label} onclick={() => onNavigate(shortcut.target)}>
+          <button class={pressableButtonClasses('grid h-8 w-8 place-items-center rounded-xl text-slate-300 hover:bg-slate-800 hover:text-emerald-200')} title={shortcut.label} aria-label={shortcut.label} onclick={() => onNavigate(shortcut.target)}>
             {@render MiniIcon(shortcut.kind)}
           </button>
         {/each}
       </div>
       {#if role.kind === 'spymaster'}
-        <button 
-          class={['rounded-xl border px-3 py-2 text-xs font-bold transition', spymasterViewActive ? 'border-emerald-300/50 bg-emerald-400/10 text-emerald-200' : 'border-slate-600 bg-slate-800 text-slate-300']} 
+        <button
+          class={pressableButtonClasses(['grid h-10 w-10 place-items-center rounded-xl border', spymasterViewActive ? 'border-emerald-300/60 bg-emerald-300/15 text-emerald-100' : 'border-slate-600 bg-slate-800 text-slate-300 hover:border-emerald-300/50'].join(' '))}
           onclick={onToggleView}
+          aria-label={spymasterViewActive ? 'Turn spy view off' : 'Turn spy view on'}
+          aria-pressed={spymasterViewActive}
+          title={spymasterViewActive ? 'Spy view on' : 'Spy view off'}
         >
-          {spymasterViewActive ? 'Spy View: ON' : 'Spy View: OFF'}
+          <svg class="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 9.2 6.1 5h11.8L20 9.2c-2.5.8-5.2 1.2-8 1.2s-5.5-.4-8-1.2Z" fill="currentColor" opacity="0.9" />
+            <path d="M6.8 12.5c1.6.4 3.3.6 5.2.6s3.6-.2 5.2-.6l-.6 4.4A2.4 2.4 0 0 1 14.2 19H9.8a2.4 2.4 0 0 1-2.4-2.1l-.6-4.4Z" fill="currentColor" opacity="0.45" />
+            <path d="M8.2 14.5h2.6M13.2 14.5h2.6" stroke="currentColor" stroke-linecap="round" stroke-width="1.8" />
+            {#if spymasterViewActive}
+              <circle cx="18" cy="6" r="2.4" fill="currentColor" />
+            {/if}
+          </svg>
         </button>
       {/if}
     </div>
   </div>
 </footer>
+{/if}

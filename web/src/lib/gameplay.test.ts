@@ -20,7 +20,9 @@ import {
   boardGridStyle,
   clampBoardColumns,
   clampImageCardScale,
+  pressableButtonClasses,
   imageCardGridStyle,
+  roomMainClasses,
   clueLogKey,
   defaultTeamNames,
   displayTeamName,
@@ -286,10 +288,25 @@ describe('board card state', () => {
   it('shrinks word card text and only creates wrap opportunities at spaces or Persian half-spaces', () => {
     expect(cardWordTextClasses('short word')).toContain('whitespace-normal');
     expect(cardWordTextClasses('short word')).toContain('text-[clamp(1.1rem,12cqw,2rem)]');
-    expect(cardWordTextClasses('exceptionally-long-unbroken-card-word')).toContain('overflow-hidden');
+    expect(cardWordTextClasses('short word')).toContain('leading-[1.16]');
+    expect(cardWordTextClasses('short word')).not.toContain('leading-none');
+    expect(cardWordTextClasses('exceptionally-long-unbroken-card-word')).not.toContain('overflow-hidden');
     expect(cardWordTextClasses('exceptionally-long-unbroken-card-word')).toContain('text-[clamp(0.5rem,2.6cqw,0.95rem)]');
     expect(cardWordTextSegments('exceptionally-long-unbroken-card-word')).toEqual(['exceptionally-long-unbroken-card-word']);
     expect(cardWordTextSegments('half‌space word')).toEqual(['half‌', 'space ', 'word']);
+    expect(cardWordTextSegments('مقعد')).toEqual(['مقعد']);
+  });
+
+  it('keeps the active room shell full width on mobile without reserving chat space', () => {
+    expect(roomMainClasses()).toContain('w-full');
+    expect(roomMainClasses()).not.toContain('pr-12');
+  });
+
+  it('provides visible pressed and keyboard focus feedback for compact buttons', () => {
+    const classes = pressableButtonClasses('rounded-xl bg-slate-900');
+    expect(classes).toContain('active:translate-y-px');
+    expect(classes).toContain('focus-visible:ring-2');
+    expect(classes).toContain('disabled:active:translate-y-0');
   });
 
   it('derives visible color, labels, classes, and last-selected state', () => {
