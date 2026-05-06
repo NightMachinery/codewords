@@ -23,7 +23,7 @@
     buildMemoryCaptureModel,
     findViewerPlayer,
     formatClueNumber,
-    mixedCardGridStyle,
+    imageCardGridStyle,
     readPanelPreferences,
     readGameplayPreferences,
     shouldAutoJoinRoom,
@@ -38,6 +38,7 @@
     type ClueEntry,
     type GameplayCard,
     type GameplayPreferences,
+    type ImageCardScale,
     type LastSelected,
     type PanelPreferences,
     type EndGameOutcome,
@@ -113,16 +114,8 @@
   let currentClue = $derived(clueLog.slice().reverse().find((entry) => entry.status === 'active') ?? null);
   let guessProblem = $derived(guessDisabledReason());
   let passProblem = $derived(passDisabledReason());
-  let activeRows = $derived(cardMode === 'words'
-    ? { word: preferences.wordCardsPerRowDesktop, image: preferences.wordCardsPerRowDesktop }
-    : cardMode === 'images'
-      ? { word: preferences.imageCardsPerRowDesktop, image: preferences.imageCardsPerRowDesktop }
-      : { word: preferences.wordCardsPerRowDesktop, image: preferences.imageCardsPerRowDesktop });
-  let mobileRows = $derived(cardMode === 'words'
-    ? { word: preferences.wordCardsPerRowMobile, image: preferences.wordCardsPerRowMobile }
-    : cardMode === 'images'
-      ? { word: preferences.imageCardsPerRowMobile, image: preferences.imageCardsPerRowMobile }
-      : { word: preferences.wordCardsPerRowMobile, image: preferences.imageCardsPerRowMobile });
+  let activeColumns = $derived(preferences.boardColumnsDesktop);
+  let mobileColumns = $derived(preferences.boardColumnsMobile);
 
   onMount(() => {
     void boot();
@@ -660,15 +653,15 @@
                 </div>
               </div>
 
-              <div id="board" class="grid gap-2 md:gap-3 [grid-template-columns:repeat(var(--mobile-card-columns),minmax(0,1fr))] md:[grid-template-columns:repeat(var(--card-columns),minmax(0,1fr))]" style={`--mobile-card-columns: ${Math.max(mobileRows.word, mobileRows.image)}; --card-columns: ${Math.max(activeRows.word, activeRows.image)};`}>
+              <div id="board" class="grid grid-flow-dense gap-2 md:gap-3 [grid-template-columns:repeat(var(--mobile-card-columns),minmax(0,1fr))] md:[grid-template-columns:repeat(var(--card-columns),minmax(0,1fr))]" style={`--mobile-card-columns: ${mobileColumns}; --card-columns: ${activeColumns};`}>
                 {#each sortedCards as card, index (`${card.word ?? card.imageId ?? 'card'}-${card.originalIndex}`)}
                   {@const showHiddenColor = role.canSeeHiddenColors && (role.kind !== 'spymaster' || spymasterViewActive)}
                   {@const revealedStyle = (role.kind === 'spymaster' && spymasterViewActive) ? preferences.spymasterRevealedStyle : 'normal'}
                   {@const view = cardViewState(card, card.originalIndex, showHiddenColor, lastSelected, revealedStyle)}
                   {@const customColor = card.color === 'blue' ? teamColor('blue', settings) : card.color === 'red' ? teamColor('red', settings) : ''}
                   <button
-                    class={['group relative col-span-[var(--card-span)] rounded-xl border p-1 text-left shadow-xl shadow-slate-950/25 transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', card.contentType === 'image' ? 'aspect-[2/3] overflow-hidden border-4' : 'min-h-20 overflow-visible sm:min-h-28', view.classes, !role.activeGuesser || card.revealed || phase !== 'active' ? 'disabled:opacity-80' : ''].join(' ')}
-                    style={`${mixedCardGridStyle(card, activeRows)} ${view.visibleColor !== 'hidden' && customColor ? `border-color: ${hexWithAlpha(customColor, 'B3')}; background-color: ${hexWithAlpha(customColor, '40')}; color: white` : ''}`}
+                    class={['group relative col-span-[var(--card-mobile-col-span)] row-span-[var(--card-mobile-row-span)] md:col-span-[var(--card-col-span)] md:row-span-[var(--card-row-span)] rounded-xl border p-1 text-left shadow-xl shadow-slate-950/25 transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', card.contentType === 'image' ? 'aspect-[2/3] overflow-hidden border-4' : 'min-h-20 overflow-visible sm:min-h-28', view.classes, !role.activeGuesser || card.revealed || phase !== 'active' ? 'disabled:opacity-80' : ''].join(' ')}
+                    style={`${imageCardGridStyle(card, activeColumns, preferences.imageCardScale, mobileColumns)} ${view.visibleColor !== 'hidden' && customColor ? `border-color: ${hexWithAlpha(customColor, 'B3')}; background-color: ${hexWithAlpha(customColor, '40')}; color: white` : ''}`}
                     disabled={Boolean(guessDisabledReason(card))}
                     title={guessDisabledReason(card) || `Reveal ${cardContentLabel(card)}`}
                     onclick={() => guessCard(card.originalIndex, card)}
@@ -766,11 +759,18 @@
                   <span class="text-sm text-slate-200">Confirm before passing</span>
                 </label>
                 <div class="mt-3 grid gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
-                  <span class="text-sm text-slate-200 font-bold">Cards per row</span>
-                  <label class="text-xs text-slate-400">Mobile words: {preferences.wordCardsPerRowMobile}<input class="mt-1 w-full accent-emerald-300" type="range" min="1" max="13" value={preferences.wordCardsPerRowMobile} oninput={(event) => updatePreferences({ wordCardsPerRowMobile: Number.parseInt(event.currentTarget.value, 10) })} /></label>
-                  <label class="text-xs text-slate-400">Mobile images: {preferences.imageCardsPerRowMobile}<input class="mt-1 w-full accent-emerald-300" type="range" min="1" max="13" value={preferences.imageCardsPerRowMobile} oninput={(event) => updatePreferences({ imageCardsPerRowMobile: Number.parseInt(event.currentTarget.value, 10) })} /></label>
-                  <label class="text-xs text-slate-400">Desktop words: {preferences.wordCardsPerRowDesktop}<input class="mt-1 w-full accent-emerald-300" type="range" min="1" max="13" value={preferences.wordCardsPerRowDesktop} oninput={(event) => updatePreferences({ wordCardsPerRowDesktop: Number.parseInt(event.currentTarget.value, 10) })} /></label>
-                  <label class="text-xs text-slate-400">Desktop images: {preferences.imageCardsPerRowDesktop}<input class="mt-1 w-full accent-emerald-300" type="range" min="1" max="13" value={preferences.imageCardsPerRowDesktop} oninput={(event) => updatePreferences({ imageCardsPerRowDesktop: Number.parseInt(event.currentTarget.value, 10) })} /></label>
+                  <span class="text-sm font-bold text-slate-200">Board layout</span>
+                  <label class="text-xs text-slate-400">Mobile columns: {preferences.boardColumnsMobile}<input class="mt-1 w-full accent-emerald-300" type="range" min="1" max="13" value={preferences.boardColumnsMobile} oninput={(event) => updatePreferences({ boardColumnsMobile: Number.parseInt(event.currentTarget.value, 10) })} /></label>
+                  <label class="text-xs text-slate-400">Desktop columns: {preferences.boardColumnsDesktop}<input class="mt-1 w-full accent-emerald-300" type="range" min="1" max="13" value={preferences.boardColumnsDesktop} oninput={(event) => updatePreferences({ boardColumnsDesktop: Number.parseInt(event.currentTarget.value, 10) })} /></label>
+                  <label class="block text-xs text-slate-400">
+                    Image size
+                    <select class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" value={preferences.imageCardScale} onchange={(event) => updatePreferences({ imageCardScale: Number.parseInt(event.currentTarget.value, 10) as ImageCardScale })}>
+                      <option value="1">Compact, 1×1</option>
+                      <option value="2">Tall, 1×2</option>
+                      <option value="4">Large, 2×4</option>
+                      <option value="8">Poster, 4×8</option>
+                    </select>
+                  </label>
                 </div>
                 <label class="mt-3 block rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
                   <span class="text-sm text-slate-200 font-bold">Spymaster view style</span>

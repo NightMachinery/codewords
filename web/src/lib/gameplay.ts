@@ -48,13 +48,14 @@ export interface DisplayCard extends GameplayCard {
   badgeNumber: number;
 }
 
+export type ImageCardScale = 1 | 2 | 4 | 8;
+
 export interface GameplayPreferences {
   confirmGuesses: boolean;
   confirmPasses: boolean;
-  wordCardsPerRowMobile: number;
-  imageCardsPerRowMobile: number;
-  wordCardsPerRowDesktop: number;
-  imageCardsPerRowDesktop: number;
+  boardColumnsMobile: number;
+  boardColumnsDesktop: number;
+  imageCardScale: ImageCardScale;
   chatSound: boolean;
   chatVisualCue: boolean;
   cardChoiceSound: boolean;
@@ -76,10 +77,9 @@ export const panelPreferencesStorageKey = 'codewords.panelPreferences';
 export const defaultGameplayPreferences: GameplayPreferences = {
   confirmGuesses: true,
   confirmPasses: false,
-  wordCardsPerRowMobile: 4,
-  imageCardsPerRowMobile: 2,
-  wordCardsPerRowDesktop: 5,
-  imageCardsPerRowDesktop: 5,
+  boardColumnsMobile: 4,
+  boardColumnsDesktop: 5,
+  imageCardScale: 4,
   chatSound: true,
   chatVisualCue: true,
   cardChoiceSound: true,
@@ -203,15 +203,14 @@ export function readGameplayPreferences(storage: Pick<Storage, 'getItem'>): Game
   const raw = storage.getItem(gameplayPreferencesStorageKey);
   if (!raw) return { ...defaultGameplayPreferences };
   try {
-    const parsed = JSON.parse(raw) as Partial<GameplayPreferences> & { cardsPerRow?: unknown };
+    const parsed = JSON.parse(raw) as Partial<GameplayPreferences> & { cardsPerRow?: unknown; wordCardsPerRowMobile?: unknown; wordCardsPerRowDesktop?: unknown; imageCardsPerRowMobile?: unknown; imageCardsPerRowDesktop?: unknown };
     const spymasterRevealedStyle = ['greyed', 'invisible', 'omitted'].includes(parsed.spymasterRevealedStyle as string) ? parsed.spymasterRevealedStyle as 'greyed' | 'invisible' | 'omitted' : defaultGameplayPreferences.spymasterRevealedStyle;
     return {
       confirmGuesses: typeof parsed.confirmGuesses === 'boolean' ? parsed.confirmGuesses : defaultGameplayPreferences.confirmGuesses,
       confirmPasses: typeof parsed.confirmPasses === 'boolean' ? parsed.confirmPasses : defaultGameplayPreferences.confirmPasses,
-      wordCardsPerRowMobile: clampLayoutCardsPerRow(parsed.wordCardsPerRowMobile ?? parsed.cardsPerRow, 'word', defaultGameplayPreferences.wordCardsPerRowMobile),
-      imageCardsPerRowMobile: clampLayoutCardsPerRow(parsed.imageCardsPerRowMobile ?? parsed.cardsPerRow, 'image', defaultGameplayPreferences.imageCardsPerRowMobile),
-      wordCardsPerRowDesktop: clampLayoutCardsPerRow(parsed.wordCardsPerRowDesktop ?? parsed.cardsPerRow, 'word', defaultGameplayPreferences.wordCardsPerRowDesktop),
-      imageCardsPerRowDesktop: clampLayoutCardsPerRow(parsed.imageCardsPerRowDesktop ?? parsed.cardsPerRow, 'image', defaultGameplayPreferences.imageCardsPerRowDesktop),
+      boardColumnsMobile: clampBoardColumns(parsed.boardColumnsMobile ?? parsed.wordCardsPerRowMobile ?? parsed.cardsPerRow, defaultGameplayPreferences.boardColumnsMobile),
+      boardColumnsDesktop: clampBoardColumns(parsed.boardColumnsDesktop ?? parsed.wordCardsPerRowDesktop ?? parsed.cardsPerRow, defaultGameplayPreferences.boardColumnsDesktop),
+      imageCardScale: clampImageCardScale(parsed.imageCardScale),
       chatSound: typeof parsed.chatSound === 'boolean' ? parsed.chatSound : defaultGameplayPreferences.chatSound,
       chatVisualCue: typeof parsed.chatVisualCue === 'boolean' ? parsed.chatVisualCue : defaultGameplayPreferences.chatVisualCue,
       cardChoiceSound: typeof parsed.cardChoiceSound === 'boolean' ? parsed.cardChoiceSound : defaultGameplayPreferences.cardChoiceSound,
@@ -228,15 +227,17 @@ export function readGameplayPreferences(storage: Pick<Storage, 'getItem'>): Game
 }
 
 export function clampCardsPerRow(value: unknown): number {
-  const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
-  if (!Number.isFinite(parsed)) return defaultGameplayPreferences.wordCardsPerRowDesktop;
-  return Math.min(13, Math.max(1, Math.round(parsed)));
+  return clampBoardColumns(value, defaultGameplayPreferences.boardColumnsDesktop);
 }
 
-export function clampLayoutCardsPerRow(value: unknown, _kind: 'word' | 'image', fallback = 5): number {
+export function clampBoardColumns(value: unknown, fallback = 5): number {
   const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(13, Math.max(1, Math.round(parsed)));
+}
+
+export function clampImageCardScale(value: unknown): ImageCardScale {
+  return value === 1 || value === 2 || value === 4 || value === 8 ? value : defaultGameplayPreferences.imageCardScale;
 }
 
 export function writeGameplayPreferences(storage: Pick<Storage, 'setItem'>, preferences: GameplayPreferences): void {
@@ -315,11 +316,27 @@ export function teamColor(team: Team | 'blue' | 'red' | '', settings: Settings |
   return '';
 }
 
-export function mixedCardGridStyle(card: Pick<DisplayCard, 'contentType'>, rows: { word: number; image: number }): string {
-  const maxColumns = Math.max(rows.word, rows.image, 1);
-  const target = card.contentType === 'image' ? rows.image : rows.word;
-  const span = Math.max(1, Math.round(maxColumns / Math.max(1, target)));
-  return `--card-span: ${span};`;
+export function imageCardGridStyle(card: Pick<DisplayCard, 'contentType'>, columns: number, scale: ImageCardScale, mobileColumns?: number): string {
+  const desktopSpan = cardGridSpan(card, columns, scale);
+  const desktopVars = `--card-col-span: ${desktopSpan.columns}; --card-row-span: ${desktopSpan.rows};`;
+  if (mobileColumns === undefined) return desktopVars;
+  const mobileSpan = cardGridSpan(card, mobileColumns, scale);
+  return `--card-mobile-col-span: ${mobileSpan.columns}; --card-mobile-row-span: ${mobileSpan.rows}; ${desktopVars}`;
+}
+
+function cardGridSpan(card: Pick<DisplayCard, 'contentType'>, columns: number, scale: ImageCardScale): { columns: number; rows: number } {
+  if (card.contentType !== 'image') return { columns: 1, rows: 1 };
+  const safeColumns = clampBoardColumns(columns);
+  const requestedScale = clampImageCardScale(scale);
+  const requested = imageSpanForScale(requestedScale);
+  return requested.columns <= safeColumns ? requested : imageSpanForScale(2);
+}
+
+function imageSpanForScale(scale: ImageCardScale): { columns: number; rows: number } {
+  if (scale === 1) return { columns: 1, rows: 1 };
+  if (scale === 2) return { columns: 1, rows: 2 };
+  if (scale === 4) return { columns: 2, rows: 4 };
+  return { columns: 4, rows: 8 };
 }
 
 export function activeMatchLayoutClasses(): string {

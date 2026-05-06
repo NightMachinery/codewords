@@ -12,12 +12,13 @@ import {
   formatClueNumber,
   cardWordTextClasses,
   cardWordTextSegments,
-  clampLayoutCardsPerRow,
+  clampBoardColumns,
+  clampImageCardScale,
+  imageCardGridStyle,
   clueLogKey,
   defaultTeamNames,
   displayTeamName,
   isValidHexColor,
-  mixedCardGridStyle,
   isActiveGuesser,
   parseClueNumber,
   readPanelPreferences,
@@ -114,7 +115,7 @@ describe('local gameplay preferences', () => {
     expect(readGameplayPreferences(storage)).toEqual(defaultGameplayPreferences);
     expect(defaultGameplayPreferences.spymasterRevealedStyle).toBe('invisible');
 
-    const saved: GameplayPreferences = { confirmGuesses: false, confirmPasses: true, wordCardsPerRowMobile: 4, imageCardsPerRowMobile: 2, wordCardsPerRowDesktop: 5, imageCardsPerRowDesktop: 5, chatSound: false, chatVisualCue: false, cardChoiceSound: false, cardChoiceVisualCue: true, clueSound: true, clueVisualCue: false, endGameSound: true, endGameVisualCue: true, spymasterRevealedStyle: 'greyed' };
+    const saved: GameplayPreferences = { confirmGuesses: false, confirmPasses: true, boardColumnsMobile: 4, boardColumnsDesktop: 5, imageCardScale: 8, chatSound: false, chatVisualCue: false, cardChoiceSound: false, cardChoiceVisualCue: true, clueSound: true, clueVisualCue: false, endGameSound: true, endGameVisualCue: true, spymasterRevealedStyle: 'greyed' };
     writeGameplayPreferences(storage, saved);
     expect(readGameplayPreferences(storage)).toEqual(saved);
 
@@ -123,25 +124,51 @@ describe('local gameplay preferences', () => {
 
     storage.setItem('codewords.gameplayPreferences', JSON.stringify({ cardsPerRow: 7 }));
     expect(readGameplayPreferences(storage)).toMatchObject({
-      wordCardsPerRowMobile: 7,
-      imageCardsPerRowMobile: 7,
-      wordCardsPerRowDesktop: 7,
-      imageCardsPerRowDesktop: 7,
+      boardColumnsMobile: 7,
+      boardColumnsDesktop: 7,
+      imageCardScale: 4,
     });
   });
 
-  it('defaults and clamps separate word/image mobile/desktop layout preferences', () => {
+  it('defaults and clamps base board columns plus image-card scale', () => {
     expect(defaultGameplayPreferences).toMatchObject({
-      wordCardsPerRowMobile: 4,
-      imageCardsPerRowMobile: 2,
-      wordCardsPerRowDesktop: 5,
-      imageCardsPerRowDesktop: 5,
+      boardColumnsMobile: 4,
+      boardColumnsDesktop: 5,
+      imageCardScale: 4,
     });
-    expect(clampLayoutCardsPerRow(99, 'word')).toBe(13);
-    expect(clampLayoutCardsPerRow(0, 'image')).toBe(1);
-    expect(mixedCardGridStyle({
-      contentType: 'image',
-    }, { word: 5, image: 2 })).toContain('--card-span: 3');
+    expect(clampBoardColumns(99)).toBe(13);
+    expect(clampBoardColumns(0)).toBe(1);
+    expect(clampImageCardScale(1)).toBe(1);
+    expect(clampImageCardScale(2)).toBe(2);
+    expect(clampImageCardScale(4)).toBe(4);
+    expect(clampImageCardScale(8)).toBe(8);
+    expect(clampImageCardScale(3)).toBe(4);
+  });
+
+  it('migrates legacy word/image row preferences to base board columns and image scale', () => {
+    const storage = new MemoryStorage();
+    storage.setItem('codewords.gameplayPreferences', JSON.stringify({
+      wordCardsPerRowMobile: 3,
+      imageCardsPerRowMobile: 2,
+      wordCardsPerRowDesktop: 6,
+      imageCardsPerRowDesktop: 2,
+    }));
+
+    expect(readGameplayPreferences(storage)).toMatchObject({
+      boardColumnsMobile: 3,
+      boardColumnsDesktop: 6,
+      imageCardScale: 4,
+    });
+  });
+
+  it('maps image-card scale to grid spans and falls back when columns are narrow', () => {
+    expect(imageCardGridStyle({ contentType: 'word' }, 5, 4)).toBe('--card-col-span: 1; --card-row-span: 1;');
+    expect(imageCardGridStyle({ contentType: 'image' }, 5, 1)).toBe('--card-col-span: 1; --card-row-span: 1;');
+    expect(imageCardGridStyle({ contentType: 'image' }, 5, 2)).toBe('--card-col-span: 1; --card-row-span: 2;');
+    expect(imageCardGridStyle({ contentType: 'image' }, 5, 4)).toBe('--card-col-span: 2; --card-row-span: 4;');
+    expect(imageCardGridStyle({ contentType: 'image' }, 5, 8)).toBe('--card-col-span: 4; --card-row-span: 8;');
+    expect(imageCardGridStyle({ contentType: 'image' }, 1, 4)).toBe('--card-col-span: 1; --card-row-span: 2;');
+    expect(imageCardGridStyle({ contentType: 'image' }, 5, 4, 1)).toBe('--card-mobile-col-span: 1; --card-mobile-row-span: 2; --card-col-span: 2; --card-row-span: 4;');
   });
 
   it('defaults collapsible panel preferences open and persists changes', () => {
