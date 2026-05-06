@@ -4,12 +4,14 @@
   import { api, defaultSettings, type ChatMessage, type PictureAsset, type Settings, type Viewer, type Wordpack } from '../lib/api';
   import { copyText } from '../lib/clipboard';
   import {
+    activeMatchLayoutClasses,
     canSubmitClue,
     cardContentLabel,
     cardImageUrl,
     cardModeFromImageCount,
     cardViewState,
     cardWordTextClasses,
+    cardWordTextSegments,
     clueLogKey,
     clueNumberFromInput,
     clueSubmitProblem,
@@ -611,7 +613,7 @@
         </aside>
       </section>
       {:else}
-        <section class="grid gap-6 xl:grid-cols-[1fr_24rem]">
+        <section class={activeMatchLayoutClasses()}>
           <div class="space-y-6">
             {#if phase === 'game_over'}
               <section class={['relative overflow-hidden rounded-[2rem] border p-6 shadow-2xl shadow-slate-950/30', winner === 'blue' ? 'border-blue-300/50 bg-blue-400/15' : 'border-red-300/50 bg-red-400/15']} style={winner ? `border-color: ${hexWithAlpha(teamColor(winner, settings), '80')}; background-color: ${hexWithAlpha(teamColor(winner, settings), '26')};` : ''}>
@@ -680,8 +682,13 @@
                         <span class="pointer-events-none absolute inset-1 rounded-lg border-4" style={`border-color: ${imageSelectionBorder(view.visibleColor)}; box-shadow: inset 0 0 0 2px rgba(16, 185, 129, 0.65);`}></span>
                       {/if}
                     {:else}
-                      <div class="flex h-full min-h-16 items-center justify-center p-1.5">
-                        <span class={cardWordTextClasses(card.word)}>{toTitleCase(card.word) || 'Card'}</span>
+                      {@const wordSegments = cardWordTextSegments(toTitleCase(card.word) || 'Card')}
+                      <div class="flex h-full min-h-16 items-center justify-center p-1.5 [container-type:inline-size]">
+                        <span class={cardWordTextClasses(card.word)}>
+                          {#each wordSegments as segment, segmentIndex}
+                            {segment}{#if segmentIndex < wordSegments.length - 1}<wbr />{/if}
+                          {/each}
+                        </span>
                       </div>
                     {/if}
                   </button>

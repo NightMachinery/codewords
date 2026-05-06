@@ -322,10 +322,39 @@ export function mixedCardGridStyle(card: Pick<DisplayCard, 'contentType'>, rows:
   return `--card-span: ${span};`;
 }
 
+export function activeMatchLayoutClasses(): string {
+  return 'space-y-6';
+}
+
+export function cardWordTextSegments(word: string | undefined): string[] {
+  const value = word ?? '';
+  if (!value) return [''];
+
+  const segments: string[] = [];
+  let segment = '';
+  for (const char of value) {
+    segment += char;
+    if (/\s/u.test(char) || char === '\u200c') {
+      segments.push(segment);
+      segment = '';
+    }
+  }
+  if (segment) segments.push(segment);
+  return segments;
+}
+
 export function cardWordTextClasses(word: string | undefined): string {
   const length = [...(word ?? '')].length;
-  const size = length > 28 ? 'text-[clamp(0.58rem,1.6vw,1rem)]' : length > 18 ? 'text-[clamp(0.72rem,2vw,1.25rem)]' : 'text-[clamp(0.9rem,2.8vw,1.65rem)]';
-  return ['block max-w-full overflow-visible break-normal hyphens-auto text-balance text-center font-black leading-none tracking-[0.02em]', size].join(' ');
+  const size = length > 44
+    ? 'text-[clamp(0.32rem,1.4cqw,0.58rem)]'
+    : length > 32
+      ? 'text-[clamp(0.42rem,2.2cqw,0.82rem)]'
+      : length > 22
+        ? 'text-[clamp(0.56rem,4cqw,1rem)]'
+        : length > 14
+          ? 'text-[clamp(0.72rem,7cqw,1.25rem)]'
+          : 'text-[clamp(0.9rem,10cqw,1.65rem)]';
+  return ['block max-w-full overflow-hidden whitespace-normal break-keep hyphens-none text-center font-black leading-none tracking-[0.02em]', size].join(' ');
 }
 
 export function cardModeFromImageCount(imageCardCount: number): CardMode {

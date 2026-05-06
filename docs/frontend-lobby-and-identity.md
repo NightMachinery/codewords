@@ -29,8 +29,8 @@ Named browser identities auto-join only while a room is still in `lobby` status.
 
 When a room snapshot is `active` or `game_over`, the room route switches from lobby controls to gameplay:
 
-- responsive 5x5 board with word cards, image cards, or a mixed board;
-- revealed card colors for all viewers, hidden-color tinting for spymasters, and all colors revealed after game over;
+- responsive 5x5 board with word cards, image cards, or a mixed board; the active board uses the full desktop row before player and clue panels so the player controls do not collapse in a narrow right rail;
+- revealed card colors for all viewers, hidden-color tinting for spymasters, and all colors revealed after game over; word labels shrink inside their cards, and only spaces or Persian half-spaces create deliberate wrap opportunities;
 - last-selected card highlighting;
 - current-team banner and remaining blue/red counts;
 - clue composer for the current team's spymaster;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  activeMatchLayoutClasses,
   canSubmitClue,
   cardViewState,
   cardContentLabel,
@@ -10,6 +11,7 @@ import {
   buildMemoryCaptureModel,
   formatClueNumber,
   cardWordTextClasses,
+  cardWordTextSegments,
   clampLayoutCardsPerRow,
   clueLogKey,
   defaultTeamNames,
@@ -181,9 +183,17 @@ describe('board card state', () => {
     expect(displayCards(cards, 'mixed', false).map((card) => card.badgeNumber)).toEqual([1, 2, 3, 4]);
   });
 
-  it('uses non-breaking text classes and shrinks long words to fit cards', () => {
-    expect(cardWordTextClasses('short word')).toContain('break-normal');
-    expect(cardWordTextClasses('exceptionally-long-unbroken-card-word')).toContain('clamp');
+  it('lets the active board use the full row instead of reserving a right sidebar', () => {
+    expect(activeMatchLayoutClasses()).not.toContain('grid-cols-[1fr_24rem]');
+    expect(activeMatchLayoutClasses()).toContain('space-y-6');
+  });
+
+  it('shrinks word card text and only creates wrap opportunities at spaces or Persian half-spaces', () => {
+    expect(cardWordTextClasses('short word')).toContain('whitespace-normal');
+    expect(cardWordTextClasses('exceptionally-long-unbroken-card-word')).toContain('overflow-hidden');
+    expect(cardWordTextClasses('exceptionally-long-unbroken-card-word')).toContain('text-[clamp');
+    expect(cardWordTextSegments('exceptionally-long-unbroken-card-word')).toEqual(['exceptionally-long-unbroken-card-word']);
+    expect(cardWordTextSegments('half‌space word')).toEqual(['half‌', 'space ', 'word']);
   });
 
   it('derives visible color, labels, classes, and last-selected state', () => {
