@@ -5,7 +5,7 @@
   "scripts": {
     "build": "pnpm --dir web build && go build -o bin/codewords ./cmd/server",
     "check": "pnpm --dir web check && go test ./...",
-    "test": "pnpm --dir web test -- --run && go test ./...",
+    "test": "zsh ./self_host_test.zsh && pnpm --dir web exec vitest run && go test ./...",
     "lint": "pnpm --dir web check"
   }
 }

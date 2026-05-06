@@ -25,11 +25,11 @@ Run commands from the repository root:
 
 The default URL is `https://codewords.pinky.lilf.ir`. Bare hostnames are treated as HTTPS.
 
-- `setup` stops existing Codewords tmux sessions, installs locked dependencies, builds frontend and backend, updates the managed Codewords block in `~/Caddyfile`, reloads or starts Caddy, and starts production.
-- `redeploy` performs the same build, Caddy update, and production restart flow for local changes.
-- `start` starts only the production Go backend in tmux, building it first when `bin/codewords` is missing.
+- `setup` stops existing Codewords tmux sessions, installs locked dependencies, builds frontend and backend, updates the managed Codewords block in `~/Caddyfile` for production, reloads or starts Caddy, and starts production.
+- `redeploy` performs the same build, production Caddy update, and production restart flow for local changes.
+- `start` starts only the production Go backend in tmux, building it first when `bin/codewords` is missing, and switches the managed Caddy block back to production static serving.
 - `stop` stops Codewords production and development tmux sessions.
-- `dev-start` starts the Go backend and Vite dev server in separate tmux sessions.
+- `dev-start` starts the Go backend and Vite dev server in separate tmux sessions, then switches the managed Caddy block to proxy frontend traffic to the Vite dev server while keeping `/api/*`, `/ws/*`, and `/healthz` on the Go backend.
 
 `setup` and `redeploy` build `bin/codewords`, which includes the manual AVIF command:
 
@@ -43,7 +43,7 @@ CODEWORDS_IMAGE_CACHE_DIR=~/.cache/talespin/cards \
 
 - Backend: `127.0.0.1:7878` by default; override with `CODEWORDS_ADDR`.
 - Frontend dev server: `127.0.0.1:5173` by default; override the port with `CODEWORDS_DEV_PORT`.
-- Caddy serves `web/dist` directly in production and reverse-proxies `/api/*`, `/ws/*`, and `/healthz` to the Go backend. Picture routes are under `/api/pictures/*` and therefore use the backend proxy.
+- Caddy serves `web/dist` directly in production and reverse-proxies `/api/*`, `/ws/*`, and `/healthz` to the Go backend. In `dev-start`, Caddy proxies all non-backend traffic to the Vite dev server at `127.0.0.1:${CODEWORDS_DEV_PORT:-5173}` so the public URL uses hot reload. Picture routes are under `/api/pictures/*` and therefore use the backend proxy in both modes.
 - The app defaults to HTTPS. When the public URL is HTTPS, the managed Caddy block also adds an explicit HTTP-to-HTTPS redirect. When the public URL is HTTP, it adds the inverse HTTPS-to-HTTP redirect for the same host.
 
 Before starting, the script stops known Codewords tmux sessions and then fails clearly if required ports remain occupied by another process.

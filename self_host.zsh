@@ -130,7 +130,12 @@ caddy_redirect_url() {
 
 update_caddy() {
   local url="$1"
+  local mode="${2:-prod}"
   require_command caddy
+  if [[ "$mode" != "prod" && "$mode" != "dev" ]]; then
+    echo "Unknown Caddy mode: $mode" >&2
+    exit 1
+  fi
   mkdir -p "${CADDYFILE:h}"
   touch "$CADDYFILE"
 
@@ -156,7 +161,6 @@ $redirect_url {
 
 $primary_url {
   encode zstd gzip
-  root * $ROOT_DIR/web/dist
 
   handle /api/* {
     reverse_proxy $BACKEND_ADDR
@@ -168,10 +172,24 @@ $primary_url {
     reverse_proxy $BACKEND_ADDR
   }
 
+CADDY
+  if [[ "$mode" == "dev" ]]; then
+    cat >> "$tmp" <<CADDY
+  handle {
+    reverse_proxy 127.0.0.1:$DEV_PORT
+  }
+CADDY
+  else
+    cat >> "$tmp" <<CADDY
+  root * $ROOT_DIR/web/dist
+
   handle {
     try_files {path} /index.html
     file_server
   }
+CADDY
+  fi
+  cat >> "$tmp" <<CADDY
 }
 $end
 CADDY
@@ -190,6 +208,7 @@ start_prod() {
   if [[ ! -x "$BIN_PATH" ]]; then
     build_all
   fi
+  update_caddy "$url" prod
   tmuxnew "$PROD_SESSION" -c "$ROOT_DIR" -e "CODEWORDS_ADDR=$BACKEND_ADDR" -e "CODEWORDS_DATA_DIR=$DATA_DIR" -e "CODEWORDS_DATABASE_PATH=$DATABASE_PATH" -e "CODEWORDS_IMAGE_DIR=$IMAGE_DIR" -e "CODEWORDS_IMAGE_CACHE_DIR=$IMAGE_CACHE_DIR" -e "CODEWORDS_AVIF_PROCESS_P=${CODEWORDS_AVIF_PROCESS_P:-n}" -- "$BIN_PATH"
   echo "Codewords production started at $url with backend $BACKEND_ADDR"
 }
@@ -204,10 +223,15 @@ start_dev() {
   check_port_free "$BACKEND_PORT"
   check_port_free "$DEV_PORT"
   mkdir -p "$DATA_DIR"
+  update_caddy "$url" dev
   tmuxnew "$DEV_BACKEND_SESSION" -c "$ROOT_DIR" -e "CODEWORDS_ADDR=$BACKEND_ADDR" -e "CODEWORDS_DATA_DIR=$DATA_DIR" -e "CODEWORDS_DATABASE_PATH=$DATABASE_PATH" -e "CODEWORDS_IMAGE_DIR=$IMAGE_DIR" -e "CODEWORDS_IMAGE_CACHE_DIR=$IMAGE_CACHE_DIR" -e "CODEWORDS_AVIF_PROCESS_P=${CODEWORDS_AVIF_PROCESS_P:-n}" -- "go run ./cmd/server"
   tmuxnew "$DEV_FRONTEND_SESSION" -c "$ROOT_DIR" -- "pnpm --dir web exec vite --host 127.0.0.1 --port $DEV_PORT"
   echo "Codewords development started for $url: backend $BACKEND_ADDR, frontend 127.0.0.1:$DEV_PORT"
 }
+
+if [[ "${CODEWORDS_SELF_HOST_TEST_ONLY:-}" == "1" ]]; then
+  return 0 2>/dev/null || exit 0
+fi
 
 command="${1:-}"
 url="${2:-$DEFAULT_URL}"
@@ -217,14 +241,12 @@ case "$command" in
     stop_sessions
     install_deps
     build_all
-    update_caddy "$url"
     start_prod "$url"
     ;;
   redeploy)
     stop_sessions
     install_deps
     build_all
-    update_caddy "$url"
     start_prod "$url"
     ;;
   start)
