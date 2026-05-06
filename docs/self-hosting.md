@@ -23,7 +23,7 @@ Run commands from the repository root:
 ./self_host.zsh dev-start [url]
 ```
 
-The default URL is `http://codewords.pinky.lilf.ir`.
+The default URL is `https://codewords.pinky.lilf.ir`. Bare hostnames are treated as HTTPS.
 
 - `setup` stops existing Codewords tmux sessions, installs locked dependencies, builds frontend and backend, updates the managed Codewords block in `~/Caddyfile`, reloads or starts Caddy, and starts production.
 - `redeploy` performs the same build, Caddy update, and production restart flow for local changes.
@@ -44,7 +44,7 @@ CODEWORDS_IMAGE_CACHE_DIR=~/.cache/talespin/cards \
 - Backend: `127.0.0.1:7878` by default; override with `CODEWORDS_ADDR`.
 - Frontend dev server: `127.0.0.1:5173` by default; override the port with `CODEWORDS_DEV_PORT`.
 - Caddy serves `web/dist` directly in production and reverse-proxies `/api/*`, `/ws/*`, and `/healthz` to the Go backend. Picture routes are under `/api/pictures/*` and therefore use the backend proxy.
-- The app supports HTTP; HTTPS is not required for intranet use.
+- The app defaults to HTTPS. When the public URL is HTTPS, the managed Caddy block also adds an explicit HTTP-to-HTTPS redirect. When the public URL is HTTP, it adds the inverse HTTPS-to-HTTP redirect for the same host.
 
 Before starting, the script stops known Codewords tmux sessions and then fails clearly if required ports remain occupied by another process.
 
@@ -62,6 +62,8 @@ Back up the database while the app is stopped, or use SQLite-safe backup command
 # BEGIN CODEWORDS MANAGED BLOCK
 # END CODEWORDS MANAGED BLOCK
 ```
+
+The managed block contains both the requested public URL and its opposite-scheme redirect. For example, `https://example.test` creates an `http://example.test` redirect block to `https://example.test{uri}`; `http://example.test` creates an `https://example.test` redirect block to `http://example.test{uri}`.
 
 ## Proxy environment
 

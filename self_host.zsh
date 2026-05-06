@@ -4,8 +4,7 @@ set -euo pipefail
 APP_NAME="codewords"
 ROOT_DIR="${0:A:h}"
 cd "$ROOT_DIR"
-# DEFAULT_URL="http://codewords.pinky.lilf.ir"
-DEFAULT_URL="codewords.pinky.lilf.ir"
+DEFAULT_URL="https://codewords.pinky.lilf.ir"
 BACKEND_ADDR="${CODEWORDS_ADDR:-127.0.0.1:7878}"
 BACKEND_PORT="${BACKEND_ADDR##*:}"
 DEV_PORT="${CODEWORDS_DEV_PORT:-5173}"
@@ -91,11 +90,54 @@ build_all() {
   go build -o "$BIN_PATH" ./cmd/server
 }
 
+caddy_url_scheme() {
+  local url="$1"
+  if [[ "$url" == http://* ]]; then
+    echo "http"
+  else
+    echo "https"
+  fi
+}
+
+caddy_url_host() {
+  local url="${1%/}"
+  url="${url#http://}"
+  url="${url#https://}"
+  echo "$url"
+}
+
+caddy_primary_url() {
+  local url="$1"
+  local scheme
+  local host
+  scheme="$(caddy_url_scheme "$url")"
+  host="$(caddy_url_host "$url")"
+  echo "$scheme://$host"
+}
+
+caddy_redirect_url() {
+  local url="$1"
+  local scheme
+  local host
+  scheme="$(caddy_url_scheme "$url")"
+  host="$(caddy_url_host "$url")"
+  if [[ "$scheme" == "https" ]]; then
+    echo "http://$host"
+  else
+    echo "https://$host"
+  fi
+}
+
 update_caddy() {
   local url="$1"
   require_command caddy
   mkdir -p "${CADDYFILE:h}"
   touch "$CADDYFILE"
+
+  local primary_url
+  local redirect_url
+  primary_url="$(caddy_primary_url "$url")"
+  redirect_url="$(caddy_redirect_url "$url")"
 
   local begin="# BEGIN CODEWORDS MANAGED BLOCK"
   local end="# END CODEWORDS MANAGED BLOCK"
@@ -108,7 +150,11 @@ update_caddy() {
   ' "$CADDYFILE" > "$tmp"
   cat >> "$tmp" <<CADDY
 $begin
-$url {
+$redirect_url {
+  redir $primary_url{uri} permanent
+}
+
+$primary_url {
   encode zstd gzip
   root * $ROOT_DIR/web/dist
 

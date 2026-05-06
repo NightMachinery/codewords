@@ -15,7 +15,7 @@
 - `stop`: stop all Codewords prod/dev tmux sessions.
 - `dev-start [url]`: stop prod/dev sessions, check ports, start development tmux sessions with hot reload.
 
-Default URL: `http://codewords.pinky.lilf.ir`.
+Default URL: `https://codewords.pinky.lilf.ir`. Bare hostnames default to HTTPS.
 
 ## Process management
 
@@ -59,6 +59,7 @@ Use pnpm, not npm/yarn. pnpm must use the lockfile and deduplicate to avoid wast
 - Include both HTTP-compatible behavior and compression.
 - Do not assume HTTPS is available; site must work on HTTP.
 - Reload Caddy safely after updating config.
+- Include an explicit opposite-scheme redirect block: HTTP redirects to HTTPS for HTTPS sites, and HTTPS redirects to HTTP for HTTP sites.
 
 ## Ports
 
