@@ -475,12 +475,25 @@ type fileIdentity struct {
 }
 
 func walkPictureFiles(path string, visited map[fileIdentity]bool, visitFile func(string) error) error {
+	return walkPictureFilesAt(path, true, visited, visitFile)
+}
+
+func walkPictureFilesAt(path string, root bool, visited map[fileIdentity]bool, visitFile func(string) error) error {
 	info, err := os.Stat(path)
 	if err != nil {
+		if !root && os.IsNotExist(err) {
+			return nil
+		}
 		return err
 	}
 	if !info.IsDir() {
-		return visitFile(path)
+		if err := visitFile(path); err != nil {
+			if !root && os.IsNotExist(err) {
+				return nil
+			}
+			return err
+		}
+		return nil
 	}
 	identity, ok := identityForFile(info)
 	if ok {
@@ -491,10 +504,13 @@ func walkPictureFiles(path string, visited map[fileIdentity]bool, visitFile func
 	}
 	entries, err := os.ReadDir(path)
 	if err != nil {
+		if !root && os.IsNotExist(err) {
+			return nil
+		}
 		return err
 	}
 	for _, entry := range entries {
-		if err := walkPictureFiles(filepath.Join(path, entry.Name()), visited, visitFile); err != nil {
+		if err := walkPictureFilesAt(filepath.Join(path, entry.Name()), false, visited, visitFile); err != nil {
 			return err
 		}
 	}

@@ -15,7 +15,7 @@ Codewords serves local picture cards only from cached AVIF files. With AVIF proc
   Behavior with n:
 
   - The backend still scans CODEWORDS_IMAGE_DIR recursively and follows symlinked
-    directories.
+    directories; dangling symlinks or entries removed during the scan are skipped.
   - It does not read every source image or compute every legacy imageId at startup.
   - When a game starts with image cards, source candidates are shuffled from the game seed. For selected candidates and replacements, the backend reads the source bytes, computes the legacy imageId, and computes the matching cache path:
 
@@ -39,7 +39,7 @@ Codewords serves local picture cards only from cached AVIF files. With AVIF proc
 
 ## Discovery step
 
-The backend scans `CODEWORDS_IMAGE_DIR` recursively and follows symlinked directories. It accepts:
+The backend scans `CODEWORDS_IMAGE_DIR` recursively and follows symlinked directories. Dangling symlinks, or nested entries that disappear while the scan is in progress, are skipped so one stale link cannot prevent startup. The configured root `CODEWORDS_IMAGE_DIR` itself must still exist. It accepts:
 
 - `.jpg`
 - `.jpeg`

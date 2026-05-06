@@ -177,6 +177,25 @@ func TestProcessingDisabledDefersCacheExistenceChecks(t *testing.T) {
 	}
 }
 
+func TestDiscoverPictureFilesSkipsDanglingSymlinks(t *testing.T) {
+	imageDir := t.TempDir()
+	goodPath := filepath.Join(imageDir, "card.png")
+	if err := os.WriteFile(goodPath, []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'}, 0o644); err != nil {
+		t.Fatalf("write source image: %v", err)
+	}
+	if err := os.Symlink(filepath.Join(imageDir, "missing-target"), filepath.Join(imageDir, "dangling-link")); err != nil {
+		t.Fatalf("create dangling symlink: %v", err)
+	}
+
+	got, err := discoverPictureFiles(imageDir)
+	if err != nil {
+		t.Fatalf("discover picture files should skip dangling symlink: %v", err)
+	}
+	if len(got) != 1 || got[0] != goodPath {
+		t.Fatalf("discover picture files = %#v, want [%q]", got, goodPath)
+	}
+}
+
 func TestProcessingEnabledUsesBatchedDimensionCheckerForValidCaches(t *testing.T) {
 	imageDir := t.TempDir()
 	cacheDir := t.TempDir()
