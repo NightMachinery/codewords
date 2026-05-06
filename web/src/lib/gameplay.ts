@@ -376,8 +376,12 @@ export function boardGridStyle(mobileColumns: number, columns: number, gridMode:
   return `${baseVars} --card-mobile-grid-row: calc(((100cqw - ${safeMobileColumns - 1} * 0.5rem) / ${safeMobileColumns} * 0.75) - 0.25rem); --card-grid-row: calc(((100cqw - ${safeColumns - 1} * 0.75rem) / ${safeColumns} * 0.75) - 0.375rem);`;
 }
 
+export function boardGridContainerClasses(): string {
+  return '[container-type:inline-size]';
+}
+
 export function boardGridClasses(gridMode: CardGridMode): string {
-  return '[container-type:inline-size] [grid-auto-rows:var(--card-mobile-grid-row)] md:[grid-auto-rows:var(--card-grid-row)]';
+  return '[grid-auto-rows:var(--card-mobile-grid-row)] md:[grid-auto-rows:var(--card-grid-row)]';
 }
 
 export function imageCardGridStyle(card: Pick<DisplayCard, 'contentType'>, columns: number, scale: ImageCardScale, mobileColumns?: number, gridMode: CardGridMode = 'footprint'): string {

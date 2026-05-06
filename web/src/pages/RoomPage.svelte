@@ -7,6 +7,7 @@
     activeMatchLayoutClasses,
     canSubmitClue,
     cardAspectRatioClasses,
+    boardGridContainerClasses,
     boardGridClasses,
     boardGridStyle,
     cardContentLabel,
@@ -692,41 +693,43 @@
                 </div>
               </div>
 
-              <div id="board" class={['grid grid-flow-dense gap-2 md:gap-3 [grid-template-columns:repeat(var(--mobile-card-columns),minmax(0,1fr))] md:[grid-template-columns:repeat(var(--card-columns),minmax(0,1fr))]', boardGridClasses(preferences.cardGridMode)].join(' ')} style={boardGridStyle(mobileColumns, activeColumns, preferences.cardGridMode)}>
-                {#each sortedCards as card, index (`${card.word ?? card.imageId ?? 'card'}-${card.originalIndex}`)}
-                  {@const showHiddenColor = role.canSeeHiddenColors && (role.kind !== 'spymaster' || spymasterViewActive)}
-                  {@const revealedStyle = (role.kind === 'spymaster' && spymasterViewActive) ? preferences.spymasterRevealedStyle : 'normal'}
-                  {@const view = cardViewState(card, card.originalIndex, showHiddenColor, lastSelected, revealedStyle)}
-                  {@const customColor = card.color === 'blue' ? teamColor('blue', settings) : card.color === 'red' ? teamColor('red', settings) : ''}
-                  <button
-                    class={['group relative col-span-[var(--card-mobile-col-span)] row-span-[var(--card-mobile-row-span)] md:col-span-[var(--card-col-span)] md:row-span-[var(--card-row-span)] rounded-xl border p-1 text-left transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', cardAspectRatioClasses(card, preferences.strictCardAspectRatios), card.contentType === 'image' ? 'overflow-hidden border-4' : 'overflow-visible', view.classes, !role.activeGuesser || card.revealed || phase !== 'active' ? 'disabled:opacity-80' : ''].join(' ')}
-                    style={`${imageCardGridStyle(card, activeColumns, preferences.imageCardScale, mobileColumns, preferences.cardGridMode)} ${view.visibleColor !== 'hidden' && customColor ? `border-color: ${hexWithAlpha(customColor, 'B3')}; background-color: ${hexWithAlpha(customColor, '40')}; color: white` : ''}`}
-                    disabled={Boolean(guessDisabledReason(card))}
-                    title={guessDisabledReason(card) || `Reveal ${cardContentLabel(card)}`}
-                    onclick={() => guessCard(card.originalIndex, card)}
-                  >
-                    <span class="absolute left-0 top-0 z-10 rounded-br-lg border-b border-r border-slate-100/20 bg-slate-950/85 px-1.5 py-1 text-[10px] font-black leading-none text-slate-100">
-                      #{card.badgeNumber}
-                    </span>
-                    {#if card.contentType === 'image'}
-                      <img class="h-full w-full rounded-lg object-cover" src={cardImageUrl(card)} alt="Card illustration" loading="lazy" />
-                      {#if view.isLastSelected}
-                        <span class="pointer-events-none absolute inset-1 rounded-lg border-4" style={`border-color: ${imageSelectionBorder(view.visibleColor)}; box-shadow: inset 0 0 0 2px rgba(16, 185, 129, 0.65);`}></span>
+              <div class={boardGridContainerClasses()}>
+                <div id="board" class={['grid grid-flow-dense gap-2 md:gap-3 [grid-template-columns:repeat(var(--mobile-card-columns),minmax(0,1fr))] md:[grid-template-columns:repeat(var(--card-columns),minmax(0,1fr))]', boardGridClasses(preferences.cardGridMode)].join(' ')} style={boardGridStyle(mobileColumns, activeColumns, preferences.cardGridMode)}>
+                  {#each sortedCards as card, index (`${card.word ?? card.imageId ?? 'card'}-${card.originalIndex}`)}
+                    {@const showHiddenColor = role.canSeeHiddenColors && (role.kind !== 'spymaster' || spymasterViewActive)}
+                    {@const revealedStyle = (role.kind === 'spymaster' && spymasterViewActive) ? preferences.spymasterRevealedStyle : 'normal'}
+                    {@const view = cardViewState(card, card.originalIndex, showHiddenColor, lastSelected, revealedStyle)}
+                    {@const customColor = card.color === 'blue' ? teamColor('blue', settings) : card.color === 'red' ? teamColor('red', settings) : ''}
+                    <button
+                      class={['group relative col-span-[var(--card-mobile-col-span)] row-span-[var(--card-mobile-row-span)] md:col-span-[var(--card-col-span)] md:row-span-[var(--card-row-span)] rounded-xl border p-1 text-left transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', cardAspectRatioClasses(card, preferences.strictCardAspectRatios), card.contentType === 'image' ? 'overflow-hidden border-4' : 'overflow-visible', view.classes, !role.activeGuesser || card.revealed || phase !== 'active' ? 'disabled:opacity-80' : ''].join(' ')}
+                      style={`${imageCardGridStyle(card, activeColumns, preferences.imageCardScale, mobileColumns, preferences.cardGridMode)} ${view.visibleColor !== 'hidden' && customColor ? `border-color: ${hexWithAlpha(customColor, 'B3')}; background-color: ${hexWithAlpha(customColor, '40')}; color: white` : ''}`}
+                      disabled={Boolean(guessDisabledReason(card))}
+                      title={guessDisabledReason(card) || `Reveal ${cardContentLabel(card)}`}
+                      onclick={() => guessCard(card.originalIndex, card)}
+                    >
+                      <span class="absolute left-0 top-0 z-10 rounded-br-lg border-b border-r border-slate-100/20 bg-slate-950/85 px-1.5 py-1 text-[10px] font-black leading-none text-slate-100">
+                        #{card.badgeNumber}
+                      </span>
+                      {#if card.contentType === 'image'}
+                        <img class="h-full w-full rounded-lg object-cover" src={cardImageUrl(card)} alt="Card illustration" loading="lazy" />
+                        {#if view.isLastSelected}
+                          <span class="pointer-events-none absolute inset-1 rounded-lg border-4" style={`border-color: ${imageSelectionBorder(view.visibleColor)}; box-shadow: inset 0 0 0 2px rgba(16, 185, 129, 0.65);`}></span>
+                        {/if}
+                      {:else}
+                        {@const wordSegments = cardWordTextSegments(toTitleCase(card.word) || 'Card')}
+                        <div class="flex h-full min-h-16 items-center justify-center p-1.5 [container-type:inline-size]">
+                          <span class={cardWordTextClasses(card.word)}>
+                            {#each wordSegments as segment, segmentIndex}
+                              {segment}{#if segmentIndex < wordSegments.length - 1}<wbr />{/if}
+                            {/each}
+                          </span>
+                        </div>
                       {/if}
-                    {:else}
-                      {@const wordSegments = cardWordTextSegments(toTitleCase(card.word) || 'Card')}
-                      <div class="flex h-full min-h-16 items-center justify-center p-1.5 [container-type:inline-size]">
-                        <span class={cardWordTextClasses(card.word)}>
-                          {#each wordSegments as segment, segmentIndex}
-                            {segment}{#if segmentIndex < wordSegments.length - 1}<wbr />{/if}
-                          {/each}
-                        </span>
-                      </div>
-                    {/if}
-                  </button>
-                {:else}
-                  <p class="col-span-full rounded-2xl border border-slate-700 bg-slate-950 p-6 text-slate-300">Waiting for the board snapshot...</p>
-                {/each}
+                    </button>
+                  {:else}
+                    <p class="col-span-full rounded-2xl border border-slate-700 bg-slate-950 p-6 text-slate-300">Waiting for the board snapshot...</p>
+                  {/each}
+                </div>
               </div>
             </section>
           </div>

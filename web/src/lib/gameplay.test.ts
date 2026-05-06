@@ -15,6 +15,7 @@ import {
   cardWordTextClasses,
   cardWordTextSegments,
   cardAspectRatioClasses,
+  boardGridContainerClasses,
   boardGridClasses,
   boardGridStyle,
   clampBoardColumns,
@@ -226,9 +227,10 @@ describe('local gameplay preferences', () => {
     expect(boardGridStyle(4, 5, 'footprint')).toBe('--mobile-card-columns: 4; --card-columns: 5; --card-mobile-grid-row: calc(((100cqw - 3 * 0.5rem) / 4 * 0.75) - 0.25rem); --card-grid-row: calc(((100cqw - 4 * 0.75rem) / 5 * 0.75) - 0.375rem);');
     expect(boardGridStyle(4, 5, 'exactAspect')).toBe('--mobile-card-columns: 4; --card-columns: 5; --card-mobile-grid-row: calc(((100cqw - 3 * 0.5rem) / 4 * 0.75) - 0.25rem); --card-grid-row: calc(((100cqw - 4 * 0.75rem) / 5 * 0.75) - 0.375rem);');
     expect(boardGridStyle(4, 5, 'calibratedRows')).toBe('--mobile-card-columns: 4; --card-columns: 5; --card-mobile-grid-row: calc(((100cqw - 3 * 0.5rem) / 4 * 0.75) - 0.25rem); --card-grid-row: calc(((100cqw - 4 * 0.75rem) / 5 * 0.75) - 0.375rem);');
-    expect(boardGridClasses('footprint')).toBe('[container-type:inline-size] [grid-auto-rows:var(--card-mobile-grid-row)] md:[grid-auto-rows:var(--card-grid-row)]');
-    expect(boardGridClasses('exactAspect')).toBe('[container-type:inline-size] [grid-auto-rows:var(--card-mobile-grid-row)] md:[grid-auto-rows:var(--card-grid-row)]');
-    expect(boardGridClasses('calibratedRows')).toBe('[container-type:inline-size] [grid-auto-rows:var(--card-mobile-grid-row)] md:[grid-auto-rows:var(--card-grid-row)]');
+    expect(boardGridContainerClasses()).toBe('[container-type:inline-size]');
+    expect(boardGridClasses('footprint')).toBe('[grid-auto-rows:var(--card-mobile-grid-row)] md:[grid-auto-rows:var(--card-grid-row)]');
+    expect(boardGridClasses('exactAspect')).toBe('[grid-auto-rows:var(--card-mobile-grid-row)] md:[grid-auto-rows:var(--card-grid-row)]');
+    expect(boardGridClasses('calibratedRows')).toBe('[grid-auto-rows:var(--card-mobile-grid-row)] md:[grid-auto-rows:var(--card-grid-row)]');
   });
 
   it('defaults collapsible panel preferences open and persists changes', () => {
