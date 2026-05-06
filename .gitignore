@@ -25,3 +25,4 @@ web/.svelte-kit/
 .DS_Store
 .vscode/
 .idea/
+repomix-output.xml
