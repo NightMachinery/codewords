@@ -112,7 +112,7 @@
   </section>
 {/snippet}
 
-<div class="space-y-6">
+<div id="players" class="space-y-6">
   <div class="grid grid-flow-dense gap-6 md:grid-cols-2">
     {@render TeamColumn(displayTeamName('blue', settings), 'blue', buckets.blue)}
     {@render TeamColumn(displayTeamName('red', settings), 'red', buckets.red)}

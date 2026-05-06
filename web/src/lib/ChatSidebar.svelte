@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { ChatMessage } from './api';
+  import { chatToggleEventName } from './gameplay';
 
   interface Props {
     messages: ChatMessage[];
@@ -13,9 +14,9 @@
   let expanded = $state(false);
 
   onMount(() => {
-    const open = () => (expanded = true);
-    window.addEventListener('codewords:open-chat', open);
-    return () => window.removeEventListener('codewords:open-chat', open);
+    const toggle = () => (expanded = !expanded);
+    window.addEventListener(chatToggleEventName, toggle);
+    return () => window.removeEventListener(chatToggleEventName, toggle);
   });
 
   function handleSubmit() {

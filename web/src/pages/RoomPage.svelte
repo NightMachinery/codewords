@@ -16,6 +16,7 @@
     clueNumberFromInput,
     clueSubmitProblem,
     chatCueNotice,
+    chatToggleEventName,
     defaultGameplayPreferences,
     displayCards,
     displayTeamName,
@@ -462,7 +463,7 @@
 
   function navigateTo(target: string) {
     if (target === 'chat') {
-      window.dispatchEvent(new CustomEvent('codewords:open-chat'));
+      window.dispatchEvent(new CustomEvent(chatToggleEventName));
       return;
     }
     document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -745,7 +746,7 @@
               <button class="group flex w-full items-center gap-3 text-left" type="button" onclick={() => updatePanelPreferences({ localOptionsOpen: !panelPreferences.localOptionsOpen })} aria-expanded={panelPreferences.localOptionsOpen}>
                 <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-slate-700 bg-slate-950 text-sm font-black text-slate-300 transition group-hover:border-emerald-300/60 group-hover:text-emerald-200">{panelPreferences.localOptionsOpen ? '−' : '+'}</span>
                 <span>
-                  <span class="block text-xl font-black tracking-tight">Local Options</span>
+                  <span class="block text-xl font-black tracking-tight">Local Settings</span>
                   <span class="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">{panelPreferences.localOptionsOpen ? 'Open' : 'Closed'}</span>
                 </span>
               </button>

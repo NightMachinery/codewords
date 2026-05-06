@@ -28,6 +28,9 @@ import {
   chatCueNotice,
   colorPickerCtaLabel,
   viewerRole,
+  bottomShortcutItems,
+  ownTeamPlayerNames,
+  chatToggleEventName,
   writePanelPreferences,
   writeGameplayPreferences,
   type ClueEntry,
@@ -180,6 +183,27 @@ describe('local gameplay preferences', () => {
 
     storage.setItem('codewords.panelPreferences', '{broken');
     expect(readPanelPreferences(storage)).toEqual({ modSettingsOpen: true, localOptionsOpen: true });
+  });
+});
+
+
+describe('bottom control navigation helpers', () => {
+  it('exposes working shortcut targets with requested labels', () => {
+    expect(bottomShortcutItems.map((item) => `${item.kind}:${item.target}:${item.label}`)).toEqual([
+      'board:board:Board',
+      'players:players:Players',
+      'clues:clues:Clues',
+      'settings:settings:Mod Settings',
+      'local:local-options:Local Settings',
+      'chat:chat:Chat',
+    ]);
+    expect(chatToggleEventName).toBe('codewords:toggle-chat');
+  });
+
+  it('formats the current team row as player names only', () => {
+    expect(ownTeamPlayerNames(players, 'blue')).toEqual(['Blue Spy', 'Blue Guess']);
+    expect(ownTeamPlayerNames([{ ...players[0], displayName: '' }], 'blue')).toEqual(['Player']);
+    expect(ownTeamPlayerNames(players, 'observers')).toEqual([]);
   });
 });
 

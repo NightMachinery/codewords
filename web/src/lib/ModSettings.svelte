@@ -88,7 +88,7 @@
   }
 </script>
 
-<section class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-6 shadow-2xl shadow-slate-950/30">
+<section id="settings" class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-6 shadow-2xl shadow-slate-950/30">
   <div class="flex items-center justify-between gap-3 mb-6">
     <button class="group flex min-w-0 flex-1 items-center gap-3 text-left" type="button" onclick={onToggleOpen} aria-expanded={open}>
       <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-slate-700 bg-slate-950 text-sm font-black text-slate-300 transition group-hover:border-emerald-300/60 group-hover:text-emerald-200">{open ? '−' : '+'}</span>
@@ -176,7 +176,7 @@
     </div>
 
     <!-- Custom Colors -->
-    <div id="settings" class="grid gap-4 sm:grid-cols-2">
+    <div class="grid gap-4 sm:grid-cols-2">
       <label class="block">
         <span class="text-xs font-bold text-slate-400">Team name</span>
         <input class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" maxlength="30" bind:value={settings.teamNameBlue} onchange={onSave} placeholder="Libertarians" />

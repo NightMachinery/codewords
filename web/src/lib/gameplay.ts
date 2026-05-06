@@ -72,6 +72,32 @@ export interface PanelPreferences {
   localOptionsOpen: boolean;
 }
 
+export type BottomShortcutKind = 'board' | 'players' | 'clues' | 'settings' | 'local' | 'chat';
+
+export interface BottomShortcutItem {
+  kind: BottomShortcutKind;
+  target: string;
+  label: string;
+}
+
+export const chatToggleEventName = 'codewords:toggle-chat';
+
+export const bottomShortcutItems: BottomShortcutItem[] = [
+  { kind: 'board', target: 'board', label: 'Board' },
+  { kind: 'players', target: 'players', label: 'Players' },
+  { kind: 'clues', target: 'clues', label: 'Clues' },
+  { kind: 'settings', target: 'settings', label: 'Mod Settings' },
+  { kind: 'local', target: 'local-options', label: 'Local Settings' },
+  { kind: 'chat', target: 'chat', label: 'Chat' },
+];
+
+export function ownTeamPlayerNames(players: LobbyPlayer[], team: Team | undefined): string[] {
+  if (team !== 'blue' && team !== 'red') return [];
+  return players
+    .filter((player) => player.team === team)
+    .map((player) => player.displayName.trim() || 'Player');
+}
+
 export const gameplayPreferencesStorageKey = 'codewords.gameplayPreferences';
 export const panelPreferencesStorageKey = 'codewords.panelPreferences';
 export const defaultGameplayPreferences: GameplayPreferences = {

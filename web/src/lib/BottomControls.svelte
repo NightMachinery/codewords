@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Settings } from './api';
-  import { displayTeamName, formatClueNumber, hexWithAlpha, teamColor, type ClueEntry, type GameplayPhase } from './gameplay';
+  import { bottomShortcutItems, displayTeamName, formatClueNumber, hexWithAlpha, ownTeamPlayerNames, teamColor, type ClueEntry, type GameplayPhase } from './gameplay';
   import type { LobbyPlayer, Team } from './lobby';
 
   interface Props {
@@ -49,6 +49,7 @@
   let turnLabel = $derived(isYourTeam ? 'Your Turn' : 'Their Turn');
   let teamLabel = $derived(displayTeamName(currentTeam, settings));
   let ownTeamPlayers = $derived(players.filter((player) => player.team === role.team && (role.team === 'blue' || role.team === 'red')));
+  let ownTeamNames = $derived(ownTeamPlayerNames(players, role.team));
   let controlMessage = $derived.by(() => {
     if (phase !== 'active') return 'Waiting for the match to start.';
     if (!role.player) return 'Spectators are read-only.';
@@ -72,9 +73,13 @@
     {:else if kind === 'clues'}
       <path fill="currentColor" d="M5 4h14v3H5V4Zm0 5h10v3H5V9Zm0 5h14v3H5v-3Zm0 5h8v2H5v-2Z" />
     {:else if kind === 'settings'}
-      <path fill="currentColor" d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8Zm8.8 3 .2 1-.2 1-2.1.7-.6 1.4 1 2-1.4 1.4-2-1-1.4.6-.7 2.1-1 .2-1-.2-.7-2.1-1.4-.6-2 1-1.4-1.4 1-2-.6-1.4-2.1-.7-.2-1 .2-1 2.1-.7.6-1.4-1-2 1.4-1.4 2 1 1.4-.6.7-2.1 1-.2 1 .2.7 2.1 1.4.6 2-1 1.4 1.4-1 2 .6 1.4 2.1.7Z" />
+      <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Z" />
+      <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m19.2 13.2 1.2 1.1-1.8 3.1-1.6-.5a7.3 7.3 0 0 1-1.6.9l-.3 1.7H8.9l-.3-1.7a7.3 7.3 0 0 1-1.6-.9l-1.6.5-1.8-3.1 1.2-1.1a7.5 7.5 0 0 1 0-2.4L3.6 9.7l1.8-3.1 1.6.5a7.3 7.3 0 0 1 1.6-.9l.3-1.7h6.2l.3 1.7a7.3 7.3 0 0 1 1.6.9l1.6-.5 1.8 3.1-1.2 1.1a7.5 7.5 0 0 1 0 2.4Z" />
     {:else if kind === 'local'}
-      <path fill="currentColor" d="M4 5h16v4H4V5Zm0 6h10v4H4v-4Zm0 6h16v2H4v-2Zm12-6h4v4h-4v-4Z" />
+      <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5 6h14M5 12h14M5 18h14" />
+      <circle cx="9" cy="6" r="2.1" fill="currentColor" />
+      <circle cx="15" cy="12" r="2.1" fill="currentColor" />
+      <circle cx="11" cy="18" r="2.1" fill="currentColor" />
     {:else}
       <path fill="currentColor" d="M4 5h16v11H8l-4 4V5Z" />
     {/if}
@@ -82,15 +87,14 @@
 {/snippet}
 
 <footer class="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-700/60 bg-slate-900/90 p-3 backdrop-blur-md shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
-  <div class="mx-auto max-w-7xl flex flex-wrap items-center justify-between gap-4">
+  <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">
     <!-- Turn Info -->
-    <div class="flex items-center gap-4">
+    <div class="flex flex-1 basis-full flex-wrap items-center gap-4 md:basis-auto">
       <div class={['rounded-2xl px-4 py-2 border transition', 
         currentTeam === 'blue' ? 'border-blue-300/40 bg-blue-500/20 text-blue-100' : 
         currentTeam === 'red' ? 'border-red-300/40 bg-red-500/20 text-red-100' : 
         'border-slate-700 bg-slate-800 text-slate-400']}
         style={currentTeam === 'blue' || currentTeam === 'red' ? `border-color: ${hexWithAlpha(teamColor(currentTeam, settings), '80')}; background-color: ${hexWithAlpha(teamColor(currentTeam, settings), '2b')}; color: ${teamColor(currentTeam, settings)};` : ''}>
-        <p class="text-[10px] font-black uppercase tracking-widest opacity-70">Turn</p>
         <h2 class="text-lg font-black tracking-tight">{turnLabel}</h2>
         <p class="text-xs font-bold opacity-75">{teamLabel}</p>
       </div>
@@ -101,15 +105,12 @@
           <p class="font-black text-slate-100">{currentClue.text} · {formatClueNumber(currentClue.number)}</p>
         </div>
       {/if}
-      {#if ownTeamPlayers.length}
-        <div class="max-w-64 rounded-2xl border border-slate-700 bg-slate-950/50 px-3 py-2">
-          <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">{displayTeamName(role.team ?? '', settings)}</p>
-          <div class="mt-1 flex flex-wrap gap-1.5">
+      {#if ownTeamNames.length}
+        <div class="order-last w-full rounded-2xl border border-slate-700 bg-slate-950/50 px-3 py-2 md:order-none md:w-auto md:max-w-72">
+          <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs font-bold text-slate-200">
             {#each ownTeamPlayers as player (player.id)}
-              <span class="inline-flex max-w-28 items-center gap-1 truncate rounded-full bg-slate-800 px-2 py-1 text-[11px] font-bold text-slate-200">
-                <span class="truncate">{player.displayName || 'Player'}</span>
-                {#if player.spymaster}{@render MiniIcon('spy')}{/if}
-                {#if player.representative}{@render MiniIcon('rep')}{/if}
+              <span class="max-w-28 truncate">
+                {player.displayName.trim() || 'Player'}
               </span>
             {/each}
           </div>
@@ -166,16 +167,9 @@
     <!-- Actions -->
     <div class="flex items-center gap-2">
       <div class="flex items-center gap-1 rounded-2xl border border-slate-700 bg-slate-950/50 p-1">
-        {#each [
-          ['board', 'board', 'Board'],
-          ['players', 'players', 'Players'],
-          ['clues', 'clues', 'Clues'],
-          ['settings', 'settings', 'Settings'],
-          ['local', 'local-options', 'Local'],
-          ['chat', 'chat', 'Chat']
-        ] as shortcut (shortcut[1])}
-          <button class="grid h-8 w-8 place-items-center rounded-xl text-slate-300 transition hover:bg-slate-800 hover:text-emerald-200" title={shortcut[2]} onclick={() => onNavigate(shortcut[1])}>
-            {@render MiniIcon(shortcut[0] as any)}
+        {#each bottomShortcutItems as shortcut (shortcut.target)}
+          <button class="grid h-8 w-8 place-items-center rounded-xl text-slate-300 transition hover:bg-slate-800 hover:text-emerald-200" title={shortcut.label} aria-label={shortcut.label} onclick={() => onNavigate(shortcut.target)}>
+            {@render MiniIcon(shortcut.kind)}
           </button>
         {/each}
       </div>

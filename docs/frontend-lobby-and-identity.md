@@ -33,6 +33,8 @@ When a room snapshot is `active` or `game_over`, the room route switches from lo
 - revealed card colors for all viewers, hidden-color tinting for spymasters, and all colors revealed after game over; word labels shrink inside their cards, and only spaces or Persian half-spaces create deliberate wrap opportunities;
 - last-selected card highlighting;
 - current-team banner and remaining blue/red counts;
+- fixed bottom controls with shortcut buttons for Board, Players, Clues, Mod Settings, Local Settings, and Chat; Players/Mod Settings scroll to their panel anchors, and Chat toggles the sidebar open or closed;
+- a compact bottom-panel roster row that lists only the current team player names and moves after the main controls on narrow screens;
 - clue composer for the current team's spymaster;
 - clue log with round, team, status, number, and guesses;
 - guess-by-card-click and pass controls for the active guesser;
