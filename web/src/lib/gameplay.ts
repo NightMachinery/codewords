@@ -361,12 +361,11 @@ export function boardGridStyle(mobileColumns: number, columns: number, gridMode:
   const safeMobileColumns = clampBoardColumns(mobileColumns, defaultGameplayPreferences.boardColumnsMobile);
   const safeColumns = clampBoardColumns(columns, defaultGameplayPreferences.boardColumnsDesktop);
   const baseVars = `--mobile-card-columns: ${safeMobileColumns}; --card-columns: ${safeColumns};`;
-  if (gridMode !== 'calibratedRows') return baseVars;
-  return `${baseVars} --card-mobile-grid-row: calc((100% - ${safeMobileColumns - 1} * 0.5rem) / ${safeMobileColumns} * 0.75); --card-grid-row: calc((100% - ${safeColumns - 1} * 0.75rem) / ${safeColumns} * 0.75);`;
+  return `${baseVars} --card-mobile-grid-row: calc((100cqw - ${safeMobileColumns - 1} * 0.5rem) / ${safeMobileColumns} * 0.75); --card-grid-row: calc((100cqw - ${safeColumns - 1} * 0.75rem) / ${safeColumns} * 0.75);`;
 }
 
 export function boardGridClasses(gridMode: CardGridMode): string {
-  return gridMode === 'calibratedRows' ? '[grid-auto-rows:var(--card-mobile-grid-row)] md:[grid-auto-rows:var(--card-grid-row)]' : '';
+  return '[container-type:inline-size] [grid-auto-rows:var(--card-mobile-grid-row)] md:[grid-auto-rows:var(--card-grid-row)]';
 }
 
 export function imageCardGridStyle(card: Pick<DisplayCard, 'contentType'>, columns: number, scale: ImageCardScale, mobileColumns?: number, gridMode: CardGridMode = 'footprint'): string {
@@ -388,7 +387,7 @@ function cardGridSpan(card: Pick<DisplayCard, 'contentType'>, columns: number, s
   const requestedScale = clampImageCardScale(scale);
   const requested = imageSpanForScale(requestedScale);
   const span = requested.columns <= safeColumns ? requested : imageSpanForScale(2);
-  return gridMode === 'exactAspect' ? { columns: span.columns, rows: 1 } : span;
+  return gridMode === 'exactAspect' ? { columns: span.columns, rows: Math.max(span.rows, span.columns * 2) } : span;
 }
 
 function imageSpanForScale(scale: ImageCardScale): { columns: number; rows: number } {

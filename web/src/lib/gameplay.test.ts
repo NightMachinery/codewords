@@ -213,18 +213,19 @@ describe('local gameplay preferences', () => {
     expect(imageCardGridStyle({ contentType: 'image' }, 5, 8)).toBe('--card-col-span: 4; --card-row-span: 8;');
     expect(imageCardGridStyle({ contentType: 'image' }, 1, 4)).toBe('--card-col-span: 1; --card-row-span: 2;');
     expect(imageCardGridStyle({ contentType: 'image' }, 5, 4, 1)).toBe('--card-mobile-col-span: 1; --card-mobile-row-span: 2; --card-col-span: 2; --card-row-span: 4;');
-    expect(imageCardGridStyle({ contentType: 'image' }, 5, 4, undefined, 'exactAspect')).toBe('--card-col-span: 2; --card-row-span: 1;');
-    expect(imageCardGridStyle({ contentType: 'image' }, 5, 8, 1, 'exactAspect')).toBe('--card-mobile-col-span: 1; --card-mobile-row-span: 1; --card-col-span: 4; --card-row-span: 1;');
+    expect(imageCardGridStyle({ contentType: 'image' }, 5, 1, undefined, 'exactAspect')).toBe('--card-col-span: 1; --card-row-span: 2;');
+    expect(imageCardGridStyle({ contentType: 'image' }, 5, 4, undefined, 'exactAspect')).toBe('--card-col-span: 2; --card-row-span: 4;');
+    expect(imageCardGridStyle({ contentType: 'image' }, 5, 8, 1, 'exactAspect')).toBe('--card-mobile-col-span: 1; --card-mobile-row-span: 2; --card-col-span: 4; --card-row-span: 8;');
     expect(imageCardGridStyle({ contentType: 'image' }, 5, 4, undefined, 'calibratedRows')).toBe('--card-col-span: 2; --card-row-span: 4;');
   });
 
   it('builds board grid styles for normal and calibrated row modes', () => {
-    expect(boardGridStyle(4, 5, 'footprint')).toBe('--mobile-card-columns: 4; --card-columns: 5;');
-    expect(boardGridStyle(4, 5, 'exactAspect')).toBe('--mobile-card-columns: 4; --card-columns: 5;');
-    expect(boardGridStyle(4, 5, 'calibratedRows')).toBe('--mobile-card-columns: 4; --card-columns: 5; --card-mobile-grid-row: calc((100% - 3 * 0.5rem) / 4 * 0.75); --card-grid-row: calc((100% - 4 * 0.75rem) / 5 * 0.75);');
-    expect(boardGridClasses('footprint')).toBe('');
-    expect(boardGridClasses('exactAspect')).toBe('');
-    expect(boardGridClasses('calibratedRows')).toBe('[grid-auto-rows:var(--card-mobile-grid-row)] md:[grid-auto-rows:var(--card-grid-row)]');
+    expect(boardGridStyle(4, 5, 'footprint')).toBe('--mobile-card-columns: 4; --card-columns: 5; --card-mobile-grid-row: calc((100cqw - 3 * 0.5rem) / 4 * 0.75); --card-grid-row: calc((100cqw - 4 * 0.75rem) / 5 * 0.75);');
+    expect(boardGridStyle(4, 5, 'exactAspect')).toBe('--mobile-card-columns: 4; --card-columns: 5; --card-mobile-grid-row: calc((100cqw - 3 * 0.5rem) / 4 * 0.75); --card-grid-row: calc((100cqw - 4 * 0.75rem) / 5 * 0.75);');
+    expect(boardGridStyle(4, 5, 'calibratedRows')).toBe('--mobile-card-columns: 4; --card-columns: 5; --card-mobile-grid-row: calc((100cqw - 3 * 0.5rem) / 4 * 0.75); --card-grid-row: calc((100cqw - 4 * 0.75rem) / 5 * 0.75);');
+    expect(boardGridClasses('footprint')).toBe('[container-type:inline-size] [grid-auto-rows:var(--card-mobile-grid-row)] md:[grid-auto-rows:var(--card-grid-row)]');
+    expect(boardGridClasses('exactAspect')).toBe('[container-type:inline-size] [grid-auto-rows:var(--card-mobile-grid-row)] md:[grid-auto-rows:var(--card-grid-row)]');
+    expect(boardGridClasses('calibratedRows')).toBe('[container-type:inline-size] [grid-auto-rows:var(--card-mobile-grid-row)] md:[grid-auto-rows:var(--card-grid-row)]');
   });
 
   it('defaults collapsible panel preferences open and persists changes', () => {
