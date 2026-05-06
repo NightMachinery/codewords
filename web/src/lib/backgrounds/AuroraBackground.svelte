@@ -18,6 +18,8 @@
 
   onMount(() => {
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const forceMotion = true;
+
     const uniforms = {
       uTime: { value: 0 },
       uResolution: { value: new THREE.Vector2(1, 1) },
@@ -101,7 +103,7 @@
     };
 
     const handleReducedMotionChange = () => {
-      if (reducedMotion.matches) {
+      if (! forceMotion && reducedMotion.matches) {
         cancelAnimationFrame(frameId);
         frameId = 0;
         uniforms.uTime.value = 3.8;
@@ -121,7 +123,7 @@
 
     resize();
 
-    if (reducedMotion.matches) {
+    if (! forceMotion && reducedMotion.matches) {
       uniforms.uTime.value = 3.8;
       renderer.render(scene, camera);
     } else {
