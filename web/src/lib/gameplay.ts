@@ -53,7 +53,6 @@ export interface DisplayCard extends GameplayCard {
 }
 
 export type ImageCardScale = 1 | 2 | 4 | 8;
-export type CardGridMode = 'footprint' | 'exactAspect' | 'calibratedRows';
 
 export interface GameplayPreferences {
   confirmGuesses: boolean;
@@ -62,7 +61,6 @@ export interface GameplayPreferences {
   boardColumnsDesktop: number;
   imageCardScale: ImageCardScale;
   strictCardAspectRatios: boolean;
-  cardGridMode: CardGridMode;
   chatSound: boolean;
   chatVisualCue: boolean;
   cardChoiceSound: boolean;
@@ -114,7 +112,6 @@ export const defaultGameplayPreferences: GameplayPreferences = {
   boardColumnsDesktop: 7,
   imageCardScale: 2,
   strictCardAspectRatios: true,
-  cardGridMode: 'footprint',
   chatSound: true,
   chatVisualCue: true,
   cardChoiceSound: true,
@@ -247,7 +244,6 @@ export function readGameplayPreferences(storage: Pick<Storage, 'getItem'>): Game
       boardColumnsDesktop: clampBoardColumns(parsed.boardColumnsDesktop ?? parsed.wordCardsPerRowDesktop ?? parsed.cardsPerRow, defaultGameplayPreferences.boardColumnsDesktop),
       imageCardScale: clampImageCardScale(parsed.imageCardScale),
       strictCardAspectRatios: typeof parsed.strictCardAspectRatios === 'boolean' ? parsed.strictCardAspectRatios : defaultGameplayPreferences.strictCardAspectRatios,
-      cardGridMode: clampCardGridMode(parsed.cardGridMode),
       chatSound: typeof parsed.chatSound === 'boolean' ? parsed.chatSound : defaultGameplayPreferences.chatSound,
       chatVisualCue: typeof parsed.chatVisualCue === 'boolean' ? parsed.chatVisualCue : defaultGameplayPreferences.chatVisualCue,
       cardChoiceSound: typeof parsed.cardChoiceSound === 'boolean' ? parsed.cardChoiceSound : defaultGameplayPreferences.cardChoiceSound,
@@ -275,10 +271,6 @@ export function clampBoardColumns(value: unknown, fallback = 5): number {
 
 export function clampImageCardScale(value: unknown): ImageCardScale {
   return value === 1 || value === 2 || value === 4 || value === 8 ? value : defaultGameplayPreferences.imageCardScale;
-}
-
-export function clampCardGridMode(value: unknown): CardGridMode {
-  return value === 'footprint' || value === 'exactAspect' || value === 'calibratedRows' ? value : defaultGameplayPreferences.cardGridMode;
 }
 
 export function writeGameplayPreferences(storage: Pick<Storage, 'setItem'>, preferences: GameplayPreferences): void {
@@ -369,7 +361,7 @@ export function teamColor(team: Team | 'blue' | 'red' | '', settings: Settings |
   return '';
 }
 
-export function boardGridStyle(mobileColumns: number, columns: number, gridMode: CardGridMode): string {
+export function boardGridStyle(mobileColumns: number, columns: number): string {
   const safeMobileColumns = clampBoardColumns(mobileColumns, defaultGameplayPreferences.boardColumnsMobile);
   const safeColumns = clampBoardColumns(columns, defaultGameplayPreferences.boardColumnsDesktop);
   const baseVars = `--mobile-card-columns: ${safeMobileColumns}; --card-columns: ${safeColumns};`;
@@ -380,15 +372,15 @@ export function boardGridContainerClasses(): string {
   return '[container-type:inline-size]';
 }
 
-export function boardGridClasses(gridMode: CardGridMode): string {
+export function boardGridClasses(): string {
   return '[grid-auto-rows:var(--card-mobile-grid-row)] md:[grid-auto-rows:var(--card-grid-row)]';
 }
 
-export function imageCardGridStyle(card: Pick<DisplayCard, 'contentType'>, columns: number, scale: ImageCardScale, mobileColumns?: number, gridMode: CardGridMode = 'footprint'): string {
-  const desktopSpan = cardGridSpan(card, columns, scale, gridMode);
+export function imageCardGridStyle(card: Pick<DisplayCard, 'contentType'>, columns: number, scale: ImageCardScale, mobileColumns?: number): string {
+  const desktopSpan = cardGridSpan(card, columns, scale);
   const desktopVars = `--card-col-span: ${desktopSpan.columns}; --card-row-span: ${desktopSpan.rows};`;
   if (mobileColumns === undefined) return desktopVars;
-  const mobileSpan = cardGridSpan(card, mobileColumns, scale, gridMode);
+  const mobileSpan = cardGridSpan(card, mobileColumns, scale);
   return `--card-mobile-col-span: ${mobileSpan.columns}; --card-mobile-row-span: ${mobileSpan.rows}; ${desktopVars}`;
 }
 
@@ -397,13 +389,13 @@ export function cardAspectRatioClasses(card: Pick<DisplayCard, 'contentType'>, s
   return strictCardAspectRatios ? 'h-full' : 'min-h-20 sm:min-h-28';
 }
 
-function cardGridSpan(card: Pick<DisplayCard, 'contentType'>, columns: number, scale: ImageCardScale, gridMode: CardGridMode): { columns: number; rows: number } {
+function cardGridSpan(card: Pick<DisplayCard, 'contentType'>, columns: number, scale: ImageCardScale): { columns: number; rows: number } {
   if (card.contentType !== 'image') return { columns: 1, rows: 1 };
   const safeColumns = clampBoardColumns(columns);
   const requestedScale = clampImageCardScale(scale);
   const requested = imageSpanForScale(requestedScale);
   const span = requested.columns <= safeColumns ? requested : imageSpanForScale(2);
-  return gridMode === 'exactAspect' ? { columns: span.columns, rows: Math.max(span.rows, span.columns * 2) } : span;
+  return { columns: span.columns, rows: Math.max(span.rows, span.columns * 2) };
 }
 
 function imageSpanForScale(scale: ImageCardScale): { columns: number; rows: number } {
@@ -437,14 +429,14 @@ export function cardWordTextSegments(word: string | undefined): string[] {
 export function cardWordTextClasses(word: string | undefined): string {
   const length = [...(word ?? '')].length;
   const size = length > 44
-    ? 'text-[clamp(0.32rem,1.4cqw,0.58rem)]'
+    ? 'text-[clamp(0.42rem,1.7cqw,0.72rem)]'
     : length > 32
-      ? 'text-[clamp(0.42rem,2.2cqw,0.82rem)]'
+      ? 'text-[clamp(0.5rem,2.6cqw,0.95rem)]'
       : length > 22
-        ? 'text-[clamp(0.56rem,4cqw,1rem)]'
+        ? 'text-[clamp(0.68rem,4.8cqw,1.18rem)]'
         : length > 14
-          ? 'text-[clamp(0.72rem,7cqw,1.25rem)]'
-          : 'text-[clamp(0.9rem,10cqw,1.65rem)]';
+          ? 'text-[clamp(0.88rem,8.2cqw,1.5rem)]'
+          : 'text-[clamp(1.1rem,12cqw,2rem)]';
   return ['block max-w-full overflow-hidden whitespace-normal break-keep hyphens-none text-center font-black leading-none tracking-[0.02em]', size].join(' ');
 }
 

@@ -44,7 +44,6 @@
     type ClueEntry,
     type GameplayCard,
     type GameplayPreferences,
-    type CardGridMode,
     type ImageCardScale,
     type LastSelected,
     type PanelPreferences,
@@ -99,6 +98,7 @@
   let endGameCue = $state<{ outcome: EndGameOutcome; team: 'blue' | 'red'; text: string } | null>(null);
   let captureStatus = $state('');
   let captureBusy = $state(false);
+  let forceBoardLayoutPending = $state(false);
   let socket: RoomSocket | null = null;
   let sawSnapshot = false;
   let previousCardsForCue: GameplayCard[] = [];
@@ -250,11 +250,15 @@
     }
     if (message.type === 'boardLayoutForced') {
       applyBoardLayoutPreferences(message.preferences);
-      if (message.by !== viewer?.userId) {
+      if (message.by === viewer?.userId) {
+        forceBoardLayoutPending = false;
+        showToast('Board layout options sent to all players.');
+      } else {
         error = 'Board layout options were updated by a moderator.';
       }
     }
     if (message.type === 'error') {
+      forceBoardLayoutPending = false;
       error = message.message;
     }
   }
@@ -330,7 +334,6 @@
       boardColumnsDesktop: preferences.boardColumnsDesktop,
       imageCardScale: preferences.imageCardScale,
       strictCardAspectRatios: preferences.strictCardAspectRatios,
-      cardGridMode: preferences.cardGridMode,
     };
   }
 
@@ -343,7 +346,12 @@
       error = 'Only moderators can force board layout options.';
       return;
     }
-    socket?.send({ type: 'forceBoardLayout', preferences: currentBoardLayoutPreferences() });
+    if (!socket) {
+      error = 'Board layout sync is unavailable until the room reconnects.';
+      return;
+    }
+    forceBoardLayoutPending = true;
+    socket.send({ type: 'forceBoardLayout', preferences: currentBoardLayoutPreferences() });
   }
 
   function updatePanelPreferences(next: Partial<PanelPreferences>) {
@@ -379,6 +387,13 @@
     if (soundEnabled) {
       playCue();
     }
+  }
+
+  function showToast(notice: string) {
+    cueNotice = notice;
+    window.setTimeout(() => {
+      if (cueNotice === notice) cueNotice = '';
+    }, 2400);
   }
 
 
@@ -694,7 +709,7 @@
               </div>
 
               <div class={boardGridContainerClasses()}>
-                <div id="board" class={['grid grid-flow-dense gap-2 md:gap-3 [grid-template-columns:repeat(var(--mobile-card-columns),minmax(0,1fr))] md:[grid-template-columns:repeat(var(--card-columns),minmax(0,1fr))]', boardGridClasses(preferences.cardGridMode)].join(' ')} style={boardGridStyle(mobileColumns, activeColumns, preferences.cardGridMode)}>
+                <div id="board" class={['grid grid-flow-dense gap-2 md:gap-3 [grid-template-columns:repeat(var(--mobile-card-columns),minmax(0,1fr))] md:[grid-template-columns:repeat(var(--card-columns),minmax(0,1fr))]', boardGridClasses()].join(' ')} style={boardGridStyle(mobileColumns, activeColumns)}>
                   {#each sortedCards as card, index (`${card.word ?? card.imageId ?? 'card'}-${card.originalIndex}`)}
                     {@const showHiddenColor = role.canSeeHiddenColors && (role.kind !== 'spymaster' || spymasterViewActive)}
                     {@const revealedStyle = (role.kind === 'spymaster' && spymasterViewActive) ? preferences.spymasterRevealedStyle : 'normal'}
@@ -702,7 +717,7 @@
                     {@const customColor = card.color === 'blue' ? teamColor('blue', settings) : card.color === 'red' ? teamColor('red', settings) : ''}
                     <button
                       class={['group relative col-span-[var(--card-mobile-col-span)] row-span-[var(--card-mobile-row-span)] md:col-span-[var(--card-col-span)] md:row-span-[var(--card-row-span)] rounded-xl border p-1 text-left transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', cardAspectRatioClasses(card, preferences.strictCardAspectRatios), card.contentType === 'image' ? 'overflow-hidden border-4' : 'overflow-visible', view.classes, !role.activeGuesser || card.revealed || phase !== 'active' ? 'disabled:opacity-80' : ''].join(' ')}
-                      style={`${imageCardGridStyle(card, activeColumns, preferences.imageCardScale, mobileColumns, preferences.cardGridMode)} ${view.visibleColor !== 'hidden' && customColor ? `border-color: ${hexWithAlpha(customColor, 'B3')}; background-color: ${hexWithAlpha(customColor, '40')}; color: white` : ''}`}
+                      style={`${imageCardGridStyle(card, activeColumns, preferences.imageCardScale, mobileColumns)} ${view.visibleColor !== 'hidden' && customColor ? `border-color: ${hexWithAlpha(customColor, 'B3')}; background-color: ${hexWithAlpha(customColor, '40')}; color: white` : ''}`}
                       disabled={Boolean(guessDisabledReason(card))}
                       title={guessDisabledReason(card) || `Reveal ${cardContentLabel(card)}`}
                       onclick={() => guessCard(card.originalIndex, card)}
@@ -817,17 +832,15 @@
                       <option value="8">Poster, 4×8</option>
                     </select>
                   </label>
-                  <label class="block text-xs text-slate-400">
-                    Grid Mode
-                    <select class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" value={preferences.cardGridMode} onchange={(event) => updatePreferences({ cardGridMode: event.currentTarget.value as CardGridMode })}>
-                      <option value="footprint">Footprint rows, preserve image size spans</option>
-                      <option value="exactAspect">Exact ratios, no image row spans</option>
-                      <option value="calibratedRows">Calibrated rows, reduce reserved gaps</option>
-                    </select>
-                  </label>
                   {#if hostControls}
-                    <button class="rounded-xl border border-emerald-300/40 bg-emerald-300/10 px-3 py-2 text-left text-xs font-black uppercase tracking-[0.16em] text-emerald-100 transition hover:border-emerald-200 hover:bg-emerald-300/20" type="button" onclick={forceBoardLayoutForRoom}>
-                      Force these board layout options to all players
+                    <button
+                      class={['rounded-xl border px-3 py-2 text-left text-xs font-black uppercase tracking-[0.16em] transition active:translate-y-px disabled:cursor-wait', forceBoardLayoutPending ? 'border-emerald-200 bg-emerald-300 text-slate-950' : 'border-emerald-300/40 bg-emerald-300/10 text-emerald-100 hover:border-emerald-200 hover:bg-emerald-300/20'].join(' ')}
+                      type="button"
+                      disabled={forceBoardLayoutPending}
+                      aria-busy={forceBoardLayoutPending}
+                      onclick={forceBoardLayoutForRoom}
+                    >
+                      {forceBoardLayoutPending ? 'Forcing board layout…' : 'Force these board layout options to all players'}
                     </button>
                   {/if}
                 </div>
