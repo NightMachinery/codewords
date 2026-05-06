@@ -103,7 +103,7 @@
 </script>
 
 <main class="relative min-h-screen w-full overflow-hidden bg-[oklch(10%_0.025_255)] text-slate-100">
-  <AuroraBackground intensity={1.0} speed={1.5} />
+  <AuroraBackground intensity={1.0} speed={1.0} />
 
   <div class="hero-shell relative z-10 flex min-h-screen flex-col px-5 py-7 sm:px-8 lg:px-12">
     <nav class="flex items-center justify-center sm:justify-start">
