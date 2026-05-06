@@ -1,1 +1,1 @@
-#
+- After finishing and committing, if you haven't already, run `redeploy` in tmux session `codewords-setup`.
