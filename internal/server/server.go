@@ -694,6 +694,7 @@ func boardLayoutPreferencesFromMessage(msg map[string]any) map[string]any {
 		"boardColumnsDesktop":    clampBoardLayoutColumns(raw, "boardColumnsDesktop", 5),
 		"imageCardScale":         clampImageCardScale(raw["imageCardScale"]),
 		"strictCardAspectRatios": boolValue(raw["strictCardAspectRatios"]),
+		"cardGridMode":           clampCardGridMode(raw["cardGridMode"]),
 	}
 }
 
@@ -725,6 +726,16 @@ func clampImageCardScale(v any) int {
 func boolValue(v any) bool {
 	b, _ := v.(bool)
 	return b
+}
+
+func clampCardGridMode(v any) string {
+	mode, _ := v.(string)
+	switch mode {
+	case "footprint", "exactAspect", "calibratedRows":
+		return mode
+	default:
+		return "footprint"
+	}
 }
 
 func commandFromMessage(t string, msg map[string]any) (game.Command, error) {

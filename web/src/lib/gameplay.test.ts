@@ -15,7 +15,10 @@ import {
   cardWordTextClasses,
   cardWordTextSegments,
   cardAspectRatioClasses,
+  boardGridClasses,
+  boardGridStyle,
   clampBoardColumns,
+  clampCardGridMode,
   clampImageCardScale,
   imageCardGridStyle,
   clueLogKey,
@@ -137,7 +140,7 @@ describe('local gameplay preferences', () => {
     expect(readGameplayPreferences(storage)).toEqual(defaultGameplayPreferences);
     expect(defaultGameplayPreferences.spymasterRevealedStyle).toBe('invisible');
 
-    const saved: GameplayPreferences = { confirmGuesses: false, confirmPasses: true, boardColumnsMobile: 4, boardColumnsDesktop: 5, imageCardScale: 8, strictCardAspectRatios: true, chatSound: false, chatVisualCue: false, cardChoiceSound: false, cardChoiceVisualCue: true, clueSound: true, clueVisualCue: false, endGameSound: true, endGameVisualCue: true, spymasterRevealedStyle: 'greyed' };
+    const saved: GameplayPreferences = { confirmGuesses: false, confirmPasses: true, boardColumnsMobile: 4, boardColumnsDesktop: 5, imageCardScale: 8, strictCardAspectRatios: true, cardGridMode: 'exactAspect', chatSound: false, chatVisualCue: false, cardChoiceSound: false, cardChoiceVisualCue: true, clueSound: true, clueVisualCue: false, endGameSound: true, endGameVisualCue: true, spymasterRevealedStyle: 'greyed' };
     writeGameplayPreferences(storage, saved);
     expect(readGameplayPreferences(storage)).toEqual(saved);
 
@@ -150,15 +153,17 @@ describe('local gameplay preferences', () => {
       boardColumnsDesktop: 7,
       imageCardScale: 4,
       strictCardAspectRatios: false,
+      cardGridMode: 'footprint',
     });
   });
 
-  it('defaults and clamps base board columns plus image-card scale', () => {
+  it('defaults and clamps base board columns, grid mode, plus image-card scale', () => {
     expect(defaultGameplayPreferences).toMatchObject({
       boardColumnsMobile: 4,
       boardColumnsDesktop: 5,
       imageCardScale: 4,
       strictCardAspectRatios: false,
+      cardGridMode: 'footprint',
     });
     expect(clampBoardColumns(99)).toBe(13);
     expect(clampBoardColumns(0)).toBe(1);
@@ -167,6 +172,10 @@ describe('local gameplay preferences', () => {
     expect(clampImageCardScale(4)).toBe(4);
     expect(clampImageCardScale(8)).toBe(8);
     expect(clampImageCardScale(3)).toBe(4);
+    expect(clampCardGridMode('footprint')).toBe('footprint');
+    expect(clampCardGridMode('exactAspect')).toBe('exactAspect');
+    expect(clampCardGridMode('calibratedRows')).toBe('calibratedRows');
+    expect(clampCardGridMode('broken')).toBe('footprint');
   });
 
   it('persists strict card aspect ratios and maps card type to aspect classes', () => {
@@ -204,6 +213,18 @@ describe('local gameplay preferences', () => {
     expect(imageCardGridStyle({ contentType: 'image' }, 5, 8)).toBe('--card-col-span: 4; --card-row-span: 8;');
     expect(imageCardGridStyle({ contentType: 'image' }, 1, 4)).toBe('--card-col-span: 1; --card-row-span: 2;');
     expect(imageCardGridStyle({ contentType: 'image' }, 5, 4, 1)).toBe('--card-mobile-col-span: 1; --card-mobile-row-span: 2; --card-col-span: 2; --card-row-span: 4;');
+    expect(imageCardGridStyle({ contentType: 'image' }, 5, 4, undefined, 'exactAspect')).toBe('--card-col-span: 2; --card-row-span: 1;');
+    expect(imageCardGridStyle({ contentType: 'image' }, 5, 8, 1, 'exactAspect')).toBe('--card-mobile-col-span: 1; --card-mobile-row-span: 1; --card-col-span: 4; --card-row-span: 1;');
+    expect(imageCardGridStyle({ contentType: 'image' }, 5, 4, undefined, 'calibratedRows')).toBe('--card-col-span: 2; --card-row-span: 4;');
+  });
+
+  it('builds board grid styles for normal and calibrated row modes', () => {
+    expect(boardGridStyle(4, 5, 'footprint')).toBe('--mobile-card-columns: 4; --card-columns: 5;');
+    expect(boardGridStyle(4, 5, 'exactAspect')).toBe('--mobile-card-columns: 4; --card-columns: 5;');
+    expect(boardGridStyle(4, 5, 'calibratedRows')).toBe('--mobile-card-columns: 4; --card-columns: 5; --card-mobile-grid-row: calc((100% - 3 * 0.5rem) / 4 * 0.75); --card-grid-row: calc((100% - 4 * 0.75rem) / 5 * 0.75);');
+    expect(boardGridClasses('footprint')).toBe('');
+    expect(boardGridClasses('exactAspect')).toBe('');
+    expect(boardGridClasses('calibratedRows')).toBe('[grid-auto-rows:var(--card-mobile-grid-row)] md:[grid-auto-rows:var(--card-grid-row)]');
   });
 
   it('defaults collapsible panel preferences open and persists changes', () => {

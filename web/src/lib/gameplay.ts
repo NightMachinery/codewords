@@ -53,6 +53,7 @@ export interface DisplayCard extends GameplayCard {
 }
 
 export type ImageCardScale = 1 | 2 | 4 | 8;
+export type CardGridMode = 'footprint' | 'exactAspect' | 'calibratedRows';
 
 export interface GameplayPreferences {
   confirmGuesses: boolean;
@@ -61,6 +62,7 @@ export interface GameplayPreferences {
   boardColumnsDesktop: number;
   imageCardScale: ImageCardScale;
   strictCardAspectRatios: boolean;
+  cardGridMode: CardGridMode;
   chatSound: boolean;
   chatVisualCue: boolean;
   cardChoiceSound: boolean;
@@ -112,6 +114,7 @@ export const defaultGameplayPreferences: GameplayPreferences = {
   boardColumnsDesktop: 5,
   imageCardScale: 4,
   strictCardAspectRatios: false,
+  cardGridMode: 'footprint',
   chatSound: true,
   chatVisualCue: true,
   cardChoiceSound: true,
@@ -244,6 +247,7 @@ export function readGameplayPreferences(storage: Pick<Storage, 'getItem'>): Game
       boardColumnsDesktop: clampBoardColumns(parsed.boardColumnsDesktop ?? parsed.wordCardsPerRowDesktop ?? parsed.cardsPerRow, defaultGameplayPreferences.boardColumnsDesktop),
       imageCardScale: clampImageCardScale(parsed.imageCardScale),
       strictCardAspectRatios: typeof parsed.strictCardAspectRatios === 'boolean' ? parsed.strictCardAspectRatios : defaultGameplayPreferences.strictCardAspectRatios,
+      cardGridMode: clampCardGridMode(parsed.cardGridMode),
       chatSound: typeof parsed.chatSound === 'boolean' ? parsed.chatSound : defaultGameplayPreferences.chatSound,
       chatVisualCue: typeof parsed.chatVisualCue === 'boolean' ? parsed.chatVisualCue : defaultGameplayPreferences.chatVisualCue,
       cardChoiceSound: typeof parsed.cardChoiceSound === 'boolean' ? parsed.cardChoiceSound : defaultGameplayPreferences.cardChoiceSound,
@@ -271,6 +275,10 @@ export function clampBoardColumns(value: unknown, fallback = 5): number {
 
 export function clampImageCardScale(value: unknown): ImageCardScale {
   return value === 1 || value === 2 || value === 4 || value === 8 ? value : defaultGameplayPreferences.imageCardScale;
+}
+
+export function clampCardGridMode(value: unknown): CardGridMode {
+  return value === 'footprint' || value === 'exactAspect' || value === 'calibratedRows' ? value : defaultGameplayPreferences.cardGridMode;
 }
 
 export function writeGameplayPreferences(storage: Pick<Storage, 'setItem'>, preferences: GameplayPreferences): void {
@@ -349,11 +357,23 @@ export function teamColor(team: Team | 'blue' | 'red' | '', settings: Settings |
   return '';
 }
 
-export function imageCardGridStyle(card: Pick<DisplayCard, 'contentType'>, columns: number, scale: ImageCardScale, mobileColumns?: number): string {
-  const desktopSpan = cardGridSpan(card, columns, scale);
+export function boardGridStyle(mobileColumns: number, columns: number, gridMode: CardGridMode): string {
+  const safeMobileColumns = clampBoardColumns(mobileColumns, defaultGameplayPreferences.boardColumnsMobile);
+  const safeColumns = clampBoardColumns(columns, defaultGameplayPreferences.boardColumnsDesktop);
+  const baseVars = `--mobile-card-columns: ${safeMobileColumns}; --card-columns: ${safeColumns};`;
+  if (gridMode !== 'calibratedRows') return baseVars;
+  return `${baseVars} --card-mobile-grid-row: calc((100% - ${safeMobileColumns - 1} * 0.5rem) / ${safeMobileColumns} * 0.75); --card-grid-row: calc((100% - ${safeColumns - 1} * 0.75rem) / ${safeColumns} * 0.75);`;
+}
+
+export function boardGridClasses(gridMode: CardGridMode): string {
+  return gridMode === 'calibratedRows' ? '[grid-auto-rows:var(--card-mobile-grid-row)] md:[grid-auto-rows:var(--card-grid-row)]' : '';
+}
+
+export function imageCardGridStyle(card: Pick<DisplayCard, 'contentType'>, columns: number, scale: ImageCardScale, mobileColumns?: number, gridMode: CardGridMode = 'footprint'): string {
+  const desktopSpan = cardGridSpan(card, columns, scale, gridMode);
   const desktopVars = `--card-col-span: ${desktopSpan.columns}; --card-row-span: ${desktopSpan.rows};`;
   if (mobileColumns === undefined) return desktopVars;
-  const mobileSpan = cardGridSpan(card, mobileColumns, scale);
+  const mobileSpan = cardGridSpan(card, mobileColumns, scale, gridMode);
   return `--card-mobile-col-span: ${mobileSpan.columns}; --card-mobile-row-span: ${mobileSpan.rows}; ${desktopVars}`;
 }
 
@@ -362,12 +382,13 @@ export function cardAspectRatioClasses(card: Pick<DisplayCard, 'contentType'>, s
   return strictCardAspectRatios ? 'aspect-[4/3]' : 'min-h-20 sm:min-h-28';
 }
 
-function cardGridSpan(card: Pick<DisplayCard, 'contentType'>, columns: number, scale: ImageCardScale): { columns: number; rows: number } {
+function cardGridSpan(card: Pick<DisplayCard, 'contentType'>, columns: number, scale: ImageCardScale, gridMode: CardGridMode): { columns: number; rows: number } {
   if (card.contentType !== 'image') return { columns: 1, rows: 1 };
   const safeColumns = clampBoardColumns(columns);
   const requestedScale = clampImageCardScale(scale);
   const requested = imageSpanForScale(requestedScale);
-  return requested.columns <= safeColumns ? requested : imageSpanForScale(2);
+  const span = requested.columns <= safeColumns ? requested : imageSpanForScale(2);
+  return gridMode === 'exactAspect' ? { columns: span.columns, rows: 1 } : span;
 }
 
 function imageSpanForScale(scale: ImageCardScale): { columns: number; rows: number } {

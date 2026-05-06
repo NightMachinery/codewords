@@ -374,6 +374,7 @@ func TestWebSocketForceBoardLayoutRequiresModAndBroadcastsSanitizedPreferences(t
 		"boardColumnsDesktop":    99,
 		"imageCardScale":         8,
 		"strictCardAspectRatios": true,
+		"cardGridMode":           "calibratedRows",
 	}}); err != nil {
 		t.Fatalf("write host force layout: %v", err)
 	}
@@ -387,7 +388,8 @@ func TestWebSocketForceBoardLayoutRequiresModAndBroadcastsSanitizedPreferences(t
 	if preferences["boardColumnsMobile"] != float64(1) ||
 		preferences["boardColumnsDesktop"] != float64(13) ||
 		preferences["imageCardScale"] != float64(8) ||
-		preferences["strictCardAspectRatios"] != true {
+		preferences["strictCardAspectRatios"] != true ||
+		preferences["cardGridMode"] != "calibratedRows" {
 		t.Fatalf("expected sanitized layout preferences, got %#v", preferences)
 	}
 	if msg["by"] == "" {

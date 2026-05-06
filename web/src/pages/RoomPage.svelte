@@ -7,6 +7,8 @@
     activeMatchLayoutClasses,
     canSubmitClue,
     cardAspectRatioClasses,
+    boardGridClasses,
+    boardGridStyle,
     cardContentLabel,
     cardImageUrl,
     cardModeFromImageCount,
@@ -41,6 +43,7 @@
     type ClueEntry,
     type GameplayCard,
     type GameplayPreferences,
+    type CardGridMode,
     type ImageCardScale,
     type LastSelected,
     type PanelPreferences,
@@ -326,6 +329,7 @@
       boardColumnsDesktop: preferences.boardColumnsDesktop,
       imageCardScale: preferences.imageCardScale,
       strictCardAspectRatios: preferences.strictCardAspectRatios,
+      cardGridMode: preferences.cardGridMode,
     };
   }
 
@@ -688,7 +692,7 @@
                 </div>
               </div>
 
-              <div id="board" class="grid grid-flow-dense gap-2 md:gap-3 [grid-template-columns:repeat(var(--mobile-card-columns),minmax(0,1fr))] md:[grid-template-columns:repeat(var(--card-columns),minmax(0,1fr))]" style={`--mobile-card-columns: ${mobileColumns}; --card-columns: ${activeColumns};`}>
+              <div id="board" class={['grid grid-flow-dense gap-2 md:gap-3 [grid-template-columns:repeat(var(--mobile-card-columns),minmax(0,1fr))] md:[grid-template-columns:repeat(var(--card-columns),minmax(0,1fr))]', boardGridClasses(preferences.cardGridMode)].join(' ')} style={boardGridStyle(mobileColumns, activeColumns, preferences.cardGridMode)}>
                 {#each sortedCards as card, index (`${card.word ?? card.imageId ?? 'card'}-${card.originalIndex}`)}
                   {@const showHiddenColor = role.canSeeHiddenColors && (role.kind !== 'spymaster' || spymasterViewActive)}
                   {@const revealedStyle = (role.kind === 'spymaster' && spymasterViewActive) ? preferences.spymasterRevealedStyle : 'normal'}
@@ -696,7 +700,7 @@
                   {@const customColor = card.color === 'blue' ? teamColor('blue', settings) : card.color === 'red' ? teamColor('red', settings) : ''}
                   <button
                     class={['group relative col-span-[var(--card-mobile-col-span)] row-span-[var(--card-mobile-row-span)] md:col-span-[var(--card-col-span)] md:row-span-[var(--card-row-span)] rounded-xl border p-1 text-left shadow-xl shadow-slate-950/25 transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', cardAspectRatioClasses(card, preferences.strictCardAspectRatios), card.contentType === 'image' ? 'overflow-hidden border-4' : 'overflow-visible', view.classes, !role.activeGuesser || card.revealed || phase !== 'active' ? 'disabled:opacity-80' : ''].join(' ')}
-                    style={`${imageCardGridStyle(card, activeColumns, preferences.imageCardScale, mobileColumns)} ${view.visibleColor !== 'hidden' && customColor ? `border-color: ${hexWithAlpha(customColor, 'B3')}; background-color: ${hexWithAlpha(customColor, '40')}; color: white` : ''}`}
+                    style={`${imageCardGridStyle(card, activeColumns, preferences.imageCardScale, mobileColumns, preferences.cardGridMode)} ${view.visibleColor !== 'hidden' && customColor ? `border-color: ${hexWithAlpha(customColor, 'B3')}; background-color: ${hexWithAlpha(customColor, '40')}; color: white` : ''}`}
                     disabled={Boolean(guessDisabledReason(card))}
                     title={guessDisabledReason(card) || `Reveal ${cardContentLabel(card)}`}
                     onclick={() => guessCard(card.originalIndex, card)}
@@ -808,6 +812,14 @@
                       <option value="2">Tall, 1×2</option>
                       <option value="4">Large, 2×4</option>
                       <option value="8">Poster, 4×8</option>
+                    </select>
+                  </label>
+                  <label class="block text-xs text-slate-400">
+                    Grid Mode
+                    <select class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" value={preferences.cardGridMode} onchange={(event) => updatePreferences({ cardGridMode: event.currentTarget.value as CardGridMode })}>
+                      <option value="footprint">Footprint rows, preserve image size spans</option>
+                      <option value="exactAspect">Exact ratios, no image row spans</option>
+                      <option value="calibratedRows">Calibrated rows, reduce reserved gaps</option>
                     </select>
                   </label>
                   {#if hostControls}

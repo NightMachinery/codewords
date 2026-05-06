@@ -1,11 +1,12 @@
 import type { ChatMessage, RoomSnapshot } from './api';
-import type { ImageCardScale } from './gameplay';
+import type { CardGridMode, ImageCardScale } from './gameplay';
 
 export interface BoardLayoutPreferences {
   boardColumnsMobile: number;
   boardColumnsDesktop: number;
   imageCardScale: ImageCardScale;
   strictCardAspectRatios: boolean;
+  cardGridMode: CardGridMode;
 }
 
 export type RoomSocketMessage =
