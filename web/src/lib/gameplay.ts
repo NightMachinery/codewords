@@ -298,6 +298,10 @@ export function normalizedHexColor(hex: string | undefined, fallback = ''): stri
   return isValidHexColor(hex) ? hex as string : fallback;
 }
 
+export function colorPickerCtaLabel(teamName: string, color: string): string {
+  return `Choose ${teamName} color, currently ${color}`;
+}
+
 export function displayTeamName(team: Team | 'blue' | 'red' | '', settings: Settings | undefined): string {
   if (team === 'blue') return (settings?.teamNameBlue?.trim() || defaultTeamNames.blue).slice(0, 30);
   if (team === 'red') return (settings?.teamNameRed?.trim() || defaultTeamNames.red).slice(0, 30);

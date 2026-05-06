@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { PictureAsset, Settings, Wordpack } from './api';
-  import { cardModeFromImageCount, displayTeamName, imageCountForMode, isValidHexColor, teamColor } from './gameplay';
+  import { cardModeFromImageCount, colorPickerCtaLabel, displayTeamName, imageCountForMode, isValidHexColor, teamColor } from './gameplay';
 
   interface Props {
     settings: Settings;
@@ -37,6 +37,7 @@
   }: Props = $props();
 
   let cardMode = $derived(cardModeFromImageCount(settings.imageCardCount ?? 0));
+  let openColorPicker = $state<'blue' | 'red' | null>(null);
   const colorPresets = [
     '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e', '#10b981', '#14b8a6', '#06b6d4',
     '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899', '#f43f5e', '#64748b',
@@ -63,6 +64,26 @@
   function setTeamColor(team: 'blue' | 'red', color: string) {
     if (team === 'blue') settings.customColorBlue = isValidHexColor(color) ? color : '';
     else settings.customColorRed = isValidHexColor(color) ? color : '';
+    onSave();
+  }
+
+  function closeColorPicker() {
+    openColorPicker = null;
+  }
+
+  function colorInputValue(team: 'blue' | 'red') {
+    return team === 'blue' ? settings.customColorBlue || '' : settings.customColorRed || '';
+  }
+
+  function setColorInputValue(team: 'blue' | 'red', color: string) {
+    if (team === 'blue') settings.customColorBlue = color;
+    else settings.customColorRed = color;
+    onSave();
+  }
+
+  function resetTeamColor(team: 'blue' | 'red') {
+    if (team === 'blue') settings.customColorBlue = '';
+    else settings.customColorRed = '';
     onSave();
   }
 </script>
@@ -164,38 +185,76 @@
         <span class="text-xs font-bold text-slate-400">Team name</span>
         <input class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" maxlength="30" bind:value={settings.teamNameRed} onchange={onSave} placeholder="Monarchists" />
       </label>
-      <label class="block">
-        <span class="text-xs font-bold text-slate-400">{displayTeamName('blue', settings)} color</span>
-        <div class="mt-2 flex gap-2 rounded-2xl border bg-slate-950/60 p-2 shadow-inner shadow-blue-950/20" style={`border-color: ${teamColor('blue', settings)}66;`}>
-          <span class="relative grid h-12 w-20 shrink-0 place-items-center overflow-hidden rounded-xl border border-slate-100/15 shadow-lg shadow-slate-950/30" style={`background-color: ${teamColor('blue', settings)};`}>
-            <span class="rounded-full bg-slate-950/70 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-slate-50">Advanced</span>
-            <input class="absolute inset-0 h-full w-full cursor-pointer opacity-0" aria-label={colorInputLabel('blue', settings.customColorBlue, '#3b82f6')} type="color" value={teamColor('blue', settings)} onchange={(event) => setTeamColor('blue', event.currentTarget.value)} />
-          </span>
-          <input class="min-w-0 flex-1 rounded-xl border border-slate-800 bg-slate-900 px-3 text-xs font-black uppercase tracking-wider text-slate-300" value={settings.customColorBlue || ''} placeholder="#3b82f6" onchange={(event) => { settings.customColorBlue = event.currentTarget.value; onSave(); }} />
-          <button class="flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-black uppercase tracking-wider text-slate-300 transition hover:border-blue-300/70 hover:text-blue-100" type="button" onclick={() => { settings.customColorBlue = ''; onSave(); }}>Reset</button>
+      {#each [
+        { team: 'blue' as const, fallback: '#3b82f6' },
+        { team: 'red' as const, fallback: '#ef4444' }
+      ] as picker (picker.team)}
+        {@const currentColor = teamColor(picker.team, settings)}
+        {@const teamName = displayTeamName(picker.team, settings)}
+        <div class="relative block">
+          <span class="text-xs font-bold text-slate-400">{teamName} color</span>
+          <div class="mt-2 flex items-stretch gap-2 rounded-2xl border bg-slate-950/60 p-2 shadow-inner shadow-slate-950/30" style={`border-color: ${currentColor}66;`}>
+            <button
+              class="group flex min-w-0 flex-1 items-center gap-3 rounded-xl border border-slate-100/15 bg-slate-900/90 px-3 py-2 text-left shadow-lg shadow-slate-950/30 transition hover:-translate-y-0.5 hover:border-slate-100/30 hover:bg-slate-800/90"
+              type="button"
+              aria-label={colorPickerCtaLabel(teamName, currentColor)}
+              aria-expanded={openColorPicker === picker.team}
+              onclick={() => { openColorPicker = openColorPicker === picker.team ? null : picker.team; }}
+            >
+              <span class="h-8 w-8 shrink-0 rounded-lg border border-white/20 shadow-inner shadow-white/20" style={`background-color: ${currentColor};`}></span>
+              <span class="min-w-0">
+                <span class="block text-xs font-black uppercase tracking-[0.16em] text-slate-100">Choose</span>
+                <span class="block truncate text-[11px] font-bold uppercase tracking-wider text-slate-500">{currentColor}</span>
+              </span>
+            </button>
+            <input class="min-w-0 flex-1 rounded-xl border border-slate-800 bg-slate-900 px-3 text-xs font-black uppercase tracking-wider text-slate-300" value={colorInputValue(picker.team)} placeholder={picker.fallback} onchange={(event) => setColorInputValue(picker.team, event.currentTarget.value)} />
+            <button class="shrink-0 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-black uppercase tracking-wider text-slate-300 transition hover:border-slate-300/70 hover:text-slate-100" type="button" onclick={() => resetTeamColor(picker.team)}>Reset</button>
+          </div>
+
+          {#if openColorPicker === picker.team}
+            <button class="fixed inset-0 z-40 cursor-default bg-slate-950/20 backdrop-blur-[1px]" type="button" aria-label="Close color picker" onclick={closeColorPicker}></button>
+            <div class="fixed left-1/2 top-1/2 z-50 w-[min(92vw,28rem)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-950/95 p-4 shadow-2xl shadow-slate-950/80" role="dialog" aria-modal="true" aria-label={`${teamName} color picker`}>
+              <div class="pointer-events-none absolute -right-16 -top-20 h-44 w-44 rounded-full opacity-40 blur-3xl" style={`background-color: ${currentColor};`}></div>
+              <div class="pointer-events-none absolute -bottom-16 -left-14 h-36 w-36 rounded-full bg-cyan-400/20 blur-3xl"></div>
+              <div class="relative flex items-start justify-between gap-4">
+                <div class="min-w-0">
+                  <p class="text-sm font-black tracking-tight text-slate-50">Choose {teamName} color</p>
+                  <p class="mt-1 text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Preset grid or advanced picker</p>
+                </div>
+                <button class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-slate-300 transition hover:bg-white/10 hover:text-white" type="button" onclick={closeColorPicker}>Close</button>
+              </div>
+
+              <div class="relative mt-4 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                <div class="h-12 w-12 shrink-0 rounded-2xl border border-white/20 shadow-inner shadow-white/20" style={`background-color: ${currentColor};`}></div>
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-lg font-black uppercase tracking-wide text-white">{currentColor}</p>
+                  <p class="text-xs text-slate-500">Current team accent</p>
+                </div>
+                <label class="relative grid h-11 cursor-pointer place-items-center overflow-hidden rounded-xl border border-white/10 px-4 text-xs font-black uppercase tracking-[0.16em] text-white shadow-lg transition hover:scale-[1.02]" style={`background: linear-gradient(135deg, ${currentColor}, #0f172a);`}>
+                  Advanced
+                  <input class="absolute inset-0 h-full w-full cursor-pointer opacity-0" aria-label={colorInputLabel(picker.team, colorInputValue(picker.team), picker.fallback)} type="color" value={currentColor} onchange={(event) => setTeamColor(picker.team, event.currentTarget.value)} />
+                </label>
+              </div>
+
+              <div class="relative mt-4 grid grid-cols-9 gap-1.5 rounded-2xl border border-white/10 bg-slate-900/70 p-2">
+                {#each colorPresets as color (`${picker.team}-${color}`)}
+                  <button
+                    class={[
+                      'h-8 rounded-lg border transition hover:scale-110 focus:outline-none focus:ring-2 focus:ring-white/70',
+                      color.toLowerCase() === currentColor.toLowerCase() ? 'border-white shadow-lg shadow-white/20' : 'border-slate-100/15'
+                    ]}
+                    type="button"
+                    title={color}
+                    aria-label={`Set ${teamName} color to ${color}`}
+                    style={`background-color: ${color}`}
+                    onclick={() => setTeamColor(picker.team, color)}
+                  ></button>
+                {/each}
+              </div>
+            </div>
+          {/if}
         </div>
-        <div class="mt-2 grid grid-cols-9 gap-1">
-          {#each colorPresets as color (`blue-${color}`)}
-            <button class="h-5 rounded-md border border-slate-100/15" type="button" title={color} style={`background-color: ${color}`} onclick={() => setTeamColor('blue', color)}></button>
-          {/each}
-        </div>
-      </label>
-      <label class="block">
-        <span class="text-xs font-bold text-slate-400">{displayTeamName('red', settings)} color</span>
-        <div class="mt-2 flex gap-2 rounded-2xl border bg-slate-950/60 p-2 shadow-inner shadow-red-950/20" style={`border-color: ${teamColor('red', settings)}66;`}>
-          <span class="relative grid h-12 w-20 shrink-0 place-items-center overflow-hidden rounded-xl border border-slate-100/15 shadow-lg shadow-slate-950/30" style={`background-color: ${teamColor('red', settings)};`}>
-            <span class="rounded-full bg-slate-950/70 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-slate-50">Advanced</span>
-            <input class="absolute inset-0 h-full w-full cursor-pointer opacity-0" aria-label={colorInputLabel('red', settings.customColorRed, '#ef4444')} type="color" value={teamColor('red', settings)} onchange={(event) => setTeamColor('red', event.currentTarget.value)} />
-          </span>
-          <input class="min-w-0 flex-1 rounded-xl border border-slate-800 bg-slate-900 px-3 text-xs font-black uppercase tracking-wider text-slate-300" value={settings.customColorRed || ''} placeholder="#ef4444" onchange={(event) => { settings.customColorRed = event.currentTarget.value; onSave(); }} />
-          <button class="flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-black uppercase tracking-wider text-slate-300 transition hover:border-red-300/70 hover:text-red-100" type="button" onclick={() => { settings.customColorRed = ''; onSave(); }}>Reset</button>
-        </div>
-        <div class="mt-2 grid grid-cols-9 gap-1">
-          {#each colorPresets as color (`red-${color}`)}
-            <button class="h-5 rounded-md border border-slate-100/15" type="button" title={color} style={`background-color: ${color}`} onclick={() => setTeamColor('red', color)}></button>
-          {/each}
-        </div>
-      </label>
+      {/each}
     </div>
 
     {#if phase !== 'lobby'}

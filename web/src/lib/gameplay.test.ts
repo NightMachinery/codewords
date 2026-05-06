@@ -23,6 +23,7 @@ import {
   shouldAutoJoinRoom,
   shouldCueCardReveal,
   chatCueNotice,
+  colorPickerCtaLabel,
   viewerRole,
   writePanelPreferences,
   writeGameplayPreferences,
@@ -236,6 +237,7 @@ describe('regression helpers', () => {
     expect(isValidHexColor('#abc')).toBe(true);
     expect(isValidHexColor('123abc')).toBe(false);
     expect(isValidHexColor('#12zzzz')).toBe(false);
+    expect(colorPickerCtaLabel('River Guild', '#14b8a6')).toBe('Choose River Guild color, currently #14b8a6');
   });
 
   it('treats blank clue numbers as blank instead of NaN numeric values', async () => {
