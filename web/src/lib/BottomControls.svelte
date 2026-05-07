@@ -1,6 +1,9 @@
 <script lang="ts">
   import type { Settings } from './api';
   import { bottomShortcutItems, displayTeamName, formatClueNumber, hexWithAlpha, pressableButtonClasses, teamColor, type ClueEntry, type GameplayPhase } from './gameplay';
+  import { Grid2X2, List, MessageSquare, Settings as SettingsIcon, SlidersHorizontal, Users, ChevronDown } from 'lucide-svelte';
+  import { customSvg } from './customSvg';
+  import SvgMaskIcon from './SvgMaskIcon.svelte';
   import type { LobbyPlayer, Team } from './lobby';
 
   interface Props {
@@ -65,29 +68,23 @@
 </script>
 
 {#snippet MiniIcon(kind: 'spy' | 'rep' | 'board' | 'players' | 'clues' | 'settings' | 'local' | 'chat')}
-  <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" aria-hidden="true">
-    {#if kind === 'spy'}
-      <path fill="currentColor" d="M4 9.5 6.2 5h11.6L20 9.5c-2.4.7-5.1 1-8 1s-5.6-.3-8-1Zm2.6 3.1c1.7.3 3.5.4 5.4.4s3.7-.1 5.4-.4l-.7 5.7c-.1 1-1 1.7-2 1.7H9.3c-1 0-1.9-.7-2-1.7l-.7-5.7Z" />
-    {:else if kind === 'rep'}
-      <path fill="currentColor" d="M12 3 4.5 6.4v5.1c0 4.7 3.2 8.1 7.5 9.5 4.3-1.4 7.5-4.8 7.5-9.5V6.4L12 3Z" />
-    {:else if kind === 'board'}
-      <path fill="currentColor" d="M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm9 0h7v7h-7v-7Z" />
-    {:else if kind === 'players'}
-      <path fill="currentColor" d="M8 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8Zm8.5 1a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7ZM2 20c.4-4 2.6-6 6-6s5.6 2 6 6H2Zm11.5 0a7.7 7.7 0 0 0-1.6-4.1c1-.6 2.2-.9 3.6-.9 3 0 5 1.7 5.5 5h-7.5Z" />
-    {:else if kind === 'clues'}
-      <path fill="currentColor" d="M5 4h14v3H5V4Zm0 5h10v3H5V9Zm0 5h14v3H5v-3Zm0 5h8v2H5v-2Z" />
-    {:else if kind === 'settings'}
-      <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Z" />
-      <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m19.2 13.2 1.2 1.1-1.8 3.1-1.6-.5a7.3 7.3 0 0 1-1.6.9l-.3 1.7H8.9l-.3-1.7a7.3 7.3 0 0 1-1.6-.9l-1.6.5-1.8-3.1 1.2-1.1a7.5 7.5 0 0 1 0-2.4L3.6 9.7l1.8-3.1 1.6.5a7.3 7.3 0 0 1 1.6-.9l.3-1.7h6.2l.3 1.7a7.3 7.3 0 0 1 1.6.9l1.6-.5 1.8 3.1-1.2 1.1a7.5 7.5 0 0 1 0 2.4Z" />
-    {:else if kind === 'local'}
-      <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5 6h14M5 12h14M5 18h14" />
-      <circle cx="9" cy="6" r="2.1" fill="currentColor" />
-      <circle cx="15" cy="12" r="2.1" fill="currentColor" />
-      <circle cx="11" cy="18" r="2.1" fill="currentColor" />
-    {:else}
-      <path fill="currentColor" d="M4 5h16v11H8l-4 4V5Z" />
-    {/if}
-  </svg>
+  {#if kind === 'spy'}
+    <SvgMaskIcon src={customSvg.spy} classes="h-3.5 w-3.5" />
+  {:else if kind === 'rep'}
+    <SvgMaskIcon src={customSvg.representative} classes="h-3.5 w-3.5" />
+  {:else if kind === 'board'}
+    <Grid2X2 class="h-3.5 w-3.5" />
+  {:else if kind === 'players'}
+    <Users class="h-3.5 w-3.5" />
+  {:else if kind === 'clues'}
+    <List class="h-3.5 w-3.5" />
+  {:else if kind === 'settings'}
+    <SettingsIcon class="h-3.5 w-3.5" />
+  {:else if kind === 'local'}
+    <SlidersHorizontal class="h-3.5 w-3.5" />
+  {:else}
+    <MessageSquare class="h-3.5 w-3.5" />
+  {/if}
 {/snippet}
 
 {#if !controlsExpanded}
@@ -100,14 +97,14 @@
     Controls
   </button>
 {:else}
-<footer class="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-700/60 bg-slate-900/90 p-2 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] backdrop-blur-md sm:p-3">
+<footer id="bottom-sticky-panel" class="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-700/60 bg-slate-900/90 p-2 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] backdrop-blur-md sm:p-3">
   <div class="relative mx-auto flex max-w-7xl flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-4">
     <button
-      class={pressableButtonClasses('absolute -top-10 right-2 rounded-full border border-slate-700/80 bg-slate-950/95 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-300 shadow-xl hover:border-emerald-300/60 hover:text-emerald-100')}
+      class={pressableButtonClasses('absolute right-0 top-0 grid h-10 w-10 place-items-center rounded-bl-2xl border-b border-l border-slate-700/80 bg-slate-950/95 text-slate-300 shadow-xl hover:border-emerald-300/60 hover:text-emerald-100')}
       onclick={() => (controlsExpanded = false)}
       aria-label="Collapse bottom controls"
     >
-      Collapse
+      <ChevronDown class="h-5 w-5" />
     </button>
 
     <!-- Turn/team row -->
@@ -128,7 +125,15 @@
             {#if currentTeamPlayers.length}
               <div class="mt-0.5 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-xs font-bold text-slate-200">
                 {#each currentTeamPlayers as player (player.id)}
-                  <span class="max-w-28 truncate">{player.displayName.trim() || 'Player'}</span>
+                  <span class={[
+                    'inline-flex max-w-32 items-center gap-1 truncate',
+                    player.spymaster ? 'bg-gradient-to-r from-slate-50 via-cyan-100 to-emerald-100 bg-clip-text text-transparent drop-shadow-[0_0_10px_rgba(125,211,252,0.35)]' : '',
+                    player.representative ? 'bg-gradient-to-r from-amber-100 via-orange-100 to-rose-100 bg-clip-text text-transparent drop-shadow-[0_0_10px_rgba(251,191,36,0.35)]' : ''
+                  ].filter(Boolean).join(' ')}>
+                    {#if player.spymaster}<SvgMaskIcon src={customSvg.spy} classes="h-3.5 w-3.5 text-cyan-100" />{/if}
+                    {#if player.representative}<SvgMaskIcon src={customSvg.representative} classes="h-3.5 w-3.5 text-amber-100" />{/if}
+                    {player.displayName.trim() || 'Player'}
+                  </span>
                 {/each}
               </div>
             {:else}
@@ -209,14 +214,7 @@
           aria-pressed={spymasterViewActive}
           title={spymasterViewActive ? 'Spy view on' : 'Spy view off'}
         >
-          <svg class="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 9.2 6.1 5h11.8L20 9.2c-2.5.8-5.2 1.2-8 1.2s-5.5-.4-8-1.2Z" fill="currentColor" opacity="0.9" />
-            <path d="M6.8 12.5c1.6.4 3.3.6 5.2.6s3.6-.2 5.2-.6l-.6 4.4A2.4 2.4 0 0 1 14.2 19H9.8a2.4 2.4 0 0 1-2.4-2.1l-.6-4.4Z" fill="currentColor" opacity="0.45" />
-            <path d="M8.2 14.5h2.6M13.2 14.5h2.6" stroke="currentColor" stroke-linecap="round" stroke-width="1.8" />
-            {#if spymasterViewActive}
-              <circle cx="18" cy="6" r="2.4" fill="currentColor" />
-            {/if}
-          </svg>
+<span class="relative"><SvgMaskIcon src={customSvg.spy} classes="h-5 w-5" />{#if spymasterViewActive}<span class="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-current"></span>{/if}</span>
         </button>
       {/if}
     </div>

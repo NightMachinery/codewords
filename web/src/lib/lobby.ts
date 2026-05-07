@@ -32,6 +32,18 @@ export function playerBuckets(players: LobbyPlayer[]): {
   };
 }
 
+export type VisiblePlayerBucket = { tone: 'blue' | 'red' | 'observers' | 'unassigned'; members: LobbyPlayer[] };
+
+export function visiblePlayerBuckets(players: LobbyPlayer[]): VisiblePlayerBucket[] {
+  const buckets = playerBuckets(players);
+  return [
+    { tone: 'blue' as const, members: buckets.blue },
+    { tone: 'red' as const, members: buckets.red },
+    { tone: 'observers' as const, members: buckets.observers },
+    { tone: 'unassigned' as const, members: buckets.unassigned },
+  ].filter((bucket) => bucket.tone === 'blue' || bucket.tone === 'red' || bucket.members.length > 0);
+}
+
 export function canManageLobby(viewer: ViewerContext | null | undefined): boolean {
   return Boolean(viewer?.isHost || viewer?.isMod);
 }

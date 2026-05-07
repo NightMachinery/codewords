@@ -1,7 +1,9 @@
 <script lang="ts">
-  import { playerBuckets, type LobbyPlayer, type Team } from './lobby';
+  import { visiblePlayerBuckets, type LobbyPlayer, type Team } from './lobby';
   import type { Settings, Viewer } from './api';
   import { displayTeamName, hexWithAlpha, teamColor } from './gameplay';
+  import { customSvg } from './customSvg';
+  import SvgMaskIcon from './SvgMaskIcon.svelte';
 
   interface Props {
     players: LobbyPlayer[];
@@ -29,19 +31,15 @@
     onRejoinTeam
   }: Props = $props();
 
-  let buckets = $derived(playerBuckets(players));
+  let visibleBuckets = $derived(visiblePlayerBuckets(players));
 </script>
 
 {#snippet SpyIcon()}
-  <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" aria-hidden="true">
-    <path fill="currentColor" d="M4 9.5 6.2 5h11.6L20 9.5c-2.4.7-5.1 1-8 1s-5.6-.3-8-1Zm2.6 3.1c1.7.3 3.5.4 5.4.4s3.7-.1 5.4-.4l-.7 5.7c-.1 1-1 1.7-2 1.7H9.3c-1 0-1.9-.7-2-1.7l-.7-5.7ZM9 16.2c0 .8.7 1.5 1.5 1.5s1.5-.7 1.5-1.5H9Zm3 0c0 .8.7 1.5 1.5 1.5s1.5-.7 1.5-1.5h-3Z" />
-  </svg>
+  <SvgMaskIcon src={customSvg.spy} classes="h-3.5 w-3.5" />
 {/snippet}
 
 {#snippet RepIcon()}
-  <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" aria-hidden="true">
-    <path fill="currentColor" d="M12 3 4.5 6.4v5.1c0 4.7 3.2 8.1 7.5 9.5 4.3-1.4 7.5-4.8 7.5-9.5V6.4L12 3Zm0 4.1 4 1.8v2.7c0 2.7-1.5 4.8-4 6-2.5-1.2-4-3.3-4-6V8.9l4-1.8Z" />
-  </svg>
+  <SvgMaskIcon src={customSvg.representative} classes="h-3.5 w-3.5" />
 {/snippet}
 
 {#snippet roleBadges(player: LobbyPlayer)}
@@ -94,7 +92,8 @@
   </article>
 {/snippet}
 
-{#snippet TeamColumn(title: string, tone: 'blue' | 'red' | 'observers' | 'unassigned', members: LobbyPlayer[])}
+{#snippet TeamColumn(tone: 'blue' | 'red' | 'observers' | 'unassigned', members: LobbyPlayer[])}
+  {@const title = tone === 'blue' ? displayTeamName('blue', settings) : tone === 'red' ? displayTeamName('red', settings) : tone === 'observers' ? 'Observers' : 'Unassigned'}
   <section class={['rounded-[2rem] border p-5 shadow-2xl shadow-slate-950/25', 
     tone === 'blue' ? 'border-blue-300/30 bg-blue-400/10' : 
     tone === 'red' ? 'border-red-300/30 bg-red-400/10' : 
@@ -114,12 +113,8 @@
 
 <div id="players" class="space-y-6">
   <div class="grid grid-flow-dense gap-6 md:grid-cols-2">
-    {@render TeamColumn(displayTeamName('blue', settings), 'blue', buckets.blue)}
-    {@render TeamColumn(displayTeamName('red', settings), 'red', buckets.red)}
-  </div>
-
-  <div class="grid grid-flow-dense gap-6 md:grid-cols-2">
-    {@render TeamColumn('Observers', 'observers', buckets.observers)}
-    {@render TeamColumn('Unassigned', 'unassigned', buckets.unassigned)}
+    {#each visibleBuckets as bucket (bucket.tone)}
+      {@render TeamColumn(bucket.tone, bucket.members)}
+    {/each}
   </div>
 </div>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { canManageLobby, playerBuckets, startReadiness, type LobbyPlayer } from './lobby';
+import { canManageLobby, playerBuckets, visiblePlayerBuckets, startReadiness, type LobbyPlayer } from './lobby';
 
 const players: LobbyPlayer[] = [
   { id: 'host', displayName: 'Host', team: 'blue', spymaster: true, representative: false, mod: true },
@@ -16,6 +16,12 @@ describe('lobby helpers', () => {
       observers: [],
       unassigned: [players[2]],
     });
+  });
+
+  it('hides empty observer and unassigned panels from the rendered buckets', () => {
+    expect(visiblePlayerBuckets(players).map((bucket) => bucket.tone)).toEqual(['blue', 'red', 'unassigned']);
+    expect(visiblePlayerBuckets(players.slice(0, 2)).map((bucket) => bucket.tone)).toEqual(['blue', 'red']);
+    expect(visiblePlayerBuckets([...players, { id: 'obs', displayName: 'Observer', team: 'observers', spymaster: false, representative: false, mod: false }]).map((bucket) => bucket.tone)).toEqual(['blue', 'red', 'observers', 'unassigned']);
   });
 
   it('allows hosts and promoted mods to manage settings and roles', () => {
