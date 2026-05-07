@@ -14,6 +14,7 @@
     boardFitHeightStyle,
     cardChromeClasses,
     cardChromeStyle,
+    cardDisabledStateClasses,
     cardContentLabel,
     cardImageUrl,
     cardModeFromImageCount,
@@ -870,7 +871,7 @@
                     {@const view = cardViewState(card, card.originalIndex, showHiddenColor, lastSelected, revealedStyle)}
                     {@const customColor = card.color === 'blue' ? teamColor('blue', settings) : card.color === 'red' ? teamColor('red', settings) : ''}
                     <button
-                      class={pressableButtonClasses(['group relative col-span-[var(--card-mobile-col-span)] row-span-[var(--card-mobile-row-span)] md:col-span-[var(--card-col-span)] md:row-span-[var(--card-row-span)] rounded-xl border text-left duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', cardAspectRatioClasses(card, preferences.strictCardAspectRatios), cardChromeClasses(card, view.isLastSelected), view.classes, !role.activeGuesser || card.revealed || phase !== 'active' ? 'disabled:opacity-80' : ''].join(' '))}
+                      class={pressableButtonClasses(['group relative col-span-[var(--card-mobile-col-span)] row-span-[var(--card-mobile-row-span)] md:col-span-[var(--card-col-span)] md:row-span-[var(--card-row-span)] rounded-xl border text-left duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', cardAspectRatioClasses(card, preferences.strictCardAspectRatios), cardChromeClasses(card, view.isLastSelected), view.classes, cardDisabledStateClasses({ disabled: !role.activeGuesser || card.revealed || phase !== 'active', revealedStyle })].join(' '))}
                       style={`${imageCardGridStyle(card, activeColumns, preferences.imageCardScale, mobileColumns)} ${cardChromeStyle(card, view.visibleColor, customColor, view.isLastSelected)}`}
                       disabled={Boolean(guessDisabledReason(card))}
                       title={guessDisabledReason(card) || `Reveal ${cardContentLabel(card)}`}

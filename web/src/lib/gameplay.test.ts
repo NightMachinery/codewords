@@ -22,6 +22,7 @@ import {
   boardFitAvailableHeight,
   cardChromeClasses,
   cardChromeStyle,
+  cardDisabledStateClasses,
   imageColorFrameClasses,
   filteredBottomShortcutItems,
   shouldResetClueDraft,
@@ -531,11 +532,15 @@ describe('regression helpers', () => {
     expect(chatCueNotice({ displayName: 'Ada', body: 'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz' })).toBe('Ada: abcdefghijklmnopqrstuvwxyzabcdefghijkl…');
   });
 
-  it('keeps greyed revealed cards transparent while preserving color hints', () => {
+  it('makes greyed spymaster revealed cards transparent instead of grey', () => {
     const view = cardViewState({ contentType: 'word', word: 'castle', revealed: true, color: 'red' }, 0, true, null, 'greyed');
-    expect(view.classes).toContain('opacity-70');
+    expect(view.classes).toContain('opacity-30');
+    expect(view.classes).not.toContain('bg-slate');
+    expect(view.classes).not.toContain('text-slate');
     expect(view.classes).not.toContain('grayscale');
     expect(view.classes).not.toContain('after:bg-current');
+    expect(cardDisabledStateClasses({ disabled: true, revealedStyle: 'greyed' })).toBe('disabled:opacity-30');
+    expect(cardDisabledStateClasses({ disabled: true, revealedStyle: 'normal' })).toBe('disabled:opacity-80');
   });
 
   it('resets clue drafts on explicit reset or new clue context only', () => {

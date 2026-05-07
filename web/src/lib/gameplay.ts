@@ -435,6 +435,11 @@ export function cardChromeStyle(card: Pick<DisplayCard, 'contentType'>, visibleC
   return `border-color: ${borderColor}; background-color: ${hexWithAlpha(customColor, '40')}; color: white`;
 }
 
+export function cardDisabledStateClasses(input: { disabled: boolean; revealedStyle: 'normal' | 'greyed' | 'invisible' | 'omitted' }): string {
+  if (!input.disabled) return '';
+  return input.revealedStyle === 'greyed' ? 'disabled:opacity-30' : 'disabled:opacity-80';
+}
+
 export function imageColorFrameClasses(isLastSelected: boolean): string {
   return isLastSelected ? 'pointer-events-none absolute inset-[4px] z-20 rounded-lg border-[12px]' : '';
 }
@@ -662,7 +667,7 @@ export function cardViewState(
   let styleClasses = '';
   if (card.revealed) {
     if (revealedStyle === 'normal') styleClasses = 'opacity-95';
-    else if (revealedStyle === 'greyed') styleClasses = 'opacity-70';
+    else if (revealedStyle === 'greyed') styleClasses = 'opacity-30';
     else if (revealedStyle === 'invisible') styleClasses = 'invisible';
     else if (revealedStyle === 'omitted') styleClasses = 'hidden';
   }
