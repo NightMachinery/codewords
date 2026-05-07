@@ -844,7 +844,7 @@
                 <p class="min-w-0 truncate text-xs font-bold text-slate-300">{boardStatusMessage || 'Active clue is live.'}</p>
                 {#if currentClue}
                   <p class="shrink-0 truncate text-xs font-black text-slate-100">
-                    <span class="text-slate-500">Clue</span> {currentClue.text} · {formatClueNumber(currentClue.number)}
+                    <span class="text-slate-500">Clue:</span> {currentClue.text} · {formatClueNumber(currentClue.number)}
                   </p>
                 {/if}
               </section>

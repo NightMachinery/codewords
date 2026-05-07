@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Settings } from './api';
-  import { filteredBottomShortcutItems, displayTeamName, hexWithAlpha, pressableButtonClasses, teamColor, type ClueEntry, type GameplayPhase } from './gameplay';
+  import { filteredBottomShortcutItems, displayTeamName, formatClueNumber, hexWithAlpha, pressableButtonClasses, teamColor, type ClueEntry, type GameplayPhase } from './gameplay';
   import { Grid2X2, List, MessageSquare, Settings as SettingsIcon, SlidersHorizontal, Users, ChevronDown } from 'lucide-svelte';
   import { customSvg } from './customSvg';
   import SvgMaskIcon from './SvgMaskIcon.svelte';
@@ -58,6 +58,7 @@
   }
   let isYourTeam = $derived(role.team === currentTeam);
   let teamLabel = $derived(displayTeamName(currentTeam, settings));
+  let currentTeamPlayers = $derived(players.filter((player) => player.team === currentTeam && (currentTeam === 'blue' || currentTeam === 'red')));
   let canActNow = $derived(Boolean(phase === 'active' && isYourTeam && (role.activeGuesser || (role.kind === 'spymaster' && cluePermission.allowed))));
   let shortcutItems = $derived(filteredBottomShortcutItems(hostControls));
   let turnColor = $derived(teamColor(currentTeam, settings));
@@ -97,29 +98,46 @@
   </button>
 {:else}
 <footer id="bottom-sticky-panel" class="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-700/60 bg-slate-900/90 p-2 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] backdrop-blur-md">
-  <div class="relative mx-auto flex max-w-7xl items-center justify-between gap-2 pr-10">
-    <button
-      class={pressableButtonClasses('absolute right-0 top-0 grid h-9 w-9 place-items-center rounded-bl-2xl border-b border-l border-slate-700/80 bg-slate-950/95 text-slate-300 shadow-xl hover:border-emerald-300/60 hover:text-emerald-100')}
-      onclick={() => setControlsExpanded(false)}
-      aria-label="Collapse bottom controls"
-    >
-      <ChevronDown class="h-5 w-5" />
-    </button>
+  <button
+    class={pressableButtonClasses('absolute right-0 top-0 grid h-9 w-9 place-items-center rounded-bl-2xl border-b border-l border-slate-700/80 bg-slate-950/95 text-slate-300 shadow-xl hover:border-emerald-300/60 hover:text-emerald-100')}
+    onclick={() => setControlsExpanded(false)}
+    aria-label="Collapse bottom controls"
+  >
+    <ChevronDown class="h-5 w-5" />
+  </button>
 
+  <div class="relative mx-auto flex max-w-7xl items-center justify-between gap-2 pr-10">
     <!-- Turn/team row -->
     <div class="relative min-w-0 flex-1 md:max-w-xs">
-      <div class="relative isolate overflow-hidden rounded-2xl border border-slate-700/70 bg-slate-950/55 px-2.5 py-1.5">
+      <div class="relative isolate overflow-hidden rounded-2xl border border-slate-700/70 bg-slate-950/55 px-2.5 py-1.5" title={`${teamLabel} turn`}>
         {#if currentTeam === 'blue' || currentTeam === 'red'}
           <span class="pointer-events-none absolute -left-5 top-1/2 h-20 w-20 -translate-y-1/2 rounded-full opacity-35 blur-xl" style={`background-color: ${turnColor};`}></span>
         {/if}
-        <div class="relative z-10 flex min-w-0 items-center gap-2">
+        <div class="relative z-10 flex min-w-0 items-center gap-2" aria-label={`${teamLabel} turn${canActNow ? ', you can act now' : ''}`}>
           <span
-            class={['hidden h-3 w-3 shrink-0 rounded-full min-[380px]:block', canActNow ? 'animate-pulse' : ''].join(' ')}
+            class={['hidden h-3 w-3 shrink-0 rounded-full min-[520px]:block', canActNow ? 'animate-pulse' : ''].join(' ')}
             style={turnGlowStyle}
-            title={`${teamLabel} turn`}
-            aria-label={`${teamLabel} turn${canActNow ? ', you can act now' : ''}`}
           ></span>
-          <p class="min-w-0 flex-1 truncate text-[11px] font-black uppercase tracking-[0.16em]" style={currentTeam === 'blue' || currentTeam === 'red' ? `color: ${turnColor};` : ''}>{teamLabel}</p>
+          <div class="min-w-0 flex-1">
+            {#if currentTeamPlayers.length}
+              <div class="flex min-w-0 items-center gap-2 overflow-hidden text-[11px] font-black text-slate-100">
+                {#each currentTeamPlayers as player (player.id)}
+                  <span class="inline-flex min-w-0 shrink items-center gap-1 truncate">
+                    {#if player.spymaster}<SvgMaskIcon src={customSvg.spy} classes="h-3.5 w-3.5 shrink-0 text-cyan-100" />{/if}
+                    {#if player.representative}<SvgMaskIcon src={customSvg.representative} classes="h-3.5 w-3.5 shrink-0 text-amber-100" />{/if}
+                    <span class="truncate">{player.displayName.trim() || 'Player'}</span>
+                  </span>
+                {/each}
+              </div>
+            {:else}
+              <p class="truncate text-[11px] font-black text-slate-400">Waiting for team.</p>
+            {/if}
+            {#if currentClue}
+              <p class="mt-0.5 truncate text-[10px] font-black text-slate-100">
+                <span class="text-slate-500">Clue:</span> {currentClue.text} · {formatClueNumber(currentClue.number)}
+              </p>
+            {/if}
+          </div>
         </div>
       </div>
     </div>
@@ -177,13 +195,14 @@
       </div>
       {#if role.kind === 'spymaster'}
         <button
-          class={pressableButtonClasses(['grid h-10 w-10 place-items-center rounded-xl border', spymasterViewActive ? 'border-emerald-300/60 bg-emerald-300/15 text-emerald-100' : 'border-slate-600 bg-slate-800 text-slate-300 hover:border-emerald-300/50'].join(' '))}
+          class={pressableButtonClasses(['inline-flex h-10 w-10 items-center justify-center gap-1 rounded-xl border', spymasterViewActive ? 'border-emerald-300/60 bg-emerald-300/15 text-emerald-100' : 'border-slate-600 bg-slate-800 text-slate-300 hover:border-emerald-300/50'].join(' '))}
           onclick={onToggleView}
           aria-label={spymasterViewActive ? 'Turn spy view off' : 'Turn spy view on'}
           aria-pressed={spymasterViewActive}
           title={spymasterViewActive ? 'Spy view on' : 'Spy view off'}
         >
-<span class="relative"><SvgMaskIcon src={customSvg.spy} classes="h-5 w-5" />{#if spymasterViewActive}<span class="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-current"></span>{/if}</span>
+          <SvgMaskIcon src={customSvg.spy} classes="h-4 w-4" />
+          {#if spymasterViewActive}<span class="h-2 w-2 shrink-0 rounded-full bg-current"></span>{/if}
         </button>
       {/if}
     </div>

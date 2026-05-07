@@ -29,12 +29,12 @@
 
 {#if !expanded}
   <button
-    class={pressableButtonClasses('fixed right-0 top-0 z-40 grid h-11 w-14 place-items-center rounded-bl-2xl border-b border-l border-slate-700/70 bg-slate-900/95 text-emerald-100 shadow-2xl hover:border-emerald-300/60 hover:bg-slate-800')}
+    class={pressableButtonClasses('fixed right-0 top-0 z-40 grid h-9 w-11 place-items-center rounded-bl-xl border-b border-l border-slate-700/70 bg-slate-900/95 text-emerald-100 shadow-2xl hover:border-emerald-300/60 hover:bg-slate-800')}
     onclick={() => expanded = true}
     title="Expand chat"
     aria-label="Expand chat"
   >
-    <svg class="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
+    <svg class="h-[1.125rem] w-[1.125rem]" viewBox="0 0 24 24" aria-hidden="true">
       <path fill="currentColor" d="M4 5.5A3.5 3.5 0 0 1 7.5 2h9A3.5 3.5 0 0 1 20 5.5v6A3.5 3.5 0 0 1 16.5 15H10l-5.2 4.6A.8.8 0 0 1 3.5 19v-4.4A3.5 3.5 0 0 1 2 11.7V5.5Z" opacity="0.35" />
       <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8" d="M8 8h8M8 11h5" />
     </svg>
