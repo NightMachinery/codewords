@@ -103,9 +103,9 @@
   </button>
 {:else}
 <footer id="bottom-sticky-panel" class="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-700/60 bg-slate-900/90 p-2 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] backdrop-blur-md sm:p-3">
-  <div class="relative mx-auto flex max-w-7xl flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-4">
+  <div class="relative mx-auto flex max-w-7xl flex-col gap-2 pt-9 md:flex-row md:items-center md:justify-between md:gap-4 md:pt-0 md:pr-12">
     <button
-      class={pressableButtonClasses('absolute right-0 top-0 grid h-10 w-10 place-items-center rounded-bl-2xl border-b border-l border-slate-700/80 bg-slate-950/95 text-slate-300 shadow-xl hover:border-emerald-300/60 hover:text-emerald-100')}
+      class={pressableButtonClasses('absolute right-0 top-0 grid h-9 w-9 place-items-center rounded-bl-2xl border-b border-l border-slate-700/80 bg-slate-950/95 text-slate-300 shadow-xl hover:border-emerald-300/60 hover:text-emerald-100')}
       onclick={() => setControlsExpanded(false)}
       aria-label="Collapse bottom controls"
     >

@@ -110,7 +110,7 @@ export const defaultGameplayPreferences: GameplayPreferences = {
   confirmGuesses: true,
   confirmPasses: false,
   boardColumnsMobile: 4,
-  boardColumnsDesktop: 7,
+  boardColumnsDesktop: 8,
   imageCardScale: 4,
   strictCardAspectRatios: true,
   boardMustFitHeight: true,

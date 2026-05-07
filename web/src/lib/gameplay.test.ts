@@ -171,7 +171,7 @@ describe('local gameplay preferences', () => {
   it('defaults and clamps base board columns plus image-card scale', () => {
     expect(defaultGameplayPreferences).toMatchObject({
       boardColumnsMobile: 4,
-      boardColumnsDesktop: 7,
+      boardColumnsDesktop: 8,
       imageCardScale: 4,
       strictCardAspectRatios: true,
       boardMustFitHeight: true,
