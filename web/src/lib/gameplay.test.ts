@@ -86,6 +86,7 @@ const settings: Settings = {
   enforceClueGuessLimit: false,
   allowInfinityClue: false,
   imageCardCount: 0,
+  startingTeamHandicap: 1,
   randomizeTeams: true,
   observerChatEnabled: true,
   mixedImageOrderFirst: false,
@@ -386,6 +387,7 @@ describe('lobby card count helpers', () => {
       blueCards: 9,
       redCards: 8,
       neutralCards: 1,
+      startingTeamHandicap: 1,
       blackCards: 6,
       imageCardCount: 35,
     });
@@ -393,9 +395,25 @@ describe('lobby card count helpers', () => {
     expect(next.totalCards).toBe(30);
     expect(next.blueCards).toBe(9);
     expect(next.redCards).toBe(8);
-    expect(next.neutralCards).toBe(13);
+    expect(next.neutralCards).toBe(12);
+    expect(next.startingTeamHandicap).toBe(1);
     expect(next.blackCards).toBe(6);
     expect(next.imageCardCount).toBe(30);
+  });
+
+  it('defaults and clamps the starting-team handicap before saving', () => {
+    const next = normalizeLobbySettingsForSave({
+      ...settings,
+      totalCards: 24,
+      autoColorCounts: false,
+      blueCards: 8,
+      redCards: 8,
+      neutralCards: 7,
+      startingTeamHandicap: -3,
+    });
+
+    expect(next.startingTeamHandicap).toBe(0);
+    expect(next.neutralCards).toBe(8);
   });
 
   it('keeps automatic team counts independent of a fixed starting team', () => {
@@ -412,6 +430,18 @@ describe('lobby card count helpers', () => {
     expect(next.neutralCards).toBe(11);
   });
 
+  it('uses the starting-team handicap when normalizing automatic counts', () => {
+    const next = normalizeLobbySettingsForSave({
+      ...settings,
+      totalCards: 30,
+      autoColorCounts: true,
+      startingTeamHandicap: 2,
+    });
+
+    expect(next.startingTeamHandicap).toBe(2);
+    expect(next.neutralCards).toBe(10);
+  });
+
   it('keeps manual frontend counts within the total before saving', () => {
     const next = normalizeLobbySettingsForSave({
       ...settings,
@@ -423,9 +453,10 @@ describe('lobby card count helpers', () => {
       blackCards: 2,
     });
 
-    expect(next.blueCards).toBe(12);
+    expect(next.blueCards).toBe(11);
     expect(next.redCards).toBe(0);
     expect(next.neutralCards).toBe(0);
+    expect(next.startingTeamHandicap).toBe(1);
     expect(next.blackCards).toBe(0);
   });
 });

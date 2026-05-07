@@ -13,6 +13,7 @@ export interface Settings {
   blueCards: number;
   redCards: number;
   neutralCards: number;
+  startingTeamHandicap: number;
   wordpackId: string;
   enforceClueGuessLimit: boolean;
   allowInfinityClue: boolean;
@@ -159,6 +160,7 @@ export const defaultSettings: Settings = {
   blueCards: 9,
   redCards: 8,
   neutralCards: 8,
+  startingTeamHandicap: 1,
   wordpackId: 'english',
   enforceClueGuessLimit: false,
   allowInfinityClue: false,

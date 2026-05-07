@@ -122,8 +122,11 @@ func SettingsWithDefaults(settings Settings) Settings {
 	if !settings.AutoColorCounts && settings.BlueCards == 0 && settings.RedCards == 0 && settings.NeutralCards == 0 {
 		settings.AutoColorCounts = true
 	}
+	if settings.StartingTeamHandicap == 0 && !settings.StartingTeamHandicapSet && settings.AutoColorCounts {
+		settings.StartingTeamHandicap = 1
+	}
 	if settings.AutoColorCounts {
-		settings.NeutralCards = AutoNeutralCards(settings.TotalCards)
+		settings.NeutralCards = AutoNeutralCards(settings.TotalCards, settings.StartingTeamHandicap)
 		settings.BlueCards = 0
 		settings.RedCards = 0
 	}
@@ -131,10 +134,21 @@ func SettingsWithDefaults(settings Settings) Settings {
 }
 
 // AutoNeutralCards computes the neutral-card share for automatic color counts.
-func AutoNeutralCards(totalCards int) int {
+func AutoNeutralCards(totalCards int, startingTeamHandicap int) int {
+	maxNeutral := totalCards - startingTeamHandicap
+	if maxNeutral < 0 {
+		maxNeutral = 0
+	}
 	neutral := int(math.Round(float64(totalCards) / 3.0))
-	if (totalCards-neutral)%2 == 0 {
-		neutral++
+	if neutral > maxNeutral {
+		neutral = maxNeutral
+	}
+	if (totalCards-neutral-startingTeamHandicap)%2 != 0 {
+		if neutral < maxNeutral {
+			neutral++
+		} else if neutral > 0 {
+			neutral--
+		}
 	}
 	return neutral
 }
@@ -144,10 +158,10 @@ func EffectiveCardCounts(settings Settings, startingTeam Team) CardCounts {
 	settings = SettingsWithDefaults(settings)
 	black := settings.BlackCards
 	if settings.AutoColorCounts {
-		neutral := AutoNeutralCards(settings.TotalCards)
+		neutral := AutoNeutralCards(settings.TotalCards, settings.StartingTeamHandicap)
 		teamCards := settings.TotalCards - neutral
-		smaller := teamCards / 2
-		larger := smaller + 1
+		smaller := (teamCards - settings.StartingTeamHandicap) / 2
+		larger := smaller + settings.StartingTeamHandicap
 		counts := CardCounts{Neutral: neutral, Black: black, Civilian: neutral - black}
 		if startingTeam == TeamBlue {
 			counts.Blue = larger
@@ -159,12 +173,19 @@ func EffectiveCardCounts(settings Settings, startingTeam Team) CardCounts {
 		return counts
 	}
 	return CardCounts{
-		Blue:     settings.BlueCards,
-		Red:      settings.RedCards,
+		Blue:     settings.BlueCards + handicapForTeam(settings.StartingTeamHandicap, startingTeam, TeamBlue),
+		Red:      settings.RedCards + handicapForTeam(settings.StartingTeamHandicap, startingTeam, TeamRed),
 		Neutral:  settings.NeutralCards,
 		Black:    black,
 		Civilian: settings.NeutralCards - black,
 	}
+}
+
+func handicapForTeam(handicap int, startingTeam Team, team Team) int {
+	if startingTeam == team {
+		return handicap
+	}
+	return 0
 }
 
 // ValidateSettings rejects board settings outside supported bounds.
@@ -179,12 +200,18 @@ func ValidateSettings(settings Settings) error {
 	if settings.BlackCards < 0 {
 		return fmt.Errorf("%w: blackCards cannot be negative", ErrInvalidSettings)
 	}
-	neutral := AutoNeutralCards(settings.TotalCards)
+	if settings.StartingTeamHandicap < 0 {
+		return fmt.Errorf("%w: startingTeamHandicap cannot be negative", ErrInvalidSettings)
+	}
+	neutral := AutoNeutralCards(settings.TotalCards, settings.StartingTeamHandicap)
+	if settings.StartingTeamHandicap > settings.TotalCards-neutral {
+		return fmt.Errorf("%w: startingTeamHandicap cannot exceed team cards", ErrInvalidSettings)
+	}
 	if !settings.AutoColorCounts {
 		if settings.BlueCards < 0 || settings.RedCards < 0 || settings.NeutralCards < 0 {
 			return fmt.Errorf("%w: manual card counts cannot be negative", ErrInvalidSettings)
 		}
-		if settings.BlueCards+settings.RedCards+settings.NeutralCards != settings.TotalCards {
+		if settings.BlueCards+settings.RedCards+settings.NeutralCards+settings.StartingTeamHandicap != settings.TotalCards {
 			return fmt.Errorf("%w: manual card counts must sum to totalCards", ErrInvalidSettings)
 		}
 		neutral = settings.NeutralCards

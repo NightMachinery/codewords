@@ -22,6 +22,7 @@ const settingKeys = new Set<keyof Settings>([
   'blueCards',
   'redCards',
   'neutralCards',
+  'startingTeamHandicap',
   'wordpackId',
   'enforceClueGuessLimit',
   'allowInfinityClue',

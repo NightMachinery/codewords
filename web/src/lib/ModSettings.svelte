@@ -85,7 +85,8 @@
     if (!enabled && settings.autoColorCounts !== false) {
       const neutral = settings.neutralCards ?? 8;
       const teamCards = Math.max(0, (settings.totalCards ?? 25) - neutral);
-      settings.blueCards = Math.floor(teamCards / 2) + (teamCards % 2);
+      settings.startingTeamHandicap = 1;
+      settings.blueCards = Math.floor(teamCards / 2);
       settings.redCards = Math.floor(teamCards / 2);
     }
     settings.autoColorCounts = enabled;
@@ -93,10 +94,10 @@
     onSave();
   }
 
-  function saveManualCount(field: 'blueCards' | 'redCards' | 'neutralCards', value: string) {
+  function saveColorCount(field: 'blueCards' | 'redCards' | 'neutralCards' | 'startingTeamHandicap', value: string) {
     settings[field] = Number.parseInt(value, 10);
-    if (field === 'neutralCards') {
-      settings.totalCards = (settings.blueCards ?? 0) + (settings.redCards ?? 0) + (settings.neutralCards ?? 0);
+    if (settings.autoColorCounts === false && (field === 'neutralCards' || field === 'startingTeamHandicap')) {
+      settings.totalCards = (settings.blueCards ?? 0) + (settings.redCards ?? 0) + (settings.neutralCards ?? 0) + (settings.startingTeamHandicap ?? 0);
     }
     settings = normalizeLobbySettingsForSave(settings);
     onSave();
@@ -234,28 +235,32 @@
           Auto
         </label>
       </div>
+      <label class="mt-4 block">
+        <span class="text-xs font-bold text-slate-400">Starting team handicap</span>
+        <input class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" type="number" min="0" value={settings.startingTeamHandicap ?? 1} onchange={(event) => saveColorCount('startingTeamHandicap', event.currentTarget.value)} />
+      </label>
       {#if settings.autoColorCounts !== false}
         <div class="mt-4 grid gap-3 text-xs font-bold text-slate-400 sm:grid-cols-3">
-          <div class="rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-2">Starting team: one extra</div>
+          <div class="rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-2">Starting team handicap: {settings.startingTeamHandicap ?? 1}</div>
           <div class="rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-2">Neutral: {settings.neutralCards ?? 8}</div>
           <div class="rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-2">Civilian: {(settings.neutralCards ?? 8) - (settings.blackCards ?? 0)}</div>
         </div>
       {:else}
         <div class="mt-4 grid gap-3 sm:grid-cols-3">
           <label class="block">
-            <span class="text-xs font-bold text-slate-400">{displayTeamName('blue', settings)} cards</span>
-            <input class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" type="number" min="0" value={settings.blueCards ?? 0} onchange={(event) => saveManualCount('blueCards', event.currentTarget.value)} />
+            <span class="text-xs font-bold text-slate-400">{displayTeamName('blue', settings)} base cards</span>
+            <input class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" type="number" min="0" value={settings.blueCards ?? 0} onchange={(event) => saveColorCount('blueCards', event.currentTarget.value)} />
           </label>
           <label class="block">
-            <span class="text-xs font-bold text-slate-400">{displayTeamName('red', settings)} cards</span>
-            <input class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" type="number" min="0" value={settings.redCards ?? 0} onchange={(event) => saveManualCount('redCards', event.currentTarget.value)} />
+            <span class="text-xs font-bold text-slate-400">{displayTeamName('red', settings)} base cards</span>
+            <input class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" type="number" min="0" value={settings.redCards ?? 0} onchange={(event) => saveColorCount('redCards', event.currentTarget.value)} />
           </label>
           <label class="block">
             <span class="text-xs font-bold text-slate-400">Neutral cards</span>
-            <input class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" type="number" min="0" value={settings.neutralCards ?? 0} onchange={(event) => saveManualCount('neutralCards', event.currentTarget.value)} />
+            <input class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" type="number" min="0" value={settings.neutralCards ?? 0} onchange={(event) => saveColorCount('neutralCards', event.currentTarget.value)} />
           </label>
         </div>
-        <p class="mt-3 text-xs leading-5 text-slate-500">Manual counts can use any split; blue + red + neutral must equal total cards before the backend accepts settings.</p>
+        <p class="mt-3 text-xs leading-5 text-slate-500">Manual counts use base team counts plus a handicap applied to whichever team randomly starts; blue base + red base + neutral + starting-team handicap must equal total cards.</p>
       {/if}
     </div>
 

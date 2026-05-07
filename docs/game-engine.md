@@ -12,7 +12,7 @@ Engine commands cover player seating, team assignment, observer rejoin, moderato
 
 `game.LoadWordpacks` reads bundled `.txt` files from `assets/wordpacks`. `game.ParseWordpack` trims whitespace and skips empty or `#` comment lines. Board generation supports configurable board sizes through `Settings.TotalCards` (`9..100`, default `25`) and words-only, images-only, and mixed boards through `Settings.ImageCardCount` (`0..TotalCards`). It requires enough unique words for the non-image cards and enough unique local image ids for the image cards, selects content deterministically from the match seed, randomizes the starting team, and assigns hidden colors.
 
-Automatic color-count mode keeps the starting team one card ahead. It sets neutral cards to `round(totalCards / 3)`, increases neutral by one when needed so team cards are odd, splits the rest between teams, and treats assassins as a subset of neutral cards. Manual mode accepts any blue/red/neutral split whose sum equals `TotalCards`; assassins must be between zero and the neutral-card count.
+Automatic color-count mode applies the configured starting-team handicap to whichever team randomly starts. It sets neutral cards to `round(totalCards / 3)`, adjusts neutral when needed so team cards minus that handicap can split evenly, splits the base team cards evenly, and treats assassins as a subset of neutral cards. Manual mode accepts blue/red base counts, neutral cards, and a starting-team handicap whose sum equals `TotalCards`; the handicap is applied to whichever team randomly starts. Assassins must be between zero and the neutral-card count.
 
 ## Clues
 

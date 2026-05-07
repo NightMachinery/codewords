@@ -33,12 +33,18 @@ describe('settings profiles', () => {
     expect(profile.settings).toMatchObject({
       totalCards: 24,
       autoColorCounts: false,
-      blueCards: 9,
+      blueCards: 8,
       redCards: 8,
       neutralCards: 7,
+      startingTeamHandicap: 1,
       blackCards: 1,
       imageCardCount: 0,
     });
+    expect(profile.settings.wordpackId).toBeUndefined();
+    expect(profile.settings.teamNameBlue).toBeUndefined();
+    expect(profile.settings.teamNameRed).toBeUndefined();
+    expect(profile.settings.customColorBlue).toBeUndefined();
+    expect(profile.settings.customColorRed).toBeUndefined();
   });
 
   it('applies only known partial settings and ignores extra fields', () => {

@@ -506,18 +506,25 @@ export function clampTotalCards(value: unknown): number {
   return Math.min(maxTotalCards, Math.max(minTotalCards, Math.round(parsed)));
 }
 
-export function autoNeutralCards(totalCards: number): number {
+export function autoNeutralCards(totalCards: number, startingTeamHandicap = 1): number {
   const total = clampTotalCards(totalCards);
+  const handicap = Math.min(total, Math.max(0, Math.round(startingTeamHandicap)));
+  const maxNeutral = total - handicap;
   let neutral = Math.round(total / 3);
-  if ((total - neutral) % 2 === 0) neutral += 1;
+  if (neutral > maxNeutral) neutral = maxNeutral;
+  if ((total - neutral - handicap) % 2 !== 0) {
+    if (neutral < maxNeutral) neutral += 1;
+    else if (neutral > 0) neutral -= 1;
+  }
   return neutral;
 }
 
 export function normalizeLobbySettingsForSave(settings: Settings): Settings {
   const totalCards = clampTotalCards(settings.totalCards ?? defaultTotalCards);
   const imageCardCount = Math.min(totalCards, Math.max(0, Math.round(settings.imageCardCount ?? 0)));
+  const startingTeamHandicap = Math.min(totalCards, Math.max(0, Math.round(settings.startingTeamHandicap ?? 1)));
   if (settings.autoColorCounts !== false) {
-    const neutralCards = autoNeutralCards(totalCards);
+    const neutralCards = autoNeutralCards(totalCards, startingTeamHandicap);
     return {
       ...settings,
       totalCards,
@@ -525,6 +532,7 @@ export function normalizeLobbySettingsForSave(settings: Settings): Settings {
       blueCards: 0,
       redCards: 0,
       neutralCards,
+      startingTeamHandicap,
       blackCards: Math.min(neutralCards, Math.max(0, Math.round(settings.blackCards ?? 0))),
       imageCardCount,
     };
@@ -532,13 +540,14 @@ export function normalizeLobbySettingsForSave(settings: Settings): Settings {
 
   let blueCards = Math.max(0, Math.round(settings.blueCards ?? 0));
   let redCards = Math.max(0, Math.round(settings.redCards ?? 0));
-  if (blueCards > totalCards) {
-    blueCards = totalCards;
+  const nonHandicapCards = totalCards - startingTeamHandicap;
+  if (blueCards > nonHandicapCards) {
+    blueCards = nonHandicapCards;
     redCards = 0;
-  } else if (blueCards + redCards > totalCards) {
-    redCards = totalCards - blueCards;
+  } else if (blueCards + redCards > nonHandicapCards) {
+    redCards = nonHandicapCards - blueCards;
   }
-  const neutralCards = Math.max(0, totalCards - blueCards - redCards);
+  const neutralCards = Math.max(0, nonHandicapCards - blueCards - redCards);
   return {
     ...settings,
     totalCards,
@@ -546,6 +555,7 @@ export function normalizeLobbySettingsForSave(settings: Settings): Settings {
     blueCards,
     redCards,
     neutralCards,
+    startingTeamHandicap,
     blackCards: Math.min(neutralCards, Math.max(0, Math.round(settings.blackCards ?? 0))),
     imageCardCount,
   };

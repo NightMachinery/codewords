@@ -112,24 +112,26 @@ type Card struct {
 
 // Settings are match/lobby options owned by the engine.
 type Settings struct {
-	Seed                  int64  `json:"seed"`
-	BlackCards            int    `json:"blackCards"`
-	TotalCards            int    `json:"totalCards"`
-	AutoColorCounts       bool   `json:"autoColorCounts"`
-	BlueCards             int    `json:"blueCards"`
-	RedCards              int    `json:"redCards"`
-	NeutralCards          int    `json:"neutralCards"`
-	WordpackID            string `json:"wordpackId"`
-	EnforceClueGuessLimit bool   `json:"enforceClueGuessLimit"`
-	AllowInfinityClue     bool   `json:"allowInfinityClue"`
-	ImageCardCount        int    `json:"imageCardCount"`
-	RandomizeTeams        bool   `json:"randomizeTeams"`
-	CustomColorBlue       string `json:"customColorBlue,omitempty"`
-	CustomColorRed        string `json:"customColorRed,omitempty"`
-	ObserverChatEnabled   bool   `json:"observerChatEnabled"`
-	MixedImageOrderFirst  bool   `json:"mixedImageOrderFirst"`
-	TeamNameBlue          string `json:"teamNameBlue,omitempty"`
-	TeamNameRed           string `json:"teamNameRed,omitempty"`
+	Seed                    int64  `json:"seed"`
+	BlackCards              int    `json:"blackCards"`
+	TotalCards              int    `json:"totalCards"`
+	AutoColorCounts         bool   `json:"autoColorCounts"`
+	BlueCards               int    `json:"blueCards"`
+	RedCards                int    `json:"redCards"`
+	NeutralCards            int    `json:"neutralCards"`
+	StartingTeamHandicap    int    `json:"startingTeamHandicap"`
+	StartingTeamHandicapSet bool   `json:"-"`
+	WordpackID              string `json:"wordpackId"`
+	EnforceClueGuessLimit   bool   `json:"enforceClueGuessLimit"`
+	AllowInfinityClue       bool   `json:"allowInfinityClue"`
+	ImageCardCount          int    `json:"imageCardCount"`
+	RandomizeTeams          bool   `json:"randomizeTeams"`
+	CustomColorBlue         string `json:"customColorBlue,omitempty"`
+	CustomColorRed          string `json:"customColorRed,omitempty"`
+	ObserverChatEnabled     bool   `json:"observerChatEnabled"`
+	MixedImageOrderFirst    bool   `json:"mixedImageOrderFirst"`
+	TeamNameBlue            string `json:"teamNameBlue,omitempty"`
+	TeamNameRed             string `json:"teamNameRed,omitempty"`
 }
 
 // UnmarshalJSON gives API/DB payloads the product default for randomized team
@@ -139,6 +141,10 @@ func (s *Settings) UnmarshalJSON(data []byte) error {
 	next := settingsAlias{RandomizeTeams: true, ObserverChatEnabled: true, TotalCards: DefaultTotalCards, AutoColorCounts: true}
 	if err := json.Unmarshal(data, &next); err != nil {
 		return err
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err == nil {
+		_, next.StartingTeamHandicapSet = raw["startingTeamHandicap"]
 	}
 	*s = Settings(next)
 	return nil

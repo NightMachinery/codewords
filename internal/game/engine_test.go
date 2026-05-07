@@ -1,6 +1,7 @@
 package game
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -87,6 +88,32 @@ func TestGenerateBoardRejectsInvalidCountsAndSmallWordpacks(t *testing.T) {
 	}
 }
 
+func TestSettingsDefaultsStartingTeamHandicapOnlyWhenOmitted(t *testing.T) {
+	var omitted Settings
+	if err := json.Unmarshal([]byte(`{"autoColorCounts":true,"totalCards":25}`), &omitted); err != nil {
+		t.Fatalf("unmarshal omitted handicap: %v", err)
+	}
+	if got := SettingsWithDefaults(omitted).StartingTeamHandicap; got != 1 {
+		t.Fatalf("missing automatic handicap should default to 1, got %d", got)
+	}
+
+	var explicitZero Settings
+	if err := json.Unmarshal([]byte(`{"autoColorCounts":true,"totalCards":25,"startingTeamHandicap":0}`), &explicitZero); err != nil {
+		t.Fatalf("unmarshal explicit zero handicap: %v", err)
+	}
+	if got := SettingsWithDefaults(explicitZero).StartingTeamHandicap; got != 0 {
+		t.Fatalf("explicit zero handicap should be preserved, got %d", got)
+	}
+
+	var legacyManual Settings
+	if err := json.Unmarshal([]byte(`{"autoColorCounts":false,"totalCards":18,"blueCards":4,"redCards":6,"neutralCards":8}`), &legacyManual); err != nil {
+		t.Fatalf("unmarshal legacy manual counts: %v", err)
+	}
+	if err := ValidateSettings(legacyManual); err != nil {
+		t.Fatalf("legacy manual counts without handicap should remain valid: %v", err)
+	}
+}
+
 func TestGenerateBoardSupportsAutomaticDynamicTotals(t *testing.T) {
 	board, err := GenerateWordBoard(Settings{Seed: 4, TotalCards: 30, AutoColorCounts: true, BlackCards: 2}, makeWords(40))
 	if err != nil {
@@ -128,6 +155,20 @@ func TestGenerateBoardRandomizesAutomaticStartingTeamBySeed(t *testing.T) {
 	}
 }
 
+func TestGenerateBoardAppliesAutomaticStartingTeamHandicap(t *testing.T) {
+	board, err := GenerateWordBoard(Settings{Seed: 4, TotalCards: 30, AutoColorCounts: true, StartingTeamHandicap: 2, BlackCards: 1}, makeWords(40))
+	if err != nil {
+		t.Fatalf("generate automatic handicap board: %v", err)
+	}
+	counts := countColors(board.Cards)
+	if counts[board.StartingTeam.Color()] != counts[board.StartingTeam.Opponent().Color()]+2 {
+		t.Fatalf("starting team should carry configured handicap, got %#v", counts)
+	}
+	if counts[ColorCivilian] != 9 {
+		t.Fatalf("expected automatic neutral share to account for handicap, got %#v", counts)
+	}
+}
+
 func TestGenerateBoardSupportsManualDynamicTotals(t *testing.T) {
 	settings := Settings{
 		Seed:            5,
@@ -150,6 +191,39 @@ func TestGenerateBoardSupportsManualDynamicTotals(t *testing.T) {
 	settings.NeutralCards = 7
 	if _, err := GenerateWordBoard(settings, makeWords(30)); !errors.Is(err, ErrInvalidSettings) {
 		t.Fatalf("expected invalid settings for manual counts that do not sum to total, got %v", err)
+	}
+}
+
+func TestGenerateBoardAppliesManualStartingTeamHandicapToRandomStartingTeam(t *testing.T) {
+	seen := map[Team]bool{}
+	for seed := int64(1); seed <= 20; seed++ {
+		board, err := GenerateWordBoard(Settings{
+			Seed:                 seed,
+			TotalCards:           24,
+			AutoColorCounts:      false,
+			BlueCards:            8,
+			RedCards:             8,
+			NeutralCards:         7,
+			StartingTeamHandicap: 1,
+			BlackCards:           1,
+		}, makeWords(30))
+		if err != nil {
+			t.Fatalf("generate manual handicap board for seed %d: %v", seed, err)
+		}
+		seen[board.StartingTeam] = true
+		counts := countColors(board.Cards)
+		if counts[board.StartingTeam.Color()] != 9 {
+			t.Fatalf("seed %d starting team %s should receive manual handicap, got %#v", seed, board.StartingTeam, counts)
+		}
+		if counts[board.StartingTeam.Opponent().Color()] != 8 {
+			t.Fatalf("seed %d opposing team should stay at base count, got %#v", seed, counts)
+		}
+		if counts[ColorBlack] != 1 || counts[ColorCivilian] != 6 {
+			t.Fatalf("seed %d neutral counts changed unexpectedly: %#v", seed, counts)
+		}
+	}
+	if !seen[TeamBlue] || !seen[TeamRed] {
+		t.Fatalf("manual boards should still randomize starting team by seed, got %#v", seen)
 	}
 }
 
