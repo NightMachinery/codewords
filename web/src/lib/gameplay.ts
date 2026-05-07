@@ -435,25 +435,17 @@ export function cardChromeStyle(card: Pick<DisplayCard, 'contentType'>, visibleC
   return `border-color: ${borderColor}; background-color: ${hexWithAlpha(customColor, '40')}; color: white`;
 }
 
-export function cardDisabledStateClasses(input: { disabled: boolean; revealedStyle: 'normal' | 'greyed' | 'invisible' | 'omitted' }): string {
+export function cardDisabledStateClasses(input: { disabled: boolean; revealed?: boolean; revealedStyle: 'normal' | 'greyed' | 'invisible' | 'omitted' }): string {
   if (!input.disabled) return '';
-  return input.revealedStyle === 'greyed' ? 'disabled:opacity-30' : 'disabled:opacity-80';
+  return input.revealed && input.revealedStyle === 'greyed' ? 'disabled:opacity-30' : 'disabled:opacity-80';
 }
 
 export function imageColorFrameClasses(isLastSelected: boolean): string {
   return isLastSelected ? 'pointer-events-none absolute inset-[4px] z-20 rounded-lg border-[12px]' : '';
 }
 
-export function selectedImageOverlayStyle(visibleColor: VisibleCardColor, customColor: string): string {
-  const fallback = {
-    blue: '#93c5fd',
-    red: '#fca5a5',
-    black: '#d4d4d8',
-    civilian: '#fde68a',
-    hidden: '#e5e7eb',
-  }[visibleColor];
-  const border = (visibleColor === 'blue' || visibleColor === 'red') && customColor ? customColor : fallback;
-  return `border-color: ${border}; box-shadow: inset 0 0 0 4px rgba(167, 243, 208, 0.9);`;
+export function selectedImageOverlayStyle(_visibleColor: VisibleCardColor, _customColor: string): string {
+  return 'border-color: rgba(167, 243, 208, 0.95);';
 }
 
 export function boardGridClasses(): string {

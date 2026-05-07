@@ -359,8 +359,7 @@ describe('board card state', () => {
     expect(cardChromeStyle(word, 'blue', '#2563eb', true)).toContain('background-color: #2563eb40');
 
     const overlay = selectedImageOverlayStyle('blue', '#2563eb');
-    expect(overlay).toContain('border-color: #2563eb');
-    expect(overlay).toContain('box-shadow: inset 0 0 0 4px');
+    expect(overlay).toBe('border-color: rgba(167, 243, 208, 0.95);');
   });
 
   it('cues only when a card transitions from unrevealed to revealed', () => {
@@ -539,8 +538,9 @@ describe('regression helpers', () => {
     expect(view.classes).not.toContain('text-slate');
     expect(view.classes).not.toContain('grayscale');
     expect(view.classes).not.toContain('after:bg-current');
-    expect(cardDisabledStateClasses({ disabled: true, revealedStyle: 'greyed' })).toBe('disabled:opacity-30');
-    expect(cardDisabledStateClasses({ disabled: true, revealedStyle: 'normal' })).toBe('disabled:opacity-80');
+    expect(cardDisabledStateClasses({ disabled: true, revealed: true, revealedStyle: 'greyed' })).toBe('disabled:opacity-30');
+    expect(cardDisabledStateClasses({ disabled: true, revealed: false, revealedStyle: 'greyed' })).toBe('disabled:opacity-80');
+    expect(cardDisabledStateClasses({ disabled: true, revealed: true, revealedStyle: 'normal' })).toBe('disabled:opacity-80');
   });
 
   it('resets clue drafts on explicit reset or new clue context only', () => {
