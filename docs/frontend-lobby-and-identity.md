@@ -83,3 +83,15 @@ When a playable-team member becomes an observer, the room remembers that player�
 When a live snapshot transitions into `game_over`, each viewer receives a local-only cue based on their own result: winning-team players get a celebratory cue, losing-team players get a subdued cue, and spectators or observers get a neutral winner cue. The cue only fires on the transition, not when loading a room that already ended, and it respects the browser-local end-game sound and visual cue toggles.
 
 The game-over panel includes a **Capture Memory** button. It generates a client-side PNG from the final snapshot with the room id, timestamp, winner, losing team, team rosters, and final board. Word cards render as labeled colored tiles. Picture cards try to draw the same-origin `/api/pictures/{imageId}` thumbnail and fall back to a labeled tile if an image cannot be loaded.
+
+## May 2026 UI/profile polish
+
+The room header now carries compact action buttons for copying the room link, creating a migrate-device link, and moderator-only active-match restart. General UI actions use Lucide icons; bespoke game glyphs are stored as SVG files in `assets/SVG/` and consumed by the Svelte UI instead of being hand-inlined in components.
+
+Local board layout defaults now use strict ratios, seven desktop columns, and large 2×4 image cards. The optional default-on “Board must fit height” mode applies on desktop/tablet only: it subtracts the measured bottom sticky control panel from viewport height, then narrows and centers the board so the card area fits in the remaining vertical space. Mobile keeps the board full-width.
+
+Starting-lobby moderator settings support JSON5 setting profiles. Bundled defaults live in `assets/profiles/`, browser-saved profiles live in LocalStorage, and profile loading applies only known room setting fields so partial profiles are safe and extra fields are ignored. Mid-game moderator settings hide lobby-only board-generation controls and keep only live/cosmetic controls plus round tools.
+
+The active board uses a continuous segmented remaining-count bar with SVG card-type icons. Image cards connect their color border directly to the image, last-selected cards keep the outer selection treatment while card color becomes an inner border, and the greyed spymaster reveal style is opacity-only instead of adding grey overlays.
+
+The production favicon is generated from `favicon/0.png` into `web/public/favicon.png` at a compressed 512×512 size and linked from `web/index.html`.
