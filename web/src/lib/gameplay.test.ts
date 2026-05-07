@@ -639,4 +639,39 @@ describe('end-game memory and cues', () => {
     expect(deterministicRoastLine(input)).toBe(deterministicRoastLine(input));
     expect(deterministicRoastLine({ ...input, disabled: true })).toBe('');
   });
+
+  it('skips commented roast lines and replaces expanded team/player placeholders', () => {
+    const input = {
+      roomId: 'abc123',
+      winnerTeam: 'River Guild',
+      loserTeam: 'Sun Court',
+      winningPlayers: ['Blue Guess'],
+      losingPlayers: ['Red Guess'],
+      winningSpymasters: ['Blue Spy'],
+      losingSpymasters: ['Red Spy'],
+      winningGuessers: ['Blue Guess'],
+      losingGuessers: ['Red Guess'],
+      templates: [
+        '# {LOSER_TEAM} should never render',
+        '   # indented comments should never render either',
+        '',
+        '{WINNER_TEAM} beat {LOSER_TEAM}; {RANDOM_WINNING_SPYMASTER} outcalled {RANDOM_LOSING_SPYMASTER}; {RANDOM_WINNING_GUESSER} dragged {RANDOM_LOSING_GUESSER}; {RANDOM_WINNING_PLAYER} cleared {RANDOM_LOSING_PLAYER}.',
+      ],
+      disabled: false,
+    };
+
+    expect(deterministicRoastLine(input)).toBe('River Guild beat Sun Court; Blue Spy outcalled Red Spy; Blue Guess dragged Red Guess; Blue Guess cleared Red Guess.');
+  });
+
+  it('falls expanded player placeholders back to the relevant team name', () => {
+    const input = {
+      roomId: 'abc123',
+      winnerTeam: 'River Guild',
+      loserTeam: 'Sun Court',
+      templates: ['{RANDOM_WINNING_PLAYER} beat {RANDOM_LOSING_GUESSER}.'],
+      disabled: false,
+    };
+
+    expect(deterministicRoastLine(input)).toBe('River Guild beat Sun Court.');
+  });
 });

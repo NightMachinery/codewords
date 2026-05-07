@@ -743,14 +743,15 @@ export function buildMemoryCaptureModel(input: {
   generatedAt?: Date;
 }): MemoryCaptureModel {
   const loser = input.winner === 'blue' ? 'red' : 'blue';
+  const playerNamesForTeam = (key: 'blue' | 'red', predicate: (player: LobbyPlayer) => boolean = () => true): string[] => input.players
+    .filter((player) => player.team === key && predicate(player))
+    .map((player) => player.displayName.trim())
+    .filter(Boolean);
   const team = (key: 'blue' | 'red'): MemoryCaptureTeam => ({
     key,
     name: displayTeamName(key, input.settings),
     color: teamColor(key, input.settings),
-    players: input.players
-      .filter((player) => player.team === key)
-      .map((player) => player.displayName.trim())
-      .filter(Boolean),
+    players: playerNamesForTeam(key),
   });
   const sorted = displayCards(input.cards, cardModeFromImageCount(input.settings.imageCardCount ?? 0, input.settings.totalCards ?? defaultTotalCards), input.settings.mixedImageOrderFirst);
   const generatedAt = input.generatedAt ?? new Date();
@@ -762,14 +763,17 @@ export function buildMemoryCaptureModel(input: {
     minute: '2-digit',
   }).format(generatedAt);
   const loserTeam = displayTeamName(loser, input.settings);
-  const losingSpymasters = input.players
-    .filter((player) => player.team === loser && player.spymaster)
-    .map((player) => player.displayName.trim())
-    .filter(Boolean);
+  const winnerTeam = displayTeamName(input.winner, input.settings);
   const roastLine = deterministicRoastLine({
     roomId: input.roomId,
+    winnerTeam,
     loserTeam,
-    losingSpymasters,
+    winningPlayers: playerNamesForTeam(input.winner),
+    losingPlayers: playerNamesForTeam(loser),
+    winningSpymasters: playerNamesForTeam(input.winner, (player) => player.spymaster),
+    losingSpymasters: playerNamesForTeam(loser, (player) => player.spymaster),
+    winningGuessers: playerNamesForTeam(input.winner, (player) => !player.spymaster),
+    losingGuessers: playerNamesForTeam(loser, (player) => !player.spymaster),
     templates: input.roastTemplates ?? [],
     disabled: Boolean(input.settings.memoryRoastsDisabled),
   });
@@ -796,21 +800,39 @@ export function buildMemoryCaptureModel(input: {
 
 export function deterministicRoastLine(input: {
   roomId: string;
+  winnerTeam?: string;
   loserTeam: string;
-  losingSpymasters: string[];
+  winningPlayers?: string[];
+  losingPlayers?: string[];
+  winningSpymasters?: string[];
+  losingSpymasters?: string[];
+  winningGuessers?: string[];
+  losingGuessers?: string[];
   templates: string[];
   disabled: boolean;
 }): string {
   if (input.disabled) return '';
-  const templates = input.templates.map((line) => line.trim()).filter(Boolean);
+  const templates = input.templates
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'));
   if (!templates.length) return '';
   const seed = hashString(`${input.roomId}:${input.loserTeam}`);
   const template = templates[seed % templates.length];
-  const names = input.losingSpymasters.length ? input.losingSpymasters : [input.loserTeam];
-  const spymaster = names[seed % names.length];
+  const winnerTeam = input.winnerTeam?.trim() || 'Winning team';
+  const pick = (names: string[] | undefined, fallback: string): string => {
+    const available = names?.map((name) => name.trim()).filter(Boolean) ?? [];
+    return available.length ? available[seed % available.length] : fallback;
+  };
+
   return template
+    .replaceAll('{WINNER_TEAM}', winnerTeam)
     .replaceAll('{LOSER_TEAM}', input.loserTeam)
-    .replaceAll('{RANDOM_LOSING_SPYMASTER}', spymaster);
+    .replaceAll('{RANDOM_WINNING_PLAYER}', pick(input.winningPlayers, winnerTeam))
+    .replaceAll('{RANDOM_LOSING_PLAYER}', pick(input.losingPlayers, input.loserTeam))
+    .replaceAll('{RANDOM_WINNING_SPYMASTER}', pick(input.winningSpymasters, winnerTeam))
+    .replaceAll('{RANDOM_LOSING_SPYMASTER}', pick(input.losingSpymasters, input.loserTeam))
+    .replaceAll('{RANDOM_WINNING_GUESSER}', pick(input.winningGuessers, winnerTeam))
+    .replaceAll('{RANDOM_LOSING_GUESSER}', pick(input.losingGuessers, input.loserTeam));
 }
 
 export function hashString(value: string): number {

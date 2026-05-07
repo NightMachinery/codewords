@@ -1,5 +1,62 @@
+# Codewords roast pack v1
+# Blank lines and lines starting with # are ignored.
+# Placeholders:
+# {WINNER_TEAM} - displayed name of the winning team
+# {LOSER_TEAM} - displayed name of the losing team
+# {RANDOM_WINNING_PLAYER} - deterministic winning-team player, fallback: winner team name
+# {RANDOM_LOSING_PLAYER} - deterministic losing-team player, fallback: loser team name
+# {RANDOM_WINNING_SPYMASTER} - deterministic winning spymaster, fallback: winner team name
+# {RANDOM_LOSING_SPYMASTER} - deterministic losing spymaster, fallback: loser team name
+# {RANDOM_WINNING_GUESSER} - deterministic winning non-spymaster, fallback: winner team name
+# {RANDOM_LOSING_GUESSER} - deterministic losing non-spymaster, fallback: loser team name
+
 {LOSER_TEAM} brought vibes, not answers.
 It is all {RANDOM_LOSING_SPYMASTER}'s fault! -_-
 {LOSER_TEAM} got folded by a board with pictures on it.
 Someone check on {RANDOM_LOSING_SPYMASTER}; that clue aged like milk.
 {LOSER_TEAM} are all losers😏
+{WINNER_TEAM} read the room; {LOSER_TEAM} read the patch notes upside down.
+{RANDOM_WINNING_SPYMASTER} cooked a clue. {RANDOM_LOSING_SPYMASTER} microwaved confusion.
+{RANDOM_LOSING_GUESSER} clicked like the card owed them money.
+{LOSER_TEAM} just speedran the tutorial and still missed the basics.
+{WINNER_TEAM} brought strategy. {LOSER_TEAM} brought a group project energy crisis.
+{RANDOM_LOSING_SPYMASTER}'s clue had the structural integrity of wet cardboard.
+{RANDOM_WINNING_GUESSER} farmed highlights off {RANDOM_LOSING_PLAYER}.
+{LOSER_TEAM} got outplayed by nouns, pixels, and basic pattern recognition.
+{WINNER_TEAM} made it look scripted; {LOSER_TEAM} made it look patched wrong.
+{RANDOM_LOSING_GUESSER} was one click away from uninstalling common sense.
+{RANDOM_WINNING_SPYMASTER} called game while {RANDOM_LOSING_SPYMASTER} called tech support.
+{LOSER_TEAM} took a tactical timeout and came back worse.
+{WINNER_TEAM} solved the board; {LOSER_TEAM} got solved by it.
+{RANDOM_LOSING_PLAYER} played like the assassin was offering loyalty points.
+{RANDOM_WINNING_PLAYER} put {LOSER_TEAM} in spectator mode emotionally.
+{LOSER_TEAM} got checkmated in a game with no kings.
+{RANDOM_LOSING_SPYMASTER} dropped a clue so cold it lowered the lobby MMR.
+{WINNER_TEAM} had chemistry. {LOSER_TEAM} had incident reports.
+{RANDOM_LOSING_GUESSER} clicked with the confidence of someone not reading chat.
+{LOSER_TEAM} didn't lose; they submitted a bug report with their gameplay.
+{RANDOM_WINNING_GUESSER} understood the assignment. {RANDOM_LOSING_GUESSER} submitted blank paper.
+{WINNER_TEAM} ran the table while {LOSER_TEAM} rearranged deck chairs.
+{RANDOM_LOSING_SPYMASTER}'s master plan needed subtitles and an apology.
+{LOSER_TEAM} turned a clue into a crime scene.
+{RANDOM_WINNING_PLAYER} walked through {LOSER_TEAM}'s defense like it was a loading screen.
+{WINNER_TEAM} played Codewords. {LOSER_TEAM} played Guess and Regret.
+{RANDOM_LOSING_PLAYER} found the only wrong answer with GPS accuracy.
+{RANDOM_WINNING_SPYMASTER} gave a clue; {RANDOM_LOSING_SPYMASTER} gave content.
+{LOSER_TEAM} got routed so hard the board asked if they needed directions.
+{WINNER_TEAM} had a plan. {LOSER_TEAM} had a podcast-length debate and still clicked wrong.
+{RANDOM_LOSING_GUESSER} treated red flags like collectibles.
+{LOSER_TEAM} brought main-character confidence to NPC decision-making.
+{RANDOM_WINNING_GUESSER} packed a parachute; {RANDOM_LOSING_PLAYER} packed a shovel.
+{WINNER_TEAM} left footprints. {LOSER_TEAM} left evidence.
+{RANDOM_LOSING_SPYMASTER} gave a clue that should have come with a refund window.
+{LOSER_TEAM} got diffed by a static board.
+{RANDOM_WINNING_PLAYER} sent {RANDOM_LOSING_PLAYER} back to lobby theorycrafting.
+{WINNER_TEAM} found synergy. {LOSER_TEAM} found new ways to disappoint probability.
+{RANDOM_LOSING_GUESSER} clicked first and asked questions in the afterlife.
+{LOSER_TEAM} played like every card was a trap and still stepped on one.
+{RANDOM_WINNING_SPYMASTER} ran comms; {RANDOM_LOSING_SPYMASTER} ran a mystery box.
+{WINNER_TEAM} cashed the win. {LOSER_TEAM} paid in dignity.
+{RANDOM_LOSING_PLAYER} had a read so bad the board filed a restraining order.
+{LOSER_TEAM} came for the crown and left with homework.
+{RANDOM_WINNING_GUESSER} speedran competence while {RANDOM_LOSING_GUESSER} buffered.
