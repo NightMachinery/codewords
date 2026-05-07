@@ -1,0 +1,15 @@
+{
+  name: 'Vanilla',
+  settings: {
+    totalCards: 25,
+    blackCards: 1,
+    autoColorCounts: true,
+    wordpackId: 'english',
+    imageCardCount: 0,
+    mixedImageOrderFirst: false,
+    enforceClueGuessLimit: false,
+    allowInfinityClue: false,
+    observerChatEnabled: true,
+    randomizeTeams: true,
+  },
+}

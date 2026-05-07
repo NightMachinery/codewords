@@ -1,5 +1,7 @@
 <script lang="ts">
   import type { PictureAsset, Settings, Wordpack } from './api';
+  import { Download, FileUp, Save, Upload } from 'lucide-svelte';
+  import type { SettingsProfile } from './settingsProfiles';
   import { cardModeFromImageCount, colorPickerCtaLabel, colorSettingsGridClasses, displayTeamName, imageCountForMode, isValidHexColor, modSettingsShellClasses, normalizeLobbySettingsForSave, teamColor, teamColorControlClasses } from './gameplay';
 
   interface Props {
@@ -17,6 +19,12 @@
     onShuffleRoles: () => void;
     onResetClue: () => void;
     onRestartMatch: () => void;
+    profiles?: SettingsProfile[];
+    profileNotice?: string;
+    onApplyProfile?: (profile: SettingsProfile) => void;
+    onSaveProfile?: (name: string) => void;
+    onExportProfile?: (profile: SettingsProfile) => void;
+    onImportProfileText?: (text: string) => void;
   }
 
   let {
@@ -33,11 +41,20 @@
     onRandomizeTeams,
     onShuffleRoles,
     onResetClue,
-    onRestartMatch
+    onRestartMatch,
+    profiles = [],
+    profileNotice = '',
+    onApplyProfile = () => {},
+    onSaveProfile = () => {},
+    onExportProfile = () => {},
+    onImportProfileText = () => {}
   }: Props = $props();
 
   let cardMode = $derived(cardModeFromImageCount(settings.imageCardCount ?? 0, settings.totalCards ?? 25));
   let openColorPicker = $state<'blue' | 'red' | null>(null);
+  let selectedProfileId = $state('');
+  let profileNameDraft = $state('');
+  let profileFileInput = $state<HTMLInputElement | null>(null);
   const colorPresets = [
     '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e', '#10b981', '#14b8a6', '#06b6d4',
     '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899', '#f43f5e', '#64748b',
@@ -114,6 +131,26 @@
     else settings.customColorRed = '';
     onSave();
   }
+
+  function selectedProfile() {
+    return profiles.find((profile) => profile.id === selectedProfileId) ?? profiles[0];
+  }
+
+  function applySelectedProfile() {
+    const profile = selectedProfile();
+    if (profile) onApplyProfile(profile);
+  }
+
+  function exportSelectedProfile() {
+    const profile = selectedProfile();
+    if (profile) onExportProfile(profile);
+  }
+
+  async function importProfileFile(file: File | undefined) {
+    if (!file) return;
+    onImportProfileText(await file.text());
+    if (profileFileInput) profileFileInput.value = '';
+  }
 </script>
 
 <section id="settings" class={modSettingsShellClasses()}>
@@ -143,6 +180,29 @@
       </div>
     {/if}
 
+    {#if phase === 'lobby'}
+      <div class="space-y-3 rounded-2xl border border-slate-700 bg-slate-950/50 p-4">
+        <div class="flex items-center justify-between gap-3">
+          <span class="text-xs font-black uppercase tracking-widest text-slate-300">Setting profiles</span>
+          {#if profileNotice}<span class="text-xs font-bold text-emerald-200">{profileNotice}</span>{/if}
+        </div>
+        <select class="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" bind:value={selectedProfileId}>
+          {#each profiles as profile (profile.id)}
+            <option value={profile.id}>{profile.name}{profile.source === 'bundled' ? ' · default' : ' · saved'}</option>
+          {/each}
+        </select>
+        <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <button class="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-300/40 bg-emerald-300/10 px-3 py-2 text-xs font-black text-emerald-100 hover:bg-emerald-300/20" type="button" disabled={!selectedProfile()} onclick={applySelectedProfile}><Upload class="h-4 w-4" />Apply</button>
+          <button class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-600 px-3 py-2 text-xs font-black text-slate-100 hover:border-emerald-300/60" type="button" disabled={!selectedProfile()} onclick={exportSelectedProfile}><Download class="h-4 w-4" />Export</button>
+          <button class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-600 px-3 py-2 text-xs font-black text-slate-100 hover:border-emerald-300/60" type="button" onclick={() => profileFileInput?.click()}><FileUp class="h-4 w-4" />Import</button>
+          <button class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-600 px-3 py-2 text-xs font-black text-slate-100 hover:border-emerald-300/60" type="button" onclick={() => onSaveProfile(profileNameDraft)}><Save class="h-4 w-4" />Save</button>
+        </div>
+        <input class="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" bind:value={profileNameDraft} placeholder="New profile name" />
+        <input bind:this={profileFileInput} class="hidden" type="file" accept=".json5,.json,application/json" onchange={(event) => void importProfileFile(event.currentTarget.files?.[0])} />
+      </div>
+    {/if}
+
+    {#if phase === 'lobby'}
     <!-- Game Rules -->
     <div class={colorSettingsGridClasses()}>
       <label class="block">
@@ -222,6 +282,8 @@
         </label>
       {/if}
     </div>
+
+    {/if}
 
     <!-- Advanced Settings -->
     <div class="space-y-3">

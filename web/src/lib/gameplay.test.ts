@@ -18,6 +18,8 @@ import {
   boardGridContainerClasses,
   boardGridClasses,
   boardGridStyle,
+  boardFitHeightStyle,
+  boardFitAvailableHeight,
   clampBoardColumns,
   clampImageCardScale,
   pressableButtonClasses,
@@ -146,7 +148,7 @@ describe('local gameplay preferences', () => {
     expect(readGameplayPreferences(storage)).toEqual(defaultGameplayPreferences);
     expect(defaultGameplayPreferences.spymasterRevealedStyle).toBe('invisible');
 
-    const saved: GameplayPreferences = { confirmGuesses: false, confirmPasses: true, boardColumnsMobile: 4, boardColumnsDesktop: 5, imageCardScale: 8, strictCardAspectRatios: true, chatSound: false, chatVisualCue: false, cardChoiceSound: false, cardChoiceVisualCue: true, clueSound: true, clueVisualCue: false, endGameSound: true, endGameVisualCue: true, spymasterRevealedStyle: 'greyed' };
+    const saved: GameplayPreferences = { confirmGuesses: false, confirmPasses: true, boardColumnsMobile: 4, boardColumnsDesktop: 5, imageCardScale: 8, strictCardAspectRatios: true, boardMustFitHeight: false, chatSound: false, chatVisualCue: false, cardChoiceSound: false, cardChoiceVisualCue: true, clueSound: true, clueVisualCue: false, endGameSound: true, endGameVisualCue: true, spymasterRevealedStyle: 'greyed' };
     writeGameplayPreferences(storage, saved);
     expect(readGameplayPreferences(storage)).toEqual(saved);
 
@@ -157,8 +159,9 @@ describe('local gameplay preferences', () => {
     expect(readGameplayPreferences(storage)).toMatchObject({
       boardColumnsMobile: 7,
       boardColumnsDesktop: 7,
-      imageCardScale: 2,
+      imageCardScale: 4,
       strictCardAspectRatios: true,
+      boardMustFitHeight: true,
     });
   });
 
@@ -166,8 +169,9 @@ describe('local gameplay preferences', () => {
     expect(defaultGameplayPreferences).toMatchObject({
       boardColumnsMobile: 4,
       boardColumnsDesktop: 7,
-      imageCardScale: 2,
+      imageCardScale: 4,
       strictCardAspectRatios: true,
+      boardMustFitHeight: true,
     });
     expect(clampBoardColumns(99)).toBe(13);
     expect(clampBoardColumns(0)).toBe(1);
@@ -175,7 +179,7 @@ describe('local gameplay preferences', () => {
     expect(clampImageCardScale(2)).toBe(2);
     expect(clampImageCardScale(4)).toBe(4);
     expect(clampImageCardScale(8)).toBe(8);
-    expect(clampImageCardScale(3)).toBe(2);
+    expect(clampImageCardScale(3)).toBe(4);
   });
 
   it('persists strict card aspect ratios and maps card type to aspect classes', () => {
@@ -201,7 +205,7 @@ describe('local gameplay preferences', () => {
     expect(readGameplayPreferences(storage)).toMatchObject({
       boardColumnsMobile: 3,
       boardColumnsDesktop: 6,
-      imageCardScale: 2,
+      imageCardScale: 4,
     });
   });
 
@@ -219,6 +223,13 @@ describe('local gameplay preferences', () => {
     expect(boardGridStyle(4, 5)).toBe('--mobile-card-columns: 4; --card-columns: 5; --card-mobile-grid-row: calc(((100cqw - 3 * 0.5rem) / 4 * 0.75) - 0.25rem); --card-grid-row: calc(((100cqw - 4 * 0.75rem) / 5 * 0.75) - 0.375rem);');
     expect(boardGridContainerClasses()).toBe('[container-type:inline-size]');
     expect(boardGridClasses()).toBe('[grid-auto-rows:var(--card-mobile-grid-row)] md:[grid-auto-rows:var(--card-grid-row)]');
+  });
+
+  it('computes desktop board fit height using viewport minus sticky bottom panel', () => {
+    expect(boardFitAvailableHeight({ viewportHeight: 900, boardTop: 120, bottomPanelHeight: 180, verticalMargin: 24 })).toBe(576);
+    expect(boardFitHeightStyle({ enabled: false, isMobile: false, viewportHeight: 900, boardTop: 120, bottomPanelHeight: 180, boardNaturalWidth: 1000, boardNaturalHeight: 800 })).toBe('');
+    expect(boardFitHeightStyle({ enabled: true, isMobile: true, viewportHeight: 900, boardTop: 120, bottomPanelHeight: 180, boardNaturalWidth: 1000, boardNaturalHeight: 800 })).toBe('');
+    expect(boardFitHeightStyle({ enabled: true, isMobile: false, viewportHeight: 900, boardTop: 120, bottomPanelHeight: 180, boardNaturalWidth: 1000, boardNaturalHeight: 800, verticalMargin: 24 })).toBe('max-width: 720px; margin-left: auto; margin-right: auto;');
   });
 
   it('defaults collapsible panel preferences open and persists changes', () => {
@@ -458,9 +469,9 @@ describe('regression helpers', () => {
 
   it('keeps greyed revealed cards transparent while preserving color hints', () => {
     const view = cardViewState({ contentType: 'word', word: 'castle', revealed: true, color: 'red' }, 0, true, null, 'greyed');
-    expect(view.classes).toContain('opacity-45');
+    expect(view.classes).toContain('opacity-70');
     expect(view.classes).not.toContain('grayscale');
-    expect(view.classes).toContain('after:bg-current');
+    expect(view.classes).not.toContain('after:bg-current');
   });
 
   it('builds distinct clue log keys for reset and re-submit rows in the same round', async () => {

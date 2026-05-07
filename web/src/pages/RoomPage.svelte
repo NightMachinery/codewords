@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
+  import { Copy, Power, Smartphone } from 'lucide-svelte';
 
   import { api, defaultSettings, type ChatMessage, type PictureAsset, type Settings, type Viewer, type Wordpack } from '../lib/api';
   import { copyText } from '../lib/clipboard';
@@ -10,6 +11,7 @@
     boardGridContainerClasses,
     boardGridClasses,
     boardGridStyle,
+    boardFitHeightStyle,
     cardContentLabel,
     cardImageUrl,
     cardModeFromImageCount,
@@ -55,8 +57,11 @@
   } from '../lib/gameplay';
   import { downloadMemoryCapture } from '../lib/memoryCapture';
   import { getOrCreateAuthToken, resolveSessionCredential, type SessionCredential } from '../lib/identity';
-  import { canManageLobby, playerBuckets, startReadiness, type LobbyPlayer } from '../lib/lobby';
+  import { canManageLobby, startReadiness, type LobbyPlayer } from '../lib/lobby';
   import { RoomSocket, type BoardLayoutPreferences, type RoomSocketMessage } from '../lib/realtime';
+  import { applySettingsProfile, exportSettingsProfileJson5, parseSettingsProfileJson5, profileFromSettings, readSavedProfiles, writeSavedProfiles, type SettingsProfile } from '../lib/settingsProfiles';
+  import vanillaProfileText from '../../../assets/profiles/vanilla.json5?raw';
+  import mildlyMixedProfileText from '../../../assets/profiles/mildly-mixed.json5?raw';
   import { roomIdFromPath, roomPath, websocketRoomUrl } from '../lib/routes';
 
   import PlayerList from '../lib/PlayerList.svelte';
@@ -64,6 +69,8 @@
   import BottomControls from '../lib/BottomControls.svelte';
   import FitCardWord from '../lib/FitCardWord.svelte';
   import ModSettings from '../lib/ModSettings.svelte';
+  import { customSvg } from '../lib/customSvg';
+  import SvgMaskIcon from '../lib/SvgMaskIcon.svelte';
 
   let roomId = $state('');
   let roomStatus = $state('lobby');
@@ -108,8 +115,12 @@
   let previousCardsForCue: GameplayCard[] = [];
   let lastClueSignature = '';
   let spymasterViewActive = $state(true);
+  let localProfiles = $state<SettingsProfile[]>([]);
+  let profileNotice = $state('');
+  let boardShell = $state<HTMLElement | null>(null);
+  let boardFitStyle = $state('');
+  let resizeObserver: ResizeObserver | null = null;
 
-  let buckets = $derived(playerBuckets(players));
   let cardMode = $derived(cardModeFromImageCount(settings.imageCardCount ?? 0, settings.totalCards ?? 25));
   let sortedCards = $derived(displayCards(cards, cardMode, settings.mixedImageOrderFirst));
   let canRandomizeTeams = $derived(players.filter((player) => player.team !== 'observers').length >= 2);
@@ -127,13 +138,34 @@
   let passProblem = $derived(passDisabledReason());
   let activeColumns = $derived(preferences.boardColumnsDesktop);
   let mobileColumns = $derived(preferences.boardColumnsMobile);
+  let bundledProfiles = $derived([vanillaProfileText, mildlyMixedProfileText].map((text) => ({ ...parseSettingsProfileJson5(text), source: 'bundled' as const })));
+  let allProfiles = $derived([...bundledProfiles, ...localProfiles]);
 
   onMount(() => {
     void boot();
-    return () => socket?.close();
+    window.addEventListener('resize', updateBoardFit);
+    resizeObserver = new ResizeObserver(updateBoardFit);
+    return () => {
+      window.removeEventListener('resize', updateBoardFit);
+      resizeObserver?.disconnect();
+      socket?.close();
+    };
   });
 
   onDestroy(() => socket?.close());
+
+  $effect(() => {
+    preferences.boardMustFitHeight;
+    preferences.boardColumnsDesktop;
+    preferences.imageCardScale;
+    sortedCards.length;
+    phase;
+    updateBoardFitSoon();
+  });
+
+  $effect(() => {
+    if (boardShell && resizeObserver) resizeObserver.observe(boardShell);
+  });
 
   async function boot() {
     try {
@@ -141,6 +173,7 @@
       authToken = getOrCreateAuthToken(localStorage);
       preferences = readGameplayPreferences(localStorage);
       panelPreferences = readPanelPreferences(localStorage);
+      localProfiles = readSavedProfiles(localStorage);
       credential = resolveSessionCredential(new URL(window.location.href), localStorage);
       credentialMode = credential.mode;
       const packs = await api.wordpacks();
@@ -338,6 +371,7 @@
       boardColumnsDesktop: preferences.boardColumnsDesktop,
       imageCardScale: preferences.imageCardScale,
       strictCardAspectRatios: preferences.strictCardAspectRatios,
+      boardMustFitHeight: preferences.boardMustFitHeight,
     };
   }
 
@@ -466,6 +500,7 @@
     const link = `${window.location.origin}${roomPath(roomId)}`;
     const result = await copyText(link);
       copyStatus = result.ok ? 'Room link copied.' : link;
+      showToast(copyStatus);
       clearCopyStatusSoon(copyStatus);
   }
 
@@ -476,6 +511,7 @@
       migrateUrl = link.migrateUrl;
       const result = await copyText(link.migrateUrl);
       copyStatus = result.ok ? 'Migrate-device link copied.' : link.migrateUrl;
+      showToast(copyStatus);
       clearCopyStatusSoon(copyStatus);
     } catch (err) {
       error = err instanceof Error ? err.message : 'Could not create a migrate link.';
@@ -505,6 +541,70 @@
   function restartMatch() {
     if (window.confirm('Restart this match and return everyone to the lobby?')) {
       socket?.send({ type: 'restartMatch' });
+    }
+  }
+
+  function updateBoardFitSoon() {
+    window.requestAnimationFrame(updateBoardFit);
+  }
+
+  function updateBoardFit() {
+    if (!boardShell || phase !== 'active') {
+      boardFitStyle = '';
+      return;
+    }
+    const rect = boardShell.getBoundingClientRect();
+    const bottomPanelHeight = document.getElementById('bottom-sticky-panel')?.getBoundingClientRect().height ?? 0;
+    boardFitStyle = boardFitHeightStyle({
+      enabled: preferences.boardMustFitHeight,
+      isMobile: window.matchMedia('(max-width: 767px)').matches,
+      viewportHeight: window.innerHeight,
+      boardTop: rect.top,
+      bottomPanelHeight,
+      boardNaturalWidth: rect.width,
+      boardNaturalHeight: rect.height,
+      verticalMargin: 24,
+    });
+  }
+
+  function saveLocalProfile(name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      error = 'Name this settings profile first.';
+      return;
+    }
+    localProfiles = [...localProfiles, profileFromSettings(trimmed, settings)];
+    writeSavedProfiles(localStorage, localProfiles);
+    profileNotice = `Saved “${trimmed}”.`;
+    showToast(`Saved settings profile “${trimmed}”.`);
+  }
+
+  function applyProfile(profile: SettingsProfile) {
+    settings = applySettingsProfile(settings, profile);
+    saveRoomSettings();
+    profileNotice = `Applied ${profile.name}.`;
+    showToast(`Applied ${profile.name}.`);
+  }
+
+  function exportProfile(profile: SettingsProfile) {
+    const blob = new Blob([exportSettingsProfileJson5(profile)], { type: 'application/json5' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${profile.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'profile'}.json5`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function importProfileText(text: string) {
+    try {
+      const profile = { ...parseSettingsProfileJson5(text), source: 'local' as const };
+      localProfiles = [...localProfiles, profile];
+      writeSavedProfiles(localStorage, localProfiles);
+      profileNotice = `Imported ${profile.name}.`;
+      showToast(`Imported ${profile.name}.`);
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Could not import profile.';
     }
   }
 
@@ -560,11 +660,26 @@
 
 <main class={roomMainClasses()}>
   <div class="mx-auto w-full max-w-7xl px-2 py-4 sm:px-8 sm:py-6">
-    <nav class="flex flex-wrap items-center justify-between gap-3 rounded-full border border-slate-700/70 bg-slate-900/75 px-5 py-3 shadow-2xl shadow-slate-950/40">
+    <nav class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-full border border-slate-700/70 bg-slate-900/75 px-4 py-3 shadow-2xl shadow-slate-950/40 sm:px-5">
       <a class="text-lg font-black tracking-tight text-slate-50" href="/">Codewords</a>
-      <div class="flex items-center gap-3 text-sm text-slate-300">
+      <div class="flex min-w-0 flex-1 items-center justify-center gap-2 text-sm text-slate-300 sm:justify-end">
         <span class={['h-2.5 w-2.5 rounded-full', connection === 'connected' ? 'bg-emerald-300' : 'bg-amber-300']}></span>
-        <span>{connection}</span>
+        <span class="hidden min-[380px]:inline">{connection}</span>
+        <button class={pressableButtonClasses('inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-950/70 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-slate-100 hover:border-emerald-300/60 hover:text-emerald-100')} type="button" onclick={copyRoomLink} title="Copy room link" aria-label="Copy room link">
+          <Copy class="h-4 w-4" />
+          <span class="hidden sm:inline">Copy</span>
+        </button>
+        {#if currentPlayer}
+          <button class={pressableButtonClasses('inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-950/70 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-slate-100 hover:border-emerald-300/60 hover:text-emerald-100')} type="button" onclick={copyMigrateLink} title="Copy migrate-device link" aria-label="Copy migrate-device link">
+            <Smartphone class="h-4 w-4" />
+            <span class="hidden md:inline">Migrate Device</span>
+          </button>
+        {/if}
+        {#if hostControls && phase !== 'lobby'}
+          <button class={pressableButtonClasses('grid h-9 w-9 place-items-center rounded-full border border-red-400/50 bg-red-400/10 text-red-100 hover:bg-red-400/20')} type="button" onclick={restartMatch} title="Restart match" aria-label="Restart match">
+            <Power class="h-4 w-4" />
+          </button>
+        {/if}
       </div>
     </nav>
 
@@ -594,26 +709,10 @@
       </section>
     {:else}
       {#if phase !== 'active'}
-      <header class="grid gap-8 px-3 py-8 sm:px-0 lg:grid-cols-[1fr_22rem] lg:py-16">
-        <div class="max-w-5xl">
-          <h1 class="max-w-5xl text-5xl font-black leading-[0.96] tracking-[-0.05em] text-slate-50 sm:text-7xl">
-            {phase === 'lobby' ? 'Gather teams, choose roles, then start.' : phase === 'game_over' ? `${displayTeamName(winner, settings)} wins the board.` : ''}
-          </h1>
-        </div>
-
-        <aside class="self-start rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5 shadow-2xl shadow-slate-950/40">
-          <div class="grid gap-3">
-            <button class={pressableButtonClasses('rounded-2xl bg-slate-100 px-5 py-3 font-black text-slate-950 hover:bg-white')} onclick={copyRoomLink}>Copy room link</button>
-            {#if currentPlayer}
-              <button class={pressableButtonClasses('rounded-2xl border border-slate-600 px-5 py-3 font-bold text-slate-100 hover:border-emerald-300 hover:text-emerald-200')} onclick={copyMigrateLink}>
-                Copy migrate-device link
-              </button>
-            {/if}
-            {#if copyStatus}
-              <p class="break-all rounded-2xl border border-emerald-300/40 bg-emerald-300/10 px-4 py-3 text-sm text-emerald-100">{copyStatus}</p>
-            {/if}
-          </div>
-        </aside>
+      <header class="px-3 py-8 sm:px-0 lg:py-12">
+        <h1 class="max-w-5xl text-5xl font-black leading-[0.96] tracking-[-0.05em] text-slate-50 sm:text-7xl">
+          {phase === 'lobby' ? 'Gather teams, choose roles, then start.' : phase === 'game_over' ? `${displayTeamName(winner, settings)} wins the board.` : ''}
+        </h1>
       </header>
       {/if}
 
@@ -650,6 +749,12 @@
             onShuffleRoles={shuffleRoles}
             onResetClue={resetClue}
             onRestartMatch={restartMatch}
+            profiles={allProfiles}
+            profileNotice={profileNotice}
+            onApplyProfile={applyProfile}
+            onSaveProfile={saveLocalProfile}
+            onExportProfile={exportProfile}
+            onImportProfileText={importProfileText}
           />
 
         </aside>
@@ -700,16 +805,16 @@
               </section>
             {/if}
 
-            <section class="rounded-[1.5rem] border border-slate-700/70 bg-slate-900/70 p-2 shadow-2xl shadow-slate-950/35 sm:rounded-[2rem] sm:p-5">
+            <section bind:this={boardShell} class="rounded-[1.5rem] border border-slate-700/70 bg-slate-900/70 p-2 shadow-2xl shadow-slate-950/35 sm:rounded-[2rem] sm:p-5" style={boardFitStyle}>
               <div class="mb-3 flex flex-wrap items-center justify-between gap-3 sm:mb-5">
                 <div>
                   <p class="text-xs font-black uppercase tracking-[0.22em] text-slate-400">Board</p>
                 </div>
-                <div class="flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-widest">
-                  <span class="relative isolate rounded-full border border-blue-300/40 bg-blue-400/15 px-3 py-1.5 text-blue-100" style={`border-color: ${hexWithAlpha(teamColor('blue', settings), '66')}; background-color: ${hexWithAlpha(teamColor('blue', settings), currentTeam === 'blue' ? '33' : '26')}; color: ${teamColor('blue', settings)}; ${currentTeam === 'blue' ? `box-shadow: 0 0 0 1px ${hexWithAlpha(teamColor('blue', settings), '55')}, 0 0 28px ${hexWithAlpha(teamColor('blue', settings), '55')};` : ''}`}>{displayTeamName('blue', settings)} {remainingCounts.blue}</span>
-                  <span class="relative isolate rounded-full border border-red-300/40 bg-red-400/15 px-3 py-1.5 text-red-100" style={`border-color: ${hexWithAlpha(teamColor('red', settings), '66')}; background-color: ${hexWithAlpha(teamColor('red', settings), currentTeam === 'red' ? '33' : '26')}; color: ${teamColor('red', settings)}; ${currentTeam === 'red' ? `box-shadow: 0 0 0 1px ${hexWithAlpha(teamColor('red', settings), '55')}, 0 0 28px ${hexWithAlpha(teamColor('red', settings), '55')};` : ''}`}>{displayTeamName('red', settings)} {remainingCounts.red}</span>
-                  <span class="rounded-full border border-amber-200/40 bg-amber-200/10 px-3 py-1.5 text-amber-100">Civilian {remainingCounts.civilian}</span>
-                  <span class="rounded-full border border-zinc-500/40 bg-zinc-950 px-3 py-1.5 text-zinc-100">Assassin {remainingCounts.black}</span>
+                <div class="isolate flex overflow-hidden rounded-full border border-slate-600/70 bg-slate-950 text-[10px] font-black uppercase tracking-widest shadow-inner shadow-slate-950/60">
+                  <span class="inline-flex items-center gap-1.5 px-3 py-1.5" style={`color: ${teamColor('blue', settings)}; background: linear-gradient(90deg, ${hexWithAlpha(teamColor('blue', settings), currentTeam === 'blue' ? '40' : '24')}, transparent); ${currentTeam === 'blue' ? `box-shadow: inset 0 0 0 1px ${hexWithAlpha(teamColor('blue', settings), '66')};` : ''}`}><SvgMaskIcon src={customSvg.blueCard} classes="h-3.5 w-3.5" />{displayTeamName('blue', settings)} {remainingCounts.blue}</span>
+                  <span class="inline-flex items-center gap-1.5 border-l border-slate-600/70 px-3 py-1.5" style={`color: ${teamColor('red', settings)}; background: linear-gradient(90deg, ${hexWithAlpha(teamColor('red', settings), currentTeam === 'red' ? '40' : '24')}, transparent); ${currentTeam === 'red' ? `box-shadow: inset 0 0 0 1px ${hexWithAlpha(teamColor('red', settings), '66')};` : ''}`}><SvgMaskIcon src={customSvg.redCard} classes="h-3.5 w-3.5" />{displayTeamName('red', settings)} {remainingCounts.red}</span>
+                  <span class="inline-flex items-center gap-1.5 border-l border-slate-600/70 px-3 py-1.5 text-amber-100" style="background: linear-gradient(90deg, rgba(251,191,36,0.18), transparent)"><SvgMaskIcon src={customSvg.civilianCard} classes="h-3.5 w-3.5" />Civilian {remainingCounts.civilian}</span>
+                  <span class="inline-flex items-center gap-1.5 border-l border-slate-600/70 px-3 py-1.5 text-zinc-100" style="background: linear-gradient(90deg, rgba(24,24,27,0.85), rgba(0,0,0,0.55))"><SvgMaskIcon src={customSvg.assassinCard} classes="h-3.5 w-3.5" />Assassin {remainingCounts.black}</span>
                 </div>
               </div>
 
@@ -721,8 +826,8 @@
                     {@const view = cardViewState(card, card.originalIndex, showHiddenColor, lastSelected, revealedStyle)}
                     {@const customColor = card.color === 'blue' ? teamColor('blue', settings) : card.color === 'red' ? teamColor('red', settings) : ''}
                     <button
-                      class={pressableButtonClasses(['group relative col-span-[var(--card-mobile-col-span)] row-span-[var(--card-mobile-row-span)] md:col-span-[var(--card-col-span)] md:row-span-[var(--card-row-span)] rounded-xl border p-1 text-left duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', cardAspectRatioClasses(card, preferences.strictCardAspectRatios), card.contentType === 'image' ? 'overflow-hidden border-4' : 'overflow-visible', view.classes, !role.activeGuesser || card.revealed || phase !== 'active' ? 'disabled:opacity-80' : ''].join(' '))}
-                      style={`${imageCardGridStyle(card, activeColumns, preferences.imageCardScale, mobileColumns)} ${view.visibleColor !== 'hidden' && customColor ? `border-color: ${hexWithAlpha(customColor, 'B3')}; background-color: ${hexWithAlpha(customColor, '40')}; color: white` : ''}`}
+                      class={pressableButtonClasses(['group relative col-span-[var(--card-mobile-col-span)] row-span-[var(--card-mobile-row-span)] md:col-span-[var(--card-col-span)] md:row-span-[var(--card-row-span)] rounded-xl border p-1 text-left duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', cardAspectRatioClasses(card, preferences.strictCardAspectRatios), card.contentType === 'image' ? 'overflow-hidden border-0 p-0' : 'overflow-visible', view.classes, !role.activeGuesser || card.revealed || phase !== 'active' ? 'disabled:opacity-80' : ''].join(' '))}
+                      style={`${imageCardGridStyle(card, activeColumns, preferences.imageCardScale, mobileColumns)} ${view.visibleColor !== 'hidden' && customColor && card.contentType !== 'image' ? `border-color: ${hexWithAlpha(customColor, 'B3')}; background-color: ${hexWithAlpha(customColor, '40')}; color: white` : ''}`}
                       disabled={Boolean(guessDisabledReason(card))}
                       title={guessDisabledReason(card) || `Reveal ${cardContentLabel(card)}`}
                       onclick={() => guessCard(card.originalIndex, card)}
@@ -731,9 +836,12 @@
                         #{card.badgeNumber}
                       </span>
                       {#if card.contentType === 'image'}
-                        <img class="h-full w-full rounded-lg object-cover" src={cardImageUrl(card)} alt="Card illustration" loading="lazy" />
+                        <img class="h-full w-full rounded-xl object-cover" src={cardImageUrl(card)} alt="Card illustration" loading="lazy" />
+                        {#if view.visibleColor !== 'hidden' && customColor}
+                          <span class="pointer-events-none absolute inset-0 rounded-xl border-[10px]" style={`border-color: ${hexWithAlpha(customColor, view.isLastSelected ? 'D9' : 'B3')};`}></span>
+                        {/if}
                         {#if view.isLastSelected}
-                          <span class="pointer-events-none absolute inset-1 rounded-lg border-4" style={`border-color: ${imageSelectionBorder(view.visibleColor)}; box-shadow: inset 0 0 0 2px rgba(16, 185, 129, 0.65);`}></span>
+                          <span class="pointer-events-none absolute inset-0 rounded-xl border-4" style={`border-color: ${imageSelectionBorder(view.visibleColor)}; box-shadow: 0 0 0 4px rgba(167, 243, 208, 0.9);`}></span>
                         {/if}
                       {:else}
                         {@const wordSegments = cardWordTextSegments(toTitleCase(card.word) || 'Card')}
@@ -795,6 +903,12 @@
               onShuffleRoles={shuffleRoles}
               onResetClue={resetClue}
               onRestartMatch={restartMatch}
+              profiles={allProfiles}
+              profileNotice={profileNotice}
+              onApplyProfile={applyProfile}
+              onSaveProfile={saveLocalProfile}
+              onExportProfile={exportProfile}
+              onImportProfileText={importProfileText}
             />
 
             <section id="local-options" class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5">
@@ -821,6 +935,11 @@
                   <label class="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs text-slate-300 cursor-pointer">
                     <input type="checkbox" checked={preferences.strictCardAspectRatios} onchange={(event) => updatePreferences({ strictCardAspectRatios: event.currentTarget.checked })} />
                     Strictly enforce 4:3 word cards and 2:3 image cards
+                  </label>
+
+                  <label class="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs text-slate-300 cursor-pointer">
+                    <input type="checkbox" checked={preferences.boardMustFitHeight} onchange={(event) => updatePreferences({ boardMustFitHeight: event.currentTarget.checked })} />
+                    Board must fit height on desktop
                   </label>
                   <label class="block text-xs text-slate-400">
                     Image size

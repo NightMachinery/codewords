@@ -1,0 +1,12 @@
+{
+  name: 'Mildly Mixed',
+  settings: {
+    totalCards: 26,
+    blackCards: 2,
+    autoColorCounts: true,
+    imageCardCount: 2,
+    mixedImageOrderFirst: true,
+    observerChatEnabled: true,
+    randomizeTeams: true,
+  },
+}

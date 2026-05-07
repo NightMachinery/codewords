@@ -6,6 +6,7 @@ export interface BoardLayoutPreferences {
   boardColumnsDesktop: number;
   imageCardScale: ImageCardScale;
   strictCardAspectRatios: boolean;
+  boardMustFitHeight: boolean;
 }
 
 export type RoomSocketMessage =

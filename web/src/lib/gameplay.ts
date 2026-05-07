@@ -61,6 +61,7 @@ export interface GameplayPreferences {
   boardColumnsDesktop: number;
   imageCardScale: ImageCardScale;
   strictCardAspectRatios: boolean;
+  boardMustFitHeight: boolean;
   chatSound: boolean;
   chatVisualCue: boolean;
   cardChoiceSound: boolean;
@@ -110,8 +111,9 @@ export const defaultGameplayPreferences: GameplayPreferences = {
   confirmPasses: false,
   boardColumnsMobile: 4,
   boardColumnsDesktop: 7,
-  imageCardScale: 2,
+  imageCardScale: 4,
   strictCardAspectRatios: true,
+  boardMustFitHeight: true,
   chatSound: true,
   chatVisualCue: true,
   cardChoiceSound: true,
@@ -244,6 +246,7 @@ export function readGameplayPreferences(storage: Pick<Storage, 'getItem'>): Game
       boardColumnsDesktop: clampBoardColumns(parsed.boardColumnsDesktop ?? parsed.wordCardsPerRowDesktop ?? parsed.cardsPerRow, defaultGameplayPreferences.boardColumnsDesktop),
       imageCardScale: clampImageCardScale(parsed.imageCardScale),
       strictCardAspectRatios: typeof parsed.strictCardAspectRatios === 'boolean' ? parsed.strictCardAspectRatios : defaultGameplayPreferences.strictCardAspectRatios,
+      boardMustFitHeight: typeof parsed.boardMustFitHeight === 'boolean' ? parsed.boardMustFitHeight : defaultGameplayPreferences.boardMustFitHeight,
       chatSound: typeof parsed.chatSound === 'boolean' ? parsed.chatSound : defaultGameplayPreferences.chatSound,
       chatVisualCue: typeof parsed.chatVisualCue === 'boolean' ? parsed.chatVisualCue : defaultGameplayPreferences.chatVisualCue,
       cardChoiceSound: typeof parsed.cardChoiceSound === 'boolean' ? parsed.cardChoiceSound : defaultGameplayPreferences.cardChoiceSound,
@@ -385,6 +388,29 @@ export function boardGridStyle(mobileColumns: number, columns: number): string {
 
 export function boardGridContainerClasses(): string {
   return '[container-type:inline-size]';
+}
+
+export function boardFitAvailableHeight(input: { viewportHeight: number; boardTop: number; bottomPanelHeight: number; verticalMargin?: number }): number {
+  const margin = input.verticalMargin ?? 24;
+  return Math.max(0, Math.floor(input.viewportHeight - input.boardTop - input.bottomPanelHeight - margin));
+}
+
+export function boardFitHeightStyle(input: {
+  enabled: boolean;
+  isMobile: boolean;
+  viewportHeight: number;
+  boardTop: number;
+  bottomPanelHeight: number;
+  boardNaturalWidth: number;
+  boardNaturalHeight: number;
+  verticalMargin?: number;
+}): string {
+  if (!input.enabled || input.isMobile || input.boardNaturalWidth <= 0 || input.boardNaturalHeight <= 0) return '';
+  const availableHeight = boardFitAvailableHeight(input);
+  if (availableHeight <= 0 || input.boardNaturalHeight <= availableHeight) return '';
+  const ratio = availableHeight / input.boardNaturalHeight;
+  const width = Math.max(320, Math.floor(input.boardNaturalWidth * ratio));
+  return `max-width: ${width}px; margin-left: auto; margin-right: auto;`;
 }
 
 export function boardGridClasses(): string {
@@ -572,7 +598,7 @@ export function cardViewState(
   let styleClasses = '';
   if (card.revealed) {
     if (revealedStyle === 'normal') styleClasses = 'opacity-95';
-    else if (revealedStyle === 'greyed') styleClasses = 'opacity-45 saturate-75 contrast-90 after:pointer-events-none after:absolute after:right-2 after:top-2 after:h-2.5 after:w-2.5 after:rounded-full after:bg-current after:opacity-70';
+    else if (revealedStyle === 'greyed') styleClasses = 'opacity-70';
     else if (revealedStyle === 'invisible') styleClasses = 'invisible';
     else if (revealedStyle === 'omitted') styleClasses = 'hidden';
   }
