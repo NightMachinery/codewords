@@ -130,6 +130,7 @@ type Settings struct {
 	CustomColorRed          string `json:"customColorRed,omitempty"`
 	ObserverChatEnabled     bool   `json:"observerChatEnabled"`
 	MixedImageOrderFirst    bool   `json:"mixedImageOrderFirst"`
+	MemoryRoastsDisabled    bool   `json:"memoryRoastsDisabled,omitempty"`
 	TeamNameBlue            string `json:"teamNameBlue,omitempty"`
 	TeamNameRed             string `json:"teamNameRed,omitempty"`
 }

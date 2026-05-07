@@ -29,7 +29,7 @@
 
 {#if !expanded}
   <button
-    class={pressableButtonClasses('fixed right-0 top-14 z-40 grid h-11 w-14 place-items-center rounded-l-2xl border-y border-l border-slate-700/70 bg-slate-900/95 text-emerald-100 shadow-2xl hover:border-emerald-300/60 hover:bg-slate-800')}
+    class={pressableButtonClasses('fixed right-0 top-0 z-40 grid h-11 w-14 place-items-center rounded-bl-2xl border-b border-l border-slate-700/70 bg-slate-900/95 text-emerald-100 shadow-2xl hover:border-emerald-300/60 hover:bg-slate-800')}
     onclick={() => expanded = true}
     title="Expand chat"
     aria-label="Expand chat"

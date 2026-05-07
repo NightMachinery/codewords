@@ -34,6 +34,7 @@
     formatClueNumber,
     imageCardGridStyle,
     imageColorFrameClasses,
+    selectedImageOverlayStyle,
     lobbyStartPanelClasses,
     pressableButtonClasses,
     normalizeLobbySettingsForSave,
@@ -43,6 +44,7 @@
     shouldAutoJoinRoom,
     shouldCueChatMessage,
     shouldCueCardReveal,
+    shouldResetClueDraft,
     viewerRole,
     writePanelPreferences,
     writeGameplayPreferences,
@@ -65,6 +67,7 @@
   import { applySettingsProfile, exportSettingsProfileJson5, parseSettingsProfileJson5, profileFromSettings, readSavedProfiles, writeSavedProfiles, type SettingsProfile } from '../lib/settingsProfiles';
   import vanillaProfileText from '../../../assets/profiles/vanilla.json5?raw';
   import mildlyMixedProfileText from '../../../assets/profiles/mildly-mixed.json5?raw';
+  import roastPackText from '../../../assets/roast-packs/roast_1.txt?raw';
   import { roomIdFromPath, roomPath, websocketRoomUrl } from '../lib/routes';
 
   import PlayerList from '../lib/PlayerList.svelte';
@@ -117,6 +120,7 @@
   let sawSnapshot = false;
   let previousCardsForCue: GameplayCard[] = [];
   let lastClueSignature = '';
+  let previousPhaseForDraft: 'lobby' | 'active' | 'game_over' = 'lobby';
   let spymasterViewActive = $state(true);
   let localProfiles = $state<SettingsProfile[]>([]);
   let profileNotice = $state('');
@@ -139,6 +143,15 @@
   let currentClue = $derived(clueLog.slice().reverse().find((entry) => entry.status === 'active') ?? null);
   let guessProblem = $derived(guessDisabledReason());
   let passProblem = $derived(passDisabledReason());
+  let boardStatusMessage = $derived.by(() => {
+    if (phase === 'game_over') return 'Game over. Review the board.';
+    if (phase !== 'active') return '';
+    if (!role.player) return 'Spectators are read-only.';
+    if (role.team !== currentTeam) return 'Their turn. Watch the board.';
+    if (role.kind === 'spymaster' && !cluePermission.allowed) return 'Your team is guessing. Watch the board.';
+    if (!role.activeGuesser && role.kind !== 'spymaster') return activeTeamHasRepresentative ? 'Your representative will play for you.' : 'Your teammate will guess for you.';
+    return '';
+  });
   let activeColumns = $derived(preferences.boardColumnsDesktop);
   let mobileColumns = $derived(preferences.boardColumnsMobile);
   let bundledProfiles = $derived([vanillaProfileText, mildlyMixedProfileText].map((text) => ({ ...parseSettingsProfileJson5(text), source: 'bundled' as const })));
@@ -280,7 +293,15 @@
       cards = message.snapshot.cards ?? [];
       lastSelected = message.snapshot.lastSelected ?? null;
       remainingCounts = message.snapshot.remainingCounts ?? { blue: 0, red: 0, civilian: 0, black: 0 };
-      clueLog = message.snapshot.clueLog ?? [];
+      const previousClue = currentClue;
+      const nextClueLog = message.snapshot.clueLog ?? [];
+      const nextClue = nextClueLog.slice().reverse().find((entry) => entry.status === 'active') ?? null;
+      if (shouldResetClueDraft({ reason: 'snapshot', previousClue, nextClue, previousPhase: previousPhaseForDraft, nextPhase: message.snapshot.phase })) {
+        clueText = '';
+        clueNumber = '';
+      }
+      clueLog = nextClueLog;
+      previousPhaseForDraft = message.snapshot.phase;
       if (enteredGameOver) {
         emitEndGameCue(message.snapshot.winner as 'blue' | 'red', message.snapshot.viewer, message.snapshot.players);
       }
@@ -532,15 +553,9 @@
     socket?.send({ type: 'randomizeTeams' });
   }
 
-  function imageSelectionBorder(color: string) {
-    if (color === 'blue') return teamColor('blue', settings) || '#93c5fd';
-    if (color === 'red') return teamColor('red', settings) || '#fca5a5';
-    if (color === 'black') return '#d4d4d8';
-    if (color === 'civilian') return '#fde68a';
-    return '#e5e7eb';
-  }
-
   function resetClue() {
+    clueText = '';
+    clueNumber = '';
     socket?.send({ type: 'resetClue' });
   }
 
@@ -644,7 +659,7 @@
     captureStatus = '';
     error = '';
     try {
-      const model = buildMemoryCaptureModel({ roomId, winner, players, cards, settings });
+      const model = buildMemoryCaptureModel({ roomId, winner, players, cards, settings, lastSelected, showNumberBadges: preferences.showNumberBadges, roastTemplates: roastPackText.split(/\r?\n/) });
       await downloadMemoryCapture(model);
       captureStatus = 'Memory image downloaded.';
       clearCaptureStatusSoon(captureStatus);
@@ -739,6 +754,7 @@
             viewer={viewer} 
             settings={settings}
             hostControls={hostControls} 
+            phase={phase}
             roomHostId={roomHostId}
             onAssignTeam={(id, team) => socket?.send({ type: 'assignTeam', playerId: id, team })}
             onToggleSpymaster={(id) => socket?.send({ type: 'toggleSpymaster', playerId: id })}
@@ -749,6 +765,7 @@
         </div>
 
         <aside class="min-w-0 space-y-6">
+          {#if hostControls}
           <ModSettings 
             bind:settings={settings}
             hostControls={hostControls}
@@ -771,6 +788,7 @@
             onExportProfile={exportProfile}
             onImportProfileText={importProfileText}
           />
+          {/if}
 
         </aside>
       </section>
@@ -820,6 +838,17 @@
               </section>
             {/if}
 
+            {#if boardStatusMessage || currentClue}
+              <section class="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-700/70 bg-slate-950/70 px-3 py-2 shadow-lg shadow-slate-950/20">
+                <p class="min-w-0 truncate text-xs font-bold text-slate-300">{boardStatusMessage || 'Active clue is live.'}</p>
+                {#if currentClue}
+                  <p class="shrink-0 truncate text-xs font-black text-slate-100">
+                    <span class="text-slate-500">Clue</span> {currentClue.text} · {formatClueNumber(currentClue.number)}
+                  </p>
+                {/if}
+              </section>
+            {/if}
+
             <section bind:this={boardShell} class="rounded-[1.5rem] border border-slate-700/70 bg-slate-900/70 p-2 shadow-2xl shadow-slate-950/35 sm:rounded-[2rem] sm:p-5" style={boardFitStyle}>
               <div class="mb-3 flex flex-wrap items-center justify-between gap-3 sm:mb-5">
                 <div>
@@ -847,16 +876,18 @@
                       title={guessDisabledReason(card) || `Reveal ${cardContentLabel(card)}`}
                       onclick={() => guessCard(card.originalIndex, card)}
                     >
-                      <span class="absolute left-0 top-0 z-10 rounded-br-xl bg-slate-950/85 px-1.5 py-1 text-[10px] font-black leading-none text-slate-100">
-                        #{card.badgeNumber}
-                      </span>
+                      {#if preferences.showNumberBadges}
+                        <span class="absolute left-0 top-0 z-10 rounded-br-xl bg-slate-950/85 px-1.5 py-1 text-[10px] font-black leading-none text-slate-100">
+                          #{card.badgeNumber}
+                        </span>
+                      {/if}
                       {#if card.contentType === 'image'}
                         <img class="h-full w-full rounded-lg object-cover" src={cardImageUrl(card)} alt="Card illustration" loading="lazy" />
                         {#if view.visibleColor !== 'hidden' && customColor && view.isLastSelected}
                           <span class={imageColorFrameClasses(view.isLastSelected)} style={`border-color: ${hexWithAlpha(customColor, 'E6')};`}></span>
                         {/if}
                         {#if view.isLastSelected}
-                          <span class="pointer-events-none absolute inset-0 z-30 rounded-xl border-4" style={`border-color: ${imageSelectionBorder(view.visibleColor)}; box-shadow: inset 0 0 0 2px rgba(167, 243, 208, 0.9);`}></span>
+                          <span class="pointer-events-none absolute inset-0 z-30 rounded-xl border-4" style={selectedImageOverlayStyle(view.visibleColor, customColor)}></span>
                         {/if}
                       {:else}
                         {@const wordSegments = cardWordTextSegments(toTitleCase(card.word) || 'Card')}
@@ -880,6 +911,7 @@
               viewer={viewer} 
               settings={settings}
               hostControls={hostControls} 
+              phase={phase}
               roomHostId={roomHostId}
               onAssignTeam={(id, team) => socket?.send({ type: 'assignTeam', playerId: id, team })}
               onToggleSpymaster={(id) => socket?.send({ type: 'toggleSpymaster', playerId: id })}
@@ -906,6 +938,7 @@
               </div>
             </section>
 
+            {#if hostControls}
             <ModSettings 
               bind:settings={settings}
               hostControls={hostControls}
@@ -928,6 +961,7 @@
               onExportProfile={exportProfile}
               onImportProfileText={importProfileText}
             />
+            {/if}
 
             <section id="local-options" class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5">
               <button class="group flex w-full items-center gap-3 text-left" type="button" onclick={() => updatePanelPreferences({ localOptionsOpen: !panelPreferences.localOptionsOpen })} aria-expanded={panelPreferences.localOptionsOpen}>
@@ -958,6 +992,10 @@
                   <label class="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs text-slate-300 cursor-pointer">
                     <input type="checkbox" checked={preferences.boardMustFitHeight} onchange={(event) => updatePreferences({ boardMustFitHeight: event.currentTarget.checked })} />
                     Board must fit height on desktop
+                  </label>
+                  <label class="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs text-slate-300 cursor-pointer">
+                    <input type="checkbox" checked={preferences.showNumberBadges} onchange={(event) => updatePreferences({ showNumberBadges: event.currentTarget.checked })} />
+                    Show card number badges
                   </label>
                   <label class="block text-xs text-slate-400">
                     Image size
@@ -1036,7 +1074,7 @@
       onSend={sendChat}
     />
 
-    {#if phase === 'active'}
+    {#if phase !== 'lobby'}
       <BottomControls 
         phase={phase}
         currentTeam={currentTeam as any}
@@ -1051,6 +1089,7 @@
         activeTeamHasRepresentative={activeTeamHasRepresentative}
         settings={settings}
         players={players}
+        hostControls={hostControls}
         onNavigate={navigateTo}
         spymasterViewActive={spymasterViewActive}
         onToggleView={() => (spymasterViewActive = !spymasterViewActive)}

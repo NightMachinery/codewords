@@ -23,6 +23,10 @@ import {
   cardChromeClasses,
   cardChromeStyle,
   imageColorFrameClasses,
+  filteredBottomShortcutItems,
+  shouldResetClueDraft,
+  selectedImageOverlayStyle,
+  deterministicRoastLine,
   clampBoardColumns,
   clampImageCardScale,
   pressableButtonClasses,
@@ -152,7 +156,7 @@ describe('local gameplay preferences', () => {
     expect(readGameplayPreferences(storage)).toEqual(defaultGameplayPreferences);
     expect(defaultGameplayPreferences.spymasterRevealedStyle).toBe('invisible');
 
-    const saved: GameplayPreferences = { confirmGuesses: false, confirmPasses: true, boardColumnsMobile: 4, boardColumnsDesktop: 5, imageCardScale: 8, strictCardAspectRatios: true, boardMustFitHeight: false, chatSound: false, chatVisualCue: false, cardChoiceSound: false, cardChoiceVisualCue: true, clueSound: true, clueVisualCue: false, endGameSound: true, endGameVisualCue: true, spymasterRevealedStyle: 'greyed' };
+    const saved: GameplayPreferences = { confirmGuesses: false, confirmPasses: true, boardColumnsMobile: 4, boardColumnsDesktop: 5, imageCardScale: 8, strictCardAspectRatios: true, boardMustFitHeight: false, showNumberBadges: false, chatSound: false, chatVisualCue: false, cardChoiceSound: false, cardChoiceVisualCue: true, clueSound: true, clueVisualCue: false, endGameSound: true, endGameVisualCue: true, spymasterRevealedStyle: 'greyed' };
     writeGameplayPreferences(storage, saved);
     expect(readGameplayPreferences(storage)).toEqual(saved);
 
@@ -166,6 +170,7 @@ describe('local gameplay preferences', () => {
       imageCardScale: 4,
       strictCardAspectRatios: true,
       boardMustFitHeight: true,
+      showNumberBadges: true,
     });
   });
 
@@ -176,6 +181,7 @@ describe('local gameplay preferences', () => {
       imageCardScale: 4,
       strictCardAspectRatios: true,
       boardMustFitHeight: true,
+      showNumberBadges: true,
     });
     expect(clampBoardColumns(99)).toBe(13);
     expect(clampBoardColumns(0)).toBe(1);
@@ -263,6 +269,11 @@ describe('bottom control navigation helpers', () => {
     expect(chatToggleEventName).toBe('codewords:toggle-chat');
   });
 
+  it('hides moderator shortcuts from non-mods while preserving player navigation', () => {
+    expect(filteredBottomShortcutItems(false).map((item) => item.target)).toEqual(['board', 'players', 'clues', 'local-options', 'chat']);
+    expect(filteredBottomShortcutItems(true).map((item) => item.target)).toEqual(['board', 'players', 'clues', 'settings', 'local-options', 'chat']);
+  });
+
   it('formats the current team row as player names only', () => {
     expect(ownTeamPlayerNames(players, 'blue')).toEqual(['Blue Spy', 'Blue Guess']);
     expect(ownTeamPlayerNames([{ ...players[0], displayName: '' }], 'blue')).toEqual(['Player']);
@@ -338,12 +349,17 @@ describe('board card state', () => {
     expect(cardChromeClasses({ contentType: 'image' }, false)).toContain('p-2');
     expect(cardChromeClasses({ contentType: 'word' }, true)).toContain('p-1');
     expect(imageColorFrameClasses(false)).toBe('');
-    expect(imageColorFrameClasses(true)).toContain('border-[14px]');
+    expect(imageColorFrameClasses(true)).toContain('inset-[4px]');
+    expect(imageColorFrameClasses(true)).toContain('border-[12px]');
 
     const word = { contentType: 'word' as const };
     expect(cardChromeStyle(word, 'blue', '#2563eb', false)).toContain('border-color: #2563ebB3');
     expect(cardChromeStyle(word, 'blue', '#2563eb', true)).toContain('border-color: transparent');
     expect(cardChromeStyle(word, 'blue', '#2563eb', true)).toContain('background-color: #2563eb40');
+
+    const overlay = selectedImageOverlayStyle('blue', '#2563eb');
+    expect(overlay).toContain('border-color: #2563eb');
+    expect(overlay).toContain('box-shadow: inset 0 0 0 4px');
   });
 
   it('cues only when a card transitions from unrevealed to revealed', () => {
@@ -522,6 +538,17 @@ describe('regression helpers', () => {
     expect(view.classes).not.toContain('after:bg-current');
   });
 
+  it('resets clue drafts on explicit reset or new clue context only', () => {
+    const previous: ClueEntry | null = { round: 1, team: 'blue', text: 'Ocean', number: { kind: 'numeric', value: 2 }, status: 'active', guesses: 0 };
+    const same: ClueEntry | null = { ...previous };
+    const nextRound: ClueEntry | null = { ...previous, round: 2, team: 'red' };
+
+    expect(shouldResetClueDraft({ reason: 'manual-reset', previousClue: previous, nextClue: same })).toBe(true);
+    expect(shouldResetClueDraft({ reason: 'snapshot', previousClue: previous, nextClue: same })).toBe(false);
+    expect(shouldResetClueDraft({ reason: 'snapshot', previousClue: previous, nextClue: nextRound })).toBe(true);
+    expect(shouldResetClueDraft({ reason: 'snapshot', previousClue: null, nextClue: null, previousPhase: 'game_over', nextPhase: 'active' })).toBe(true);
+  });
+
   it('builds distinct clue log keys for reset and re-submit rows in the same round', async () => {
     const clues: ClueEntry[] = [
       { round: 1, team: 'blue', text: 'Ocean', number: { kind: 'numeric', value: 2 }, status: 'final', submittedBy: 'blueSpy', updatedBy: 'blueSpy', guesses: 0 },
@@ -581,18 +608,30 @@ describe('end-game memory and cues', () => {
       players: endPlayers,
       cards: endCards,
       settings: endSettings,
+      lastSelected: { index: 1, team: 'blue' },
+      showNumberBadges: false,
+      roastTemplates: ['{LOSER_TEAM} were cooked', 'It is all {RANDOM_LOSING_SPYMASTER} fault!'],
       generatedAt: new Date('2026-05-06T12:00:00.000Z'),
     });
 
     expect(model.title).toBe('River Guild wins');
-    expect(model.subtitle).toBe('Sun Court fell at the final board');
+    expect(model.roastLine).toMatch(/Sun Court|Red Spy/);
     expect(model.winner.players).toEqual(['Blue Spy', 'Blue Guess']);
     expect(model.loser.players).toEqual(['Red Spy']);
+    expect(model.showNumberBadges).toBe(false);
     expect(model.generatedLabel).toContain('May 6, 2026');
-    expect(model.cards.map((card) => `${card.badgeNumber}:${card.label}:${card.imageUrl ?? ''}`)).toEqual([
-      '1:Picture #1:/api/pictures/fox',
-      '2:River:',
-      '3:Shadow:',
+    expect(model.cards.map((card) => `${card.badgeNumber}:${card.label}:${card.color}:${card.isLastSelected}:${card.imageUrl ?? ''}`)).toEqual([
+      '1:Picture #1:red:true:/api/pictures/fox',
+      '2:River:blue:false:',
+      '3:Shadow:black:false:',
     ]);
+  });
+
+  it('uses deterministic roast selection and supports disabling roasts', () => {
+    const templates = ['{LOSER_TEAM} are all losers😏', 'It is all {RANDOM_LOSING_SPYMASTER} fault! -_-'];
+    const input = { roomId: 'abc123', loserTeam: 'Sun Court', losingSpymasters: ['Red Spy'], templates, disabled: false };
+
+    expect(deterministicRoastLine(input)).toBe(deterministicRoastLine(input));
+    expect(deterministicRoastLine({ ...input, disabled: true })).toBe('');
   });
 });

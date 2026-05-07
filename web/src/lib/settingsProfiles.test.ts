@@ -52,13 +52,14 @@ describe('settings profiles', () => {
       settings: {
         imageCardCount: 2,
         mixedImageOrderFirst: true,
+        memoryRoastsDisabled: true,
         blackCards: 2,
         totalCards: 26,
         unknownField: 'ignored',
       } as Partial<Settings> & Record<string, unknown>,
     });
 
-    expect(next).toMatchObject({ imageCardCount: 2, mixedImageOrderFirst: true, blackCards: 2, totalCards: 26 });
+    expect(next).toMatchObject({ imageCardCount: 2, mixedImageOrderFirst: true, memoryRoastsDisabled: true, blackCards: 2, totalCards: 26 });
     expect(next.wordpackId).toBe('english');
     expect((next as unknown as Record<string, unknown>).unknownField).toBeUndefined();
   });

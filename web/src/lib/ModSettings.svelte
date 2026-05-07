@@ -305,6 +305,10 @@
         <span class="text-sm font-medium text-slate-200">Observers can chat</span>
       </label>
       <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950/40 px-4 py-3 hover:bg-slate-950/60 transition cursor-pointer">
+        <input type="checkbox" checked={!settings.memoryRoastsDisabled} onchange={(event) => { settings.memoryRoastsDisabled = !event.currentTarget.checked; onSave(); }} />
+        <span class="text-sm font-medium text-slate-200">Show roast line in memory captures</span>
+      </label>
+      <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950/40 px-4 py-3 hover:bg-slate-950/60 transition cursor-pointer">
         <input type="checkbox" bind:checked={settings.randomizeTeams} onchange={onSave} />
         <span class="text-sm font-medium text-slate-200">Auto-balance new players</span>
       </label>

@@ -82,7 +82,7 @@ When a playable-team member becomes an observer, the room remembers that playerâ
 
 When a live snapshot transitions into `game_over`, each viewer receives a local-only cue based on their own result: winning-team players get a celebratory cue, losing-team players get a subdued cue, and spectators or observers get a neutral winner cue. The cue only fires on the transition, not when loading a room that already ended, and it respects the browser-local end-game sound and visual cue toggles.
 
-The game-over panel includes a **Capture Memory** button. It generates a client-side PNG from the final snapshot with the room id, timestamp, winner, losing team, team rosters, and final board. Word cards render as labeled colored tiles. Picture cards try to draw the same-origin `/api/pictures/{imageId}` thumbnail and fall back to a labeled tile if an image cannot be loaded.
+The game-over panel includes a **Capture Memory** button. It generates a client-side PNG from the final snapshot with timestamp, winner, losing team, team rosters, an aurora background, and the board rendered like a normal player saw it: revealed cards keep color, unrevealed cards stay hidden, and last-selected styling is preserved. Optional deterministic roast captions are loaded from `assets/roast-packs/roast_1.txt`; moderators can disable them through room settings. Word cards render as labeled colored tiles. Picture cards try to draw the same-origin `/api/pictures/{imageId}` thumbnail and fall back to a labeled tile if an image cannot be loaded.
 
 ## May 2026 UI/profile polish
 
@@ -92,7 +92,9 @@ Local board layout defaults now use strict ratios, eight desktop columns, and la
 
 Starting-lobby moderator settings support JSON5 setting profiles. Bundled defaults live in `assets/profiles/`, browser-saved profiles live in LocalStorage, and profile loading applies only known room setting fields so partial profiles are safe and extra fields are ignored. Bundled profiles omit wordpack, team-name, and team-color fields so applying them preserves the user's current table identity choices. The bundled Vanilla profile is a 24-word manual-count board (`8` blue base, `8` red base, `7` neutral/civilian-plus-assassin, `1` starting-team handicap, and `1` assassin) so it differs from the 25-card classic defaults. Mid-game moderator settings hide lobby-only board-generation controls and keep only live/cosmetic controls plus round tools.
 
-The active board uses a continuous segmented remaining-count bar with SVG card-type icons. Image cards connect their color border directly to the image, last-selected cards keep the outer selection treatment while card color becomes an inner border, and the greyed spymaster reveal style is opacity-only instead of adding grey overlays.
+The active board uses a continuous segmented remaining-count bar with SVG card-type icons. Image cards connect their color border directly to the image, last-selected cards keep the outer selection treatment while card color becomes an immediate inner border, and the greyed spymaster reveal style is opacity-only instead of adding grey overlays. Local settings can hide card number badges.
+
+The active and game-over bottom control panel stays compact: passive turn/read-only messages live above the board, the collapse button sits in the panel corner, and player/navigation/chat access remains available after game over while unusable action controls are hidden. Non-moderators do not see the mod settings panel or mod-only player-management controls.
 
 The production favicon is generated from `favicon/0.png` into `web/public/favicon.png` at a compressed 512Ã—512 size and linked from `web/index.html`.
 

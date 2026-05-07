@@ -425,6 +425,17 @@ func TestNormalizeSettingsDefaultsTeamNamesAndRejectsInvalidColors(t *testing.T)
 	if settings.TotalCards != game.DefaultTotalCards || !settings.AutoColorCounts {
 		t.Fatalf("expected dynamic board defaults, got %#v", settings)
 	}
+	if settings.MemoryRoastsDisabled {
+		t.Fatalf("memory roasts should default to enabled")
+	}
+
+	roastsOff, err := normalizeSettings(game.Settings{WordpackID: "english", MemoryRoastsDisabled: true})
+	if err != nil {
+		t.Fatalf("normalize memory roast setting: %v", err)
+	}
+	if !roastsOff.MemoryRoastsDisabled {
+		t.Fatalf("expected memory roast opt-out to persist")
+	}
 }
 
 func TestNormalizeSettingsRejectsInvalidCardCounts(t *testing.T) {

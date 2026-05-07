@@ -25,6 +25,7 @@ export interface Settings {
   teamNameRed?: string;
   observerChatEnabled: boolean;
   mixedImageOrderFirst: boolean;
+  memoryRoastsDisabled?: boolean;
 }
 
 export interface Viewer {
@@ -168,6 +169,7 @@ export const defaultSettings: Settings = {
   randomizeTeams: true,
   observerChatEnabled: true,
   mixedImageOrderFirst: false,
+  memoryRoastsDisabled: false,
   teamNameBlue: 'Libertarians',
   teamNameRed: 'Monarchists',
 };

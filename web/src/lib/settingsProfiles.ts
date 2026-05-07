@@ -34,6 +34,7 @@ const settingKeys = new Set<keyof Settings>([
   'teamNameRed',
   'observerChatEnabled',
   'mixedImageOrderFirst',
+  'memoryRoastsDisabled',
 ]);
 
 export function applySettingsProfile(current: Settings, profile: Pick<SettingsProfile, 'settings'>): Settings {

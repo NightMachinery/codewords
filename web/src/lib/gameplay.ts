@@ -62,6 +62,7 @@ export interface GameplayPreferences {
   imageCardScale: ImageCardScale;
   strictCardAspectRatios: boolean;
   boardMustFitHeight: boolean;
+  showNumberBadges: boolean;
   chatSound: boolean;
   chatVisualCue: boolean;
   cardChoiceSound: boolean;
@@ -97,6 +98,10 @@ export const bottomShortcutItems: BottomShortcutItem[] = [
   { kind: 'chat', target: 'chat', label: 'Chat' },
 ];
 
+export function filteredBottomShortcutItems(canUseModSettings: boolean): BottomShortcutItem[] {
+  return bottomShortcutItems.filter((item) => canUseModSettings || item.target !== 'settings');
+}
+
 export function ownTeamPlayerNames(players: LobbyPlayer[], team: Team | undefined): string[] {
   if (team !== 'blue' && team !== 'red') return [];
   return players
@@ -114,6 +119,7 @@ export const defaultGameplayPreferences: GameplayPreferences = {
   imageCardScale: 4,
   strictCardAspectRatios: true,
   boardMustFitHeight: true,
+  showNumberBadges: true,
   chatSound: true,
   chatVisualCue: true,
   cardChoiceSound: true,
@@ -247,6 +253,7 @@ export function readGameplayPreferences(storage: Pick<Storage, 'getItem'>): Game
       imageCardScale: clampImageCardScale(parsed.imageCardScale),
       strictCardAspectRatios: typeof parsed.strictCardAspectRatios === 'boolean' ? parsed.strictCardAspectRatios : defaultGameplayPreferences.strictCardAspectRatios,
       boardMustFitHeight: typeof parsed.boardMustFitHeight === 'boolean' ? parsed.boardMustFitHeight : defaultGameplayPreferences.boardMustFitHeight,
+      showNumberBadges: typeof parsed.showNumberBadges === 'boolean' ? parsed.showNumberBadges : defaultGameplayPreferences.showNumberBadges,
       chatSound: typeof parsed.chatSound === 'boolean' ? parsed.chatSound : defaultGameplayPreferences.chatSound,
       chatVisualCue: typeof parsed.chatVisualCue === 'boolean' ? parsed.chatVisualCue : defaultGameplayPreferences.chatVisualCue,
       cardChoiceSound: typeof parsed.cardChoiceSound === 'boolean' ? parsed.cardChoiceSound : defaultGameplayPreferences.cardChoiceSound,
@@ -429,7 +436,19 @@ export function cardChromeStyle(card: Pick<DisplayCard, 'contentType'>, visibleC
 }
 
 export function imageColorFrameClasses(isLastSelected: boolean): string {
-  return isLastSelected ? 'pointer-events-none absolute inset-3 z-20 rounded-lg border-[14px]' : '';
+  return isLastSelected ? 'pointer-events-none absolute inset-[4px] z-20 rounded-lg border-[12px]' : '';
+}
+
+export function selectedImageOverlayStyle(visibleColor: VisibleCardColor, customColor: string): string {
+  const fallback = {
+    blue: '#93c5fd',
+    red: '#fca5a5',
+    black: '#d4d4d8',
+    civilian: '#fde68a',
+    hidden: '#e5e7eb',
+  }[visibleColor];
+  const border = (visibleColor === 'blue' || visibleColor === 'red') && customColor ? customColor : fallback;
+  return `border-color: ${border}; box-shadow: inset 0 0 0 4px rgba(167, 243, 208, 0.9);`;
 }
 
 export function boardGridClasses(): string {
@@ -602,6 +621,22 @@ export function clueLogKey(clue: ClueEntry, displayIndex: number): string {
   ].join(':');
 }
 
+export function shouldResetClueDraft(input: {
+  reason: 'snapshot' | 'manual-reset';
+  previousClue: ClueEntry | null | undefined;
+  nextClue: ClueEntry | null | undefined;
+  previousPhase?: GameplayPhase;
+  nextPhase?: GameplayPhase;
+}): boolean {
+  if (input.reason === 'manual-reset') return true;
+  if (input.previousPhase && input.nextPhase && input.previousPhase !== input.nextPhase && input.nextPhase === 'active') return true;
+  const prev = input.previousClue;
+  const next = input.nextClue;
+  if (!prev && !next) return false;
+  if (!prev || !next) return true;
+  return prev.round !== next.round || prev.team !== next.team;
+}
+
 export function cardViewState(
   card: GameplayCard,
   index: number,
@@ -669,6 +704,7 @@ export interface MemoryCaptureCard {
   color: CardColor | 'hidden';
   contentType: 'word' | 'image';
   imageUrl?: string;
+  isLastSelected: boolean;
 }
 
 export interface MemoryCaptureModel {
@@ -676,6 +712,8 @@ export interface MemoryCaptureModel {
   title: string;
   subtitle: string;
   generatedLabel: string;
+  roastLine: string;
+  showNumberBadges: boolean;
   winner: MemoryCaptureTeam;
   loser: MemoryCaptureTeam;
   cards: MemoryCaptureCard[];
@@ -694,6 +732,9 @@ export function buildMemoryCaptureModel(input: {
   players: LobbyPlayer[];
   cards: GameplayCard[];
   settings: Settings;
+  lastSelected?: LastSelected | null;
+  showNumberBadges?: boolean;
+  roastTemplates?: string[];
   generatedAt?: Date;
 }): MemoryCaptureModel {
   const loser = input.winner === 'blue' ? 'red' : 'blue';
@@ -715,20 +756,63 @@ export function buildMemoryCaptureModel(input: {
     hour: 'numeric',
     minute: '2-digit',
   }).format(generatedAt);
+  const loserTeam = displayTeamName(loser, input.settings);
+  const losingSpymasters = input.players
+    .filter((player) => player.team === loser && player.spymaster)
+    .map((player) => player.displayName.trim())
+    .filter(Boolean);
+  const roastLine = deterministicRoastLine({
+    roomId: input.roomId,
+    loserTeam,
+    losingSpymasters,
+    templates: input.roastTemplates ?? [],
+    disabled: Boolean(input.settings.memoryRoastsDisabled),
+  });
 
   return {
     roomId: input.roomId,
     title: `${displayTeamName(input.winner, input.settings)} wins`,
-    subtitle: `${displayTeamName(loser, input.settings)} fell at the final board`,
+    subtitle: '',
     generatedLabel,
+    roastLine,
+    showNumberBadges: input.showNumberBadges ?? true,
     winner: team(input.winner),
     loser: team(loser),
     cards: sorted.map((card) => ({
       badgeNumber: card.badgeNumber,
       label: card.contentType === 'image' ? `Picture #${card.badgeNumber}` : toTitleCase(card.word) || `Card #${card.badgeNumber}`,
-      color: card.color ?? 'hidden',
+      color: card.revealed ? (card.color ?? 'hidden') : 'hidden',
       contentType: card.contentType,
       imageUrl: card.contentType === 'image' ? cardImageUrl(card) : undefined,
+      isLastSelected: input.lastSelected?.index === card.originalIndex,
     })),
   };
+}
+
+export function deterministicRoastLine(input: {
+  roomId: string;
+  loserTeam: string;
+  losingSpymasters: string[];
+  templates: string[];
+  disabled: boolean;
+}): string {
+  if (input.disabled) return '';
+  const templates = input.templates.map((line) => line.trim()).filter(Boolean);
+  if (!templates.length) return '';
+  const seed = hashString(`${input.roomId}:${input.loserTeam}`);
+  const template = templates[seed % templates.length];
+  const names = input.losingSpymasters.length ? input.losingSpymasters : [input.loserTeam];
+  const spymaster = names[seed % names.length];
+  return template
+    .replaceAll('{LOSER_TEAM}', input.loserTeam)
+    .replaceAll('{RANDOM_LOSING_SPYMASTER}', spymaster);
+}
+
+export function hashString(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
 }
