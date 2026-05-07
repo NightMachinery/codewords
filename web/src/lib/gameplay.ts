@@ -390,19 +390,22 @@ export function boardGridContainerClasses(): string {
   return '[container-type:inline-size]';
 }
 
-export function boardFitAvailableHeight(input: { viewportHeight: number; boardTop: number; bottomPanelHeight: number; verticalMargin?: number }): number {
+export function boardFitAvailableHeight(input: { viewportHeight: number; topReservedHeight: number; bottomPanelHeight: number; verticalMargin?: number }): number {
   const margin = input.verticalMargin ?? 24;
-  return Math.max(0, Math.floor(input.viewportHeight - input.boardTop - input.bottomPanelHeight - margin));
+  return Math.max(0, Math.floor(input.viewportHeight - input.topReservedHeight - input.bottomPanelHeight - margin));
 }
 
 export function boardFitHeightStyle(input: {
   enabled: boolean;
   isMobile: boolean;
   viewportHeight: number;
-  boardTop: number;
+  topReservedHeight: number;
   bottomPanelHeight: number;
   boardNaturalWidth: number;
   boardNaturalHeight: number;
+  currentBoardWidth?: number;
+  currentBoardHeight?: number;
+  scrollY?: number;
   verticalMargin?: number;
 }): string {
   if (!input.enabled || input.isMobile || input.boardNaturalWidth <= 0 || input.boardNaturalHeight <= 0) return '';
@@ -411,6 +414,22 @@ export function boardFitHeightStyle(input: {
   const ratio = availableHeight / input.boardNaturalHeight;
   const width = Math.max(320, Math.floor(input.boardNaturalWidth * ratio));
   return `max-width: ${width}px; margin-left: auto; margin-right: auto;`;
+}
+
+export function cardChromeClasses(card: Pick<DisplayCard, 'contentType'>, _isLastSelected: boolean): string {
+  if (card.contentType === 'image') return 'overflow-hidden border-0 p-2';
+  return 'overflow-hidden p-1';
+}
+
+export function cardChromeStyle(card: Pick<DisplayCard, 'contentType'>, visibleColor: VisibleCardColor, customColor: string, isLastSelected: boolean): string {
+  if (visibleColor === 'hidden' || !customColor) return '';
+  if (card.contentType === 'image') return `background-color: ${hexWithAlpha(customColor, 'B3')}; color: white`;
+  const borderColor = isLastSelected ? 'transparent' : hexWithAlpha(customColor, 'B3');
+  return `border-color: ${borderColor}; background-color: ${hexWithAlpha(customColor, '40')}; color: white`;
+}
+
+export function imageColorFrameClasses(isLastSelected: boolean): string {
+  return isLastSelected ? 'pointer-events-none absolute inset-3 z-20 rounded-lg border-[14px]' : '';
 }
 
 export function boardGridClasses(): string {
@@ -607,7 +626,7 @@ export function cardViewState(
     visibleColor,
     label: visibleColor === 'hidden' ? 'Unrevealed' : visibleColor[0].toUpperCase() + visibleColor.slice(1),
     isLastSelected,
-    classes: [colorClass, styleClasses, showHiddenColor && !card.revealed ? 'shadow-inner shadow-white/10' : '', isLastSelected ? 'ring-4 ring-emerald-200' : ''].filter(Boolean).join(' '),
+    classes: [colorClass, styleClasses, showHiddenColor && !card.revealed ? 'shadow-inner shadow-white/10' : ''].filter(Boolean).join(' '),
   };
 }
 

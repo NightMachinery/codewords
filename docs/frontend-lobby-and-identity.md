@@ -95,3 +95,7 @@ Starting-lobby moderator settings support JSON5 setting profiles. Bundled defaul
 The active board uses a continuous segmented remaining-count bar with SVG card-type icons. Image cards connect their color border directly to the image, last-selected cards keep the outer selection treatment while card color becomes an inner border, and the greyed spymaster reveal style is opacity-only instead of adding grey overlays.
 
 The production favicon is generated from `favicon/0.png` into `web/public/favicon.png` at a compressed 512×512 size and linked from `web/index.html`.
+
+### Board fit and card chrome fixes
+
+Board height fitting uses stable layout inputs instead of the current scroll position or a ResizeObserver loop on the board element. It still subtracts the bottom sticky panel height, but computes from a stable available board width so the board does not keep shrinking after its own max-width changes. Custom SVG glyphs continue to live in `assets/SVG/`, but are now rendered from trusted raw SVG asset text instead of CSS masks so failed masks cannot show as square blocks. Last-selected card chrome takes visual priority over color chrome: image cards show a single normal color frame until selected, then a thick inner color frame plus the selected border; word cards keep their color background but hide their color border when selected.

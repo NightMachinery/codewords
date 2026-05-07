@@ -49,6 +49,11 @@
   }: Props = $props();
 
   let controlsExpanded = $state(true);
+
+  function setControlsExpanded(expanded: boolean) {
+    controlsExpanded = expanded;
+    window.requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('codewords:layout-change')));
+  }
   let isYourTeam = $derived(role.team === currentTeam);
   let teamLabel = $derived(displayTeamName(currentTeam, settings));
   let currentTeamPlayers = $derived(players.filter((player) => player.team === currentTeam && (currentTeam === 'blue' || currentTeam === 'red')));
@@ -90,7 +95,7 @@
 {#if !controlsExpanded}
   <button
     class={pressableButtonClasses('fixed bottom-3 left-1/2 z-30 inline-flex -translate-x-1/2 items-center gap-2 rounded-full border border-slate-600/70 bg-slate-950/95 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-100 shadow-2xl backdrop-blur-md hover:border-emerald-300/70 hover:text-emerald-100')}
-    onclick={() => (controlsExpanded = true)}
+    onclick={() => setControlsExpanded(true)}
     aria-label="Expand bottom controls"
   >
     <span class="h-2.5 w-2.5 rounded-full" style={turnGlowStyle}></span>
@@ -101,7 +106,7 @@
   <div class="relative mx-auto flex max-w-7xl flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-4">
     <button
       class={pressableButtonClasses('absolute right-0 top-0 grid h-10 w-10 place-items-center rounded-bl-2xl border-b border-l border-slate-700/80 bg-slate-950/95 text-slate-300 shadow-xl hover:border-emerald-300/60 hover:text-emerald-100')}
-      onclick={() => (controlsExpanded = false)}
+      onclick={() => setControlsExpanded(false)}
       aria-label="Collapse bottom controls"
     >
       <ChevronDown class="h-5 w-5" />

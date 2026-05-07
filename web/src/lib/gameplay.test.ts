@@ -20,6 +20,9 @@ import {
   boardGridStyle,
   boardFitHeightStyle,
   boardFitAvailableHeight,
+  cardChromeClasses,
+  cardChromeStyle,
+  imageColorFrameClasses,
   clampBoardColumns,
   clampImageCardScale,
   pressableButtonClasses,
@@ -225,11 +228,12 @@ describe('local gameplay preferences', () => {
     expect(boardGridClasses()).toBe('[grid-auto-rows:var(--card-mobile-grid-row)] md:[grid-auto-rows:var(--card-grid-row)]');
   });
 
-  it('computes desktop board fit height using viewport minus sticky bottom panel', () => {
-    expect(boardFitAvailableHeight({ viewportHeight: 900, boardTop: 120, bottomPanelHeight: 180, verticalMargin: 24 })).toBe(576);
-    expect(boardFitHeightStyle({ enabled: false, isMobile: false, viewportHeight: 900, boardTop: 120, bottomPanelHeight: 180, boardNaturalWidth: 1000, boardNaturalHeight: 800 })).toBe('');
-    expect(boardFitHeightStyle({ enabled: true, isMobile: true, viewportHeight: 900, boardTop: 120, bottomPanelHeight: 180, boardNaturalWidth: 1000, boardNaturalHeight: 800 })).toBe('');
-    expect(boardFitHeightStyle({ enabled: true, isMobile: false, viewportHeight: 900, boardTop: 120, bottomPanelHeight: 180, boardNaturalWidth: 1000, boardNaturalHeight: 800, verticalMargin: 24 })).toBe('max-width: 720px; margin-left: auto; margin-right: auto;');
+  it('computes desktop board fit from stable layout reserves rather than scroll position or shrunken width', () => {
+    expect(boardFitAvailableHeight({ viewportHeight: 900, topReservedHeight: 120, bottomPanelHeight: 180, verticalMargin: 24 })).toBe(576);
+    expect(boardFitHeightStyle({ enabled: false, isMobile: false, viewportHeight: 900, topReservedHeight: 120, bottomPanelHeight: 180, boardNaturalWidth: 1000, boardNaturalHeight: 800 })).toBe('');
+    expect(boardFitHeightStyle({ enabled: true, isMobile: true, viewportHeight: 900, topReservedHeight: 120, bottomPanelHeight: 180, boardNaturalWidth: 1000, boardNaturalHeight: 800 })).toBe('');
+    expect(boardFitHeightStyle({ enabled: true, isMobile: false, viewportHeight: 900, topReservedHeight: 120, bottomPanelHeight: 180, boardNaturalWidth: 1000, boardNaturalHeight: 800, currentBoardWidth: 720, currentBoardHeight: 576, verticalMargin: 24 })).toBe('max-width: 720px; margin-left: auto; margin-right: auto;');
+    expect(boardFitHeightStyle({ enabled: true, isMobile: false, viewportHeight: 900, topReservedHeight: 120, bottomPanelHeight: 180, boardNaturalWidth: 1000, boardNaturalHeight: 800, currentBoardWidth: 720, currentBoardHeight: 576, scrollY: 500, verticalMargin: 24 })).toBe('max-width: 720px; margin-left: auto; margin-right: auto;');
   });
 
   it('defaults collapsible panel preferences open and persists changes', () => {
@@ -325,7 +329,20 @@ describe('board card state', () => {
     expect(cardViewState(hiddenUnknown, 0, false, undefined)).toMatchObject({ visibleColor: 'hidden', label: 'Unrevealed', isLastSelected: false });
     expect(cardViewState(hiddenBlue, 1, true, undefined)).toMatchObject({ visibleColor: 'blue', label: 'Blue', isLastSelected: false });
     expect(cardViewState(revealedRed, 2, false, { index: 2, team: 'red' })).toMatchObject({ visibleColor: 'red', label: 'Red', isLastSelected: true });
-    expect(cardViewState(revealedRed, 2, false, { index: 2, team: 'red' }).classes).toContain('ring-4');
+    expect(cardViewState(revealedRed, 2, false, { index: 2, team: 'red' }).classes).not.toContain('ring-4');
+  });
+
+
+  it('separates selected-card chrome from card color chrome', () => {
+    expect(cardChromeClasses({ contentType: 'image' }, false)).toContain('p-2');
+    expect(cardChromeClasses({ contentType: 'word' }, true)).toContain('p-1');
+    expect(imageColorFrameClasses(false)).toBe('');
+    expect(imageColorFrameClasses(true)).toContain('border-[14px]');
+
+    const word = { contentType: 'word' as const };
+    expect(cardChromeStyle(word, 'blue', '#2563eb', false)).toContain('border-color: #2563ebB3');
+    expect(cardChromeStyle(word, 'blue', '#2563eb', true)).toContain('border-color: transparent');
+    expect(cardChromeStyle(word, 'blue', '#2563eb', true)).toContain('background-color: #2563eb40');
   });
 
   it('cues only when a card transitions from unrevealed to revealed', () => {

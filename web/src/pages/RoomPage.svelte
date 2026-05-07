@@ -12,6 +12,8 @@
     boardGridClasses,
     boardGridStyle,
     boardFitHeightStyle,
+    cardChromeClasses,
+    cardChromeStyle,
     cardContentLabel,
     cardImageUrl,
     cardModeFromImageCount,
@@ -31,6 +33,7 @@
     findViewerPlayer,
     formatClueNumber,
     imageCardGridStyle,
+    imageColorFrameClasses,
     lobbyStartPanelClasses,
     pressableButtonClasses,
     normalizeLobbySettingsForSave,
@@ -119,7 +122,7 @@
   let profileNotice = $state('');
   let boardShell = $state<HTMLElement | null>(null);
   let boardFitStyle = $state('');
-  let resizeObserver: ResizeObserver | null = null;
+  let bottomPanelObserver: ResizeObserver | null = null;
 
   let cardMode = $derived(cardModeFromImageCount(settings.imageCardCount ?? 0, settings.totalCards ?? 25));
   let sortedCards = $derived(displayCards(cards, cardMode, settings.mixedImageOrderFirst));
@@ -144,10 +147,12 @@
   onMount(() => {
     void boot();
     window.addEventListener('resize', updateBoardFit);
-    resizeObserver = new ResizeObserver(updateBoardFit);
+    window.addEventListener('codewords:layout-change', updateBoardFitSoon);
+    bottomPanelObserver = new ResizeObserver(updateBoardFit);
     return () => {
       window.removeEventListener('resize', updateBoardFit);
-      resizeObserver?.disconnect();
+      window.removeEventListener('codewords:layout-change', updateBoardFitSoon);
+      bottomPanelObserver?.disconnect();
       socket?.close();
     };
   });
@@ -164,7 +169,8 @@
   });
 
   $effect(() => {
-    if (boardShell && resizeObserver) resizeObserver.observe(boardShell);
+    const panel = document.getElementById('bottom-sticky-panel');
+    if (panel && bottomPanelObserver) bottomPanelObserver.observe(panel);
   });
 
   async function boot() {
@@ -553,16 +559,25 @@
       boardFitStyle = '';
       return;
     }
-    const rect = boardShell.getBoundingClientRect();
+    const boardGrid = document.getElementById('board');
+    const shellRect = boardShell.getBoundingClientRect();
+    const gridRect = boardGrid?.getBoundingClientRect();
+    const parentWidth = boardShell.parentElement?.getBoundingClientRect().width ?? shellRect.width;
+    const currentWidth = Math.max(1, shellRect.width);
+    const scaleToNatural = parentWidth / currentWidth;
+    const naturalHeight = Math.max(shellRect.height, gridRect ? gridRect.height * scaleToNatural + (shellRect.height - (gridRect.height || 0)) : shellRect.height * scaleToNatural);
     const bottomPanelHeight = document.getElementById('bottom-sticky-panel')?.getBoundingClientRect().height ?? 0;
+    const topReservedHeight = Math.min(220, Math.max(72, boardShell.offsetTop));
     boardFitStyle = boardFitHeightStyle({
       enabled: preferences.boardMustFitHeight,
       isMobile: window.matchMedia('(max-width: 767px)').matches,
       viewportHeight: window.innerHeight,
-      boardTop: rect.top,
+      topReservedHeight,
       bottomPanelHeight,
-      boardNaturalWidth: rect.width,
-      boardNaturalHeight: rect.height,
+      boardNaturalWidth: parentWidth,
+      boardNaturalHeight: naturalHeight,
+      currentBoardWidth: shellRect.width,
+      currentBoardHeight: shellRect.height,
       verticalMargin: 24,
     });
   }
@@ -826,26 +841,29 @@
                     {@const view = cardViewState(card, card.originalIndex, showHiddenColor, lastSelected, revealedStyle)}
                     {@const customColor = card.color === 'blue' ? teamColor('blue', settings) : card.color === 'red' ? teamColor('red', settings) : ''}
                     <button
-                      class={pressableButtonClasses(['group relative col-span-[var(--card-mobile-col-span)] row-span-[var(--card-mobile-row-span)] md:col-span-[var(--card-col-span)] md:row-span-[var(--card-row-span)] rounded-xl border p-1 text-left duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', cardAspectRatioClasses(card, preferences.strictCardAspectRatios), card.contentType === 'image' ? 'overflow-hidden border-0 p-0' : 'overflow-visible', view.classes, !role.activeGuesser || card.revealed || phase !== 'active' ? 'disabled:opacity-80' : ''].join(' '))}
-                      style={`${imageCardGridStyle(card, activeColumns, preferences.imageCardScale, mobileColumns)} ${view.visibleColor !== 'hidden' && customColor && card.contentType !== 'image' ? `border-color: ${hexWithAlpha(customColor, 'B3')}; background-color: ${hexWithAlpha(customColor, '40')}; color: white` : ''}`}
+                      class={pressableButtonClasses(['group relative col-span-[var(--card-mobile-col-span)] row-span-[var(--card-mobile-row-span)] md:col-span-[var(--card-col-span)] md:row-span-[var(--card-row-span)] rounded-xl border text-left duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', cardAspectRatioClasses(card, preferences.strictCardAspectRatios), cardChromeClasses(card, view.isLastSelected), view.classes, !role.activeGuesser || card.revealed || phase !== 'active' ? 'disabled:opacity-80' : ''].join(' '))}
+                      style={`${imageCardGridStyle(card, activeColumns, preferences.imageCardScale, mobileColumns)} ${cardChromeStyle(card, view.visibleColor, customColor, view.isLastSelected)}`}
                       disabled={Boolean(guessDisabledReason(card))}
                       title={guessDisabledReason(card) || `Reveal ${cardContentLabel(card)}`}
                       onclick={() => guessCard(card.originalIndex, card)}
                     >
-                      <span class="absolute left-0 top-0 z-10 rounded-br-lg border-b border-r border-slate-100/20 bg-slate-950/85 px-1.5 py-1 text-[10px] font-black leading-none text-slate-100">
+                      <span class="absolute left-0 top-0 z-10 rounded-br-xl bg-slate-950/85 px-1.5 py-1 text-[10px] font-black leading-none text-slate-100">
                         #{card.badgeNumber}
                       </span>
                       {#if card.contentType === 'image'}
-                        <img class="h-full w-full rounded-xl object-cover" src={cardImageUrl(card)} alt="Card illustration" loading="lazy" />
-                        {#if view.visibleColor !== 'hidden' && customColor}
-                          <span class="pointer-events-none absolute inset-0 rounded-xl border-[10px]" style={`border-color: ${hexWithAlpha(customColor, view.isLastSelected ? 'D9' : 'B3')};`}></span>
+                        <img class="h-full w-full rounded-lg object-cover" src={cardImageUrl(card)} alt="Card illustration" loading="lazy" />
+                        {#if view.visibleColor !== 'hidden' && customColor && view.isLastSelected}
+                          <span class={imageColorFrameClasses(view.isLastSelected)} style={`border-color: ${hexWithAlpha(customColor, 'E6')};`}></span>
                         {/if}
                         {#if view.isLastSelected}
-                          <span class="pointer-events-none absolute inset-0 rounded-xl border-4" style={`border-color: ${imageSelectionBorder(view.visibleColor)}; box-shadow: 0 0 0 4px rgba(167, 243, 208, 0.9);`}></span>
+                          <span class="pointer-events-none absolute inset-0 z-30 rounded-xl border-4" style={`border-color: ${imageSelectionBorder(view.visibleColor)}; box-shadow: inset 0 0 0 2px rgba(167, 243, 208, 0.9);`}></span>
                         {/if}
                       {:else}
                         {@const wordSegments = cardWordTextSegments(toTitleCase(card.word) || 'Card')}
                         <FitCardWord segments={wordSegments} classes={cardWordTextClasses(card.word)} />
+                        {#if view.isLastSelected}
+                          <span class="pointer-events-none absolute inset-0 z-30 rounded-xl border-4 border-emerald-200"></span>
+                        {/if}
                       {/if}
                     </button>
                   {:else}

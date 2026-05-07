@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { svgAssetMarkup } from './customSvg';
+
   interface Props {
     src: string;
     label?: string;
@@ -6,11 +8,9 @@
   }
 
   let { src, label = '', classes = 'h-4 w-4' }: Props = $props();
+  let markup = $derived(svgAssetMarkup(src, label, ['inline-block shrink-0', classes].filter(Boolean).join(' ')));
 </script>
 
-<span
-  class={['inline-block shrink-0 bg-current', classes].filter(Boolean).join(' ')}
-  style={`-webkit-mask: url(${src}) center / contain no-repeat; mask: url(${src}) center / contain no-repeat;`}
-  aria-label={label || undefined}
-  aria-hidden={label ? undefined : 'true'}
-></span>
+<span class="inline-flex shrink-0 text-current [&>svg]:fill-current" aria-hidden={label ? undefined : 'true'}>
+  {@html markup}
+</span>
