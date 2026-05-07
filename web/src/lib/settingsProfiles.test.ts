@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import vanillaProfileText from '../../../assets/profiles/vanilla.json5?raw';
+
 import { defaultSettings, type Settings } from './api';
 import {
   applySettingsProfile,
@@ -24,6 +26,21 @@ class MemoryStorage {
 const current: Settings = { ...defaultSettings, wordpackId: 'english', imageCardCount: 0, blackCards: 1, totalCards: 25 };
 
 describe('settings profiles', () => {
+  it('keeps the bundled vanilla profile at 24 word cards by removing one neutral card', () => {
+    const profile = parseSettingsProfileJson5(vanillaProfileText);
+
+    expect(profile.name).toBe('Vanilla');
+    expect(profile.settings).toMatchObject({
+      totalCards: 24,
+      autoColorCounts: false,
+      blueCards: 9,
+      redCards: 8,
+      neutralCards: 7,
+      blackCards: 1,
+      imageCardCount: 0,
+    });
+  });
+
   it('applies only known partial settings and ignores extra fields', () => {
     const next = applySettingsProfile(current, {
       settings: {
