@@ -558,7 +558,7 @@ export function fitCardWordBoxClasses(): string {
 }
 
 export function fitCardWordLabelStyle(fontSize: number): string {
-  return `font-size: ${fontSize}px; max-width: 100%; overflow: visible;`;
+  return `font-size: ${fontSize}px; max-width: 100%; overflow: visible; transform: translateY(-0.16em);`;
 }
 
 export function clampTotalCards(value: unknown): number {

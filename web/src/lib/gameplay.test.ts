@@ -365,6 +365,7 @@ describe('board card state', () => {
     expect(fitCardWordBoxClasses()).not.toContain('overflow-hidden');
     expect(fitCardWordLabelStyle(24)).toContain('font-size: 24px');
     expect(fitCardWordLabelStyle(24)).toContain('overflow: visible');
+    expect(fitCardWordLabelStyle(24)).toContain('transform: translateY(-0.16em)');
     expect(fitCardWordLabelStyle(24)).not.toContain('max-height');
     expect(fitCardWordLabelStyle(24)).not.toContain('overflow: hidden');
   });
