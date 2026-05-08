@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import type { Settings } from './api';
   import { filteredBottomShortcutItems, displayTeamName, formatClueNumber, hexWithAlpha, pressableButtonClasses, sortedTurnPlayers, teamColor, type ClueEntry, type GameplayPhase } from './gameplay';
-  import { Grid2X2, List, MessageSquare, Settings as SettingsIcon, SlidersHorizontal, Users, ChevronDown, SkipForward } from 'lucide-svelte';
+  import { Grid2X2, List, MessageSquare, Settings as SettingsIcon, SlidersHorizontal, Users, ChevronDown, SendHorizontal, SkipForward } from 'lucide-svelte';
   import { customSvg } from './customSvg';
   import SvgMaskIcon from './SvgMaskIcon.svelte';
   import type { LobbyPlayer, Team } from './lobby';
@@ -80,6 +80,7 @@
   let turnGlowStyle = $derived(currentTeam === 'blue' || currentTeam === 'red'
     ? `background-color: ${turnColor}; box-shadow: 0 0 0 1px ${hexWithAlpha(turnColor, '88')}, 0 0 ${canActNow ? '34px' : '18px'} ${hexWithAlpha(turnColor, canActNow ? 'AA' : '66')};`
     : '');
+  let canShowTurnPanel = $derived(!playersNeedOwnRow || Boolean(currentClue));
 
   $effect(() => {
     currentTeamPlayers;
@@ -153,15 +154,22 @@
           <span class="pointer-events-none absolute -left-5 top-1/2 h-16 w-16 -translate-y-1/2 rounded-full opacity-30 blur-xl" style={`background-color: ${turnColor};`}></span>
         {/if}
         <div class="relative z-10 flex min-w-0 items-center gap-2" title={`${teamLabel} players`}>
+          <span class={['h-3 w-3 shrink-0 rounded-full', canActNow ? 'animate-pulse' : ''].join(' ')} style={turnGlowStyle}></span>
           {@render PlayerStrip()}
+          {#if currentClue}
+            <p class="hidden shrink-0 truncate text-[10px] font-black text-slate-100 min-[560px]:block">
+              <span class="text-slate-500">Clue:</span> {currentClue.text} · {formatClueNumber(currentClue.number)}
+            </p>
+          {/if}
         </div>
       </div>
     </div>
   {/if}
 
-  <div bind:this={controlsBody} class="relative mx-auto flex max-w-7xl items-center justify-between gap-2 pr-10">
+  <div bind:this={controlsBody} class="relative mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 pr-10">
     <!-- Turn/team row -->
-    <div class={['relative min-w-0 flex-1', playersNeedOwnRow ? 'max-w-36' : 'md:max-w-xs'].join(' ')}>
+    {#if canShowTurnPanel}
+    <div class={['relative min-w-0 flex-[1_1_12rem]', playersNeedOwnRow ? 'max-w-none' : 'md:max-w-xs'].join(' ')}>
       <div class="relative isolate overflow-hidden rounded-2xl border border-slate-700/70 bg-slate-950/55 px-2.5 py-1.5" title={`${teamLabel} turn`}>
         {#if currentTeam === 'blue' || currentTeam === 'red'}
           <span class="pointer-events-none absolute -left-5 top-1/2 h-20 w-20 -translate-y-1/2 rounded-full opacity-35 blur-xl" style={`background-color: ${turnColor};`}></span>
@@ -184,13 +192,14 @@
         </div>
       </div>
     </div>
+    {/if}
 
     <!-- Controls -->
-    <div class="flex min-w-0 flex-1 items-center justify-center gap-3 md:max-w-2xl">
+    <div class="flex min-w-0 flex-[1_1_18rem] items-center justify-center gap-3 md:max-w-2xl">
       {#if role.kind === 'spymaster' && phase === 'active' && cluePermission.allowed}
-        <div class="flex w-full gap-2">
+        <div class="flex w-full flex-wrap gap-2">
           <input
-            class="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-1.5 text-sm font-semibold text-slate-50 outline-none ring-emerald-300 transition focus:ring-2 disabled:opacity-50"
+            class="min-w-0 flex-[1_1_10rem] rounded-xl border border-slate-700 bg-slate-950 px-3 py-1.5 text-sm font-semibold text-slate-50 outline-none ring-emerald-300 transition focus:ring-2 disabled:opacity-50"
             bind:value={clueText}
             maxlength="40"
             placeholder="One-word clue"
@@ -206,11 +215,14 @@
             {/if}
           </select>
           <button
-            class={pressableButtonClasses('rounded-xl bg-emerald-300 px-3 py-1.5 text-sm font-black text-slate-950 hover:bg-emerald-200 disabled:opacity-50')}
+            class={pressableButtonClasses('inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-emerald-300 px-2.5 py-1.5 text-sm font-black text-slate-950 hover:bg-emerald-200 disabled:opacity-50 min-[520px]:px-3')}
             disabled={Boolean(clueProblem) || !cluePermission.allowed}
             onclick={onSubmitClue}
+            title="Submit clue"
+            aria-label="Submit clue"
           >
-            Submit
+            <SendHorizontal class="h-4 w-4" />
+            <span class="hidden min-[520px]:inline">Submit</span>
           </button>
         </div>
       {:else if role.activeGuesser && phase === 'active'}
@@ -230,7 +242,7 @@
     </div>
 
     <!-- Actions -->
-    <div class="flex items-center justify-end gap-2">
+    <div class="flex min-w-0 flex-[0_1_auto] items-center justify-end gap-2">
       <div class="flex items-center gap-1 rounded-2xl border border-slate-700 bg-slate-950/50 p-1">
         {#each shortcutItems as shortcut (shortcut.target)}
           <button class={pressableButtonClasses('grid h-8 w-8 place-items-center rounded-xl text-slate-300 hover:bg-slate-800 hover:text-emerald-200')} title={shortcut.label} aria-label={shortcut.label} onclick={() => onNavigate(shortcut.target)}>
