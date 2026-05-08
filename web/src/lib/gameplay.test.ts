@@ -76,7 +76,7 @@ class MemoryStorage {
 
 const players: LobbyPlayer[] = [
   { id: 'blueSpy', displayName: 'Blue Spy', team: 'blue', spymaster: true, representative: false, mod: false },
-  { id: 'blueGuess', displayName: 'Blue Guess', team: 'blue', spymaster: false, representative: false, mod: false },
+  { id: 'blueGuess', displayName: 'Blue Guess', team: 'blue', spymaster: false, representative: true, mod: false },
   { id: 'redSpy', displayName: 'Red Spy', team: 'red', spymaster: true, representative: false, mod: false },
   { id: 'redGuess', displayName: 'Red Guess', team: 'red', spymaster: false, representative: false, mod: false },
 ];
@@ -594,7 +594,7 @@ describe('end-game memory and cues', () => {
   };
   const endPlayers: LobbyPlayer[] = [
     { id: 'blueSpy', displayName: 'Blue Spy', team: 'blue', spymaster: true, representative: false, mod: false },
-    { id: 'blueGuess', displayName: 'Blue Guess', team: 'blue', spymaster: false, representative: false, mod: false },
+    { id: 'blueGuess', displayName: 'Blue Guess', team: 'blue', spymaster: false, representative: true, mod: false },
     { id: 'redSpy', displayName: 'Red Spy', team: 'red', spymaster: true, representative: false, mod: false },
     { id: 'observer', displayName: 'Observer', team: 'observers', spymaster: false, representative: false, mod: false },
   ];
@@ -633,13 +633,17 @@ describe('end-game memory and cues', () => {
       showNumberBadges: false,
       boardLayout: { boardColumnsMobile: 3, boardColumnsDesktop: 6, imageCardScale: 4, strictCardAspectRatios: true },
       roastTemplates: ['{LOSER_TEAM} were cooked', 'It is all {RANDOM_LOSING_SPYMASTER} fault!'],
+      finishedAt: '2026-05-05T12:00:00.000Z',
       generatedAt: new Date('2026-05-06T12:00:00.000Z'),
     });
 
     expect(model.title).toBe('River Guild wins');
     expect(model.roastLine).toMatch(/Sun Court|Red Spy/);
-    expect(model.winner.players).toEqual(['Blue Spy', 'Blue Guess']);
-    expect(model.loser.players).toEqual(['Red Spy']);
+    expect(model.winner.players).toEqual([
+      { name: 'Blue Spy', spymaster: true, representative: false },
+      { name: 'Blue Guess', spymaster: false, representative: true },
+    ]);
+    expect(model.loser.players).toEqual([{ name: 'Red Spy', spymaster: true, representative: false }]);
     expect(model.showNumberBadges).toBe(false);
     expect(model.boardLayout).toEqual({
       boardColumnsMobile: 3,
@@ -647,7 +651,7 @@ describe('end-game memory and cues', () => {
       imageCardScale: 4,
       strictCardAspectRatios: true,
     });
-    expect(model.generatedLabel).toContain('May 6, 2026');
+    expect(model.generatedLabel).toContain('May 5, 2026');
     expect(model.cards.map((card) => `${card.badgeNumber}:${card.label}:${card.color}:${card.isLastSelected}:${card.imageUrl ?? ''}`)).toEqual([
       '1:Picture #1:red:true:/api/pictures/fox',
       '2:River:blue:false:',

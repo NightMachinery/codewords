@@ -82,6 +82,7 @@
   let phase = $state<'lobby' | 'active' | 'game_over'>('lobby');
   let currentTeam = $state<'blue' | 'red' | 'observers' | ''>('');
   let winner = $state<'blue' | 'red' | ''>('');
+  let finishedAt = $state('');
   let cards = $state<GameplayCard[]>([]);
   let lastSelected = $state<LastSelected | null>(null);
   let remainingCounts = $state<RemainingCounts>({ blue: 0, red: 0, civilian: 0, black: 0 });
@@ -282,6 +283,7 @@
       phase = message.snapshot.phase;
       currentTeam = message.snapshot.currentTeam as any;
       winner = message.snapshot.winner as any;
+      finishedAt = message.snapshot.finishedAt ?? '';
       cards = message.snapshot.cards ?? [];
       lastSelected = message.snapshot.lastSelected ?? null;
       remainingCounts = message.snapshot.remainingCounts ?? { blue: 0, red: 0, civilian: 0, black: 0 };
@@ -658,6 +660,7 @@
       cards,
       settings,
       lastSelected,
+      finishedAt,
       showNumberBadges: preferences.showNumberBadges,
       boardLayout: {
         boardColumnsMobile: preferences.boardColumnsMobile,
@@ -740,19 +743,38 @@
             <div class="rounded-[2rem] border bg-slate-900/80 p-8 shadow-2xl shadow-slate-950/30" style={`border-color: ${hexWithAlpha(pendingCaptureModel.winner.color, 'CC')};`}>
               <p class="text-sm font-black uppercase tracking-[0.22em] text-slate-400 sm:text-lg">Winners</p>
               <h2 class="mt-3 text-2xl font-black text-slate-50 sm:text-4xl">{pendingCaptureModel.winner.name}</h2>
-              <p class="mt-5 text-lg font-bold leading-snug text-slate-300 sm:text-2xl">{pendingCaptureModel.winner.players.length ? pendingCaptureModel.winner.players.join(', ') : 'No seated players'}</p>
+              <div class="mt-5 flex flex-wrap gap-2 text-lg font-bold leading-snug text-slate-300 sm:text-2xl">
+                {#each pendingCaptureModel.winner.players as player (player.name)}
+                  <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-950/50 px-3 py-1">
+                    {#if player.spymaster}<SvgMaskIcon src={customSvg.spy} classes="h-4 w-4 sm:h-5 sm:w-5" label="Spymaster" />{/if}
+                    {#if player.representative}<SvgMaskIcon src={customSvg.representative} classes="h-4 w-4 sm:h-5 sm:w-5" label="Representative" />{/if}
+                    {player.name}
+                  </span>
+                {:else}
+                  <span>No seated players</span>
+                {/each}
+              </div>
             </div>
             <div class="rounded-[2rem] border bg-slate-900/80 p-8 shadow-2xl shadow-slate-950/30" style={`border-color: ${hexWithAlpha(pendingCaptureModel.loser.color, 'CC')};`}>
               <p class="text-sm font-black uppercase tracking-[0.22em] text-slate-400 sm:text-lg">Rivals</p>
               <h2 class="mt-3 text-2xl font-black text-slate-50 sm:text-4xl">{pendingCaptureModel.loser.name}</h2>
-              <p class="mt-5 text-lg font-bold leading-snug text-slate-300 sm:text-2xl">{pendingCaptureModel.loser.players.length ? pendingCaptureModel.loser.players.join(', ') : 'No seated players'}</p>
+              <div class="mt-5 flex flex-wrap gap-2 text-lg font-bold leading-snug text-slate-300 sm:text-2xl">
+                {#each pendingCaptureModel.loser.players as player (player.name)}
+                  <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-950/50 px-3 py-1">
+                    {#if player.spymaster}<SvgMaskIcon src={customSvg.spy} classes="h-4 w-4 sm:h-5 sm:w-5" label="Spymaster" />{/if}
+                    {#if player.representative}<SvgMaskIcon src={customSvg.representative} classes="h-4 w-4 sm:h-5 sm:w-5" label="Representative" />{/if}
+                    {player.name}
+                  </span>
+                {:else}
+                  <span>No seated players</span>
+                {/each}
+              </div>
             </div>
           </section>
 
           <section class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5 shadow-2xl shadow-slate-950/35">
             <div class="mb-5 flex items-center justify-between gap-3">
               <p class="text-xs font-black uppercase tracking-[0.22em] text-slate-400">Board</p>
-              <p class="text-xs font-bold text-slate-400">Captured from the in-game board layout</p>
             </div>
             <BoardGrid
               cards={sortedCards}

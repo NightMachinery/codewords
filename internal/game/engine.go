@@ -506,6 +506,7 @@ func (c StartCommand) apply(state *State, actorID string) (Event, error) {
 	state.CurrentTeam = board.StartingTeam
 	state.Phase = PhaseActive
 	state.Winner = ""
+	state.FinishedAt = ""
 	state.ActionID = 0
 	state.LastSelected = nil
 	state.ClueLog = nil
@@ -662,6 +663,7 @@ func (c RestartMatchCommand) apply(state *State, actorID string) (Event, error) 
 	state.ClueLog = nil
 	state.CurrentTeam = ""
 	state.Winner = ""
+	state.FinishedAt = ""
 	state.LastSelected = nil
 	state.Round = 0
 	state.Settings.Seed++
@@ -729,7 +731,7 @@ func (s State) SnapshotFor(viewer Viewer) Snapshot {
 	}
 	log := make([]ClueEntry, len(s.ClueLog))
 	copy(log, s.ClueLog)
-	return Snapshot{Phase: s.Phase, CurrentTeam: s.CurrentTeam, Winner: s.Winner, ActionID: s.ActionID, Cards: cards, LastSelected: s.LastSelected, ClueLog: log}
+	return Snapshot{Phase: s.Phase, CurrentTeam: s.CurrentTeam, Winner: s.Winner, FinishedAt: s.FinishedAt, ActionID: s.ActionID, Cards: cards, LastSelected: s.LastSelected, ClueLog: log}
 }
 
 func (s State) canStart() bool {

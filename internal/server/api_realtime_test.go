@@ -79,6 +79,80 @@ func TestIdentityRoomLifecycleREST(t *testing.T) {
 	}
 }
 
+func TestGameOverSnapshotIncludesFinishedAt(t *testing.T) {
+	h := newTestHandler(t)
+	postJSON(t, h, "/api/identity/bootstrap", map[string]any{"authToken": "host-finished", "displayName": "Host"}, http.StatusOK)
+	roomResp := postJSON(t, h, "/api/rooms", map[string]any{"authToken": "host-finished", "settings": map[string]any{"wordpackId": "english", "seed": 12, "totalCards": 9, "blackCards": 1}}, http.StatusCreated)
+	roomID := roomResp["room"].(map[string]any)["id"].(string)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "red-spy-finished", "displayName": "Red Spy"}, http.StatusOK)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "blue-guess-finished", "displayName": "Blue Guess"}, http.StatusOK)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "red-guess-finished", "displayName": "Red Guess"}, http.StatusOK)
+	makeRoomStartable(t, h, roomID, map[string]string{"host-finished": "blueSpy", "red-spy-finished": "redSpy", "blue-guess-finished": "blueGuess", "red-guess-finished": "redGuess"})
+
+	postJSON(t, h, "/api/rooms/"+roomID+"/start", map[string]any{"authToken": "host-finished"}, http.StatusOK)
+	server := httptest.NewServer(h)
+	defer server.Close()
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws/rooms/" + roomID + "?authToken=host-finished"
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial websocket: %v", err)
+	}
+	defer conn.Close()
+	if err := conn.SetReadDeadline(testDeadline()); err != nil {
+		t.Fatalf("set read deadline: %v", err)
+	}
+	var msg map[string]any
+	if err := conn.ReadJSON(&msg); err != nil {
+		t.Fatalf("read initial snapshot: %v", err)
+	}
+	cards := msg["snapshot"].(map[string]any)["cards"].([]any)
+	blackIndex := -1
+	for i, raw := range cards {
+		card := raw.(map[string]any)
+		if card["color"] == "black" {
+			blackIndex = i
+			break
+		}
+	}
+	if blackIndex < 0 {
+		t.Fatalf("expected a black card in snapshot: %#v", cards)
+	}
+	currentTeam := msg["snapshot"].(map[string]any)["currentTeam"].(string)
+	guesserToken := "blue-guess-finished"
+	if currentTeam == "red" {
+		guesserToken = "red-guess-finished"
+	}
+	guesserURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws/rooms/" + roomID + "?authToken=" + guesserToken
+	guesserConn, _, err := websocket.DefaultDialer.Dial(guesserURL, nil)
+	if err != nil {
+		t.Fatalf("dial guesser websocket: %v", err)
+	}
+	defer guesserConn.Close()
+	if err := guesserConn.SetReadDeadline(testDeadline()); err != nil {
+		t.Fatalf("set guesser read deadline: %v", err)
+	}
+	if err := guesserConn.ReadJSON(&msg); err != nil {
+		t.Fatalf("read guesser initial snapshot: %v", err)
+	}
+	if err := guesserConn.WriteJSON(map[string]any{"type": "guessCard", "index": blackIndex}); err != nil {
+		t.Fatalf("write assassin guess: %v", err)
+	}
+	if err := guesserConn.ReadJSON(&msg); err != nil {
+		t.Fatalf("read game over snapshot: %v", err)
+	}
+	snapshot := msg["snapshot"].(map[string]any)
+	if snapshot["phase"] != "game_over" {
+		t.Fatalf("expected game over snapshot, got %#v", snapshot)
+	}
+	finishedAt, ok := snapshot["finishedAt"].(string)
+	if !ok || finishedAt == "" {
+		t.Fatalf("expected finishedAt in game over snapshot, got %#v", snapshot)
+	}
+	if _, err := time.Parse(time.RFC3339Nano, finishedAt); err != nil {
+		t.Fatalf("finishedAt should be RFC3339Nano, got %q: %v", finishedAt, err)
+	}
+}
+
 func TestRoomStartPersistsSnapshotAndRestoresOverWebSocket(t *testing.T) {
 	h := newTestHandler(t)
 	postJSON(t, h, "/api/identity/bootstrap", map[string]any{"authToken": "host", "displayName": "Host"}, http.StatusOK)

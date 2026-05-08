@@ -48,6 +48,7 @@ export interface RoomSnapshot {
   settings: Settings;
   currentTeam: 'blue' | 'red' | '';
   winner: 'blue' | 'red' | '';
+  finishedAt?: string;
   actionId: number;
   cards: GameplayCard[];
   lastSelected?: LastSelected | null;

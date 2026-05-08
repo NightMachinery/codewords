@@ -215,6 +215,7 @@ type State struct {
 	Cards        []Card            `json:"cards"`
 	CurrentTeam  Team              `json:"currentTeam"`
 	Winner       Team              `json:"winner"`
+	FinishedAt   string            `json:"finishedAt,omitempty"`
 	ActionID     int               `json:"actionId"`
 	LastSelected *LastSelected     `json:"lastSelected"`
 	ClueLog      []ClueEntry       `json:"clueLog"`
@@ -269,6 +270,7 @@ type Snapshot struct {
 	Phase        Phase
 	CurrentTeam  Team
 	Winner       Team
+	FinishedAt   string
 	ActionID     int
 	Cards        []SnapshotCard
 	LastSelected *LastSelected

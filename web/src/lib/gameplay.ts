@@ -702,11 +702,17 @@ export function chatCueNotice(message: Pick<{ displayName: string; body: string 
 
 export type EndGameOutcome = 'win' | 'loss' | 'neutral';
 
+export interface MemoryCapturePlayer {
+  name: string;
+  spymaster: boolean;
+  representative: boolean;
+}
+
 export interface MemoryCaptureTeam {
   key: 'blue' | 'red';
   name: string;
   color: string;
-  players: string[];
+  players: MemoryCapturePlayer[];
 }
 
 export interface MemoryCaptureCard {
@@ -755,21 +761,22 @@ export function buildMemoryCaptureModel(input: {
   showNumberBadges?: boolean;
   boardLayout?: Partial<MemoryCaptureBoardLayout>;
   roastTemplates?: string[];
+  finishedAt?: string;
   generatedAt?: Date;
 }): MemoryCaptureModel {
   const loser = input.winner === 'blue' ? 'red' : 'blue';
-  const playerNamesForTeam = (key: 'blue' | 'red', predicate: (player: LobbyPlayer) => boolean = () => true): string[] => input.players
-    .filter((player) => player.team === key && predicate(player))
-    .map((player) => player.displayName.trim())
-    .filter(Boolean);
+  const playersForTeam = (key: 'blue' | 'red', predicate: (player: LobbyPlayer) => boolean = () => true): LobbyPlayer[] => input.players
+    .filter((player) => player.team === key && predicate(player) && player.displayName.trim());
+  const playerNamesForTeam = (key: 'blue' | 'red', predicate: (player: LobbyPlayer) => boolean = () => true): string[] => playersForTeam(key, predicate)
+    .map((player) => player.displayName.trim());
   const team = (key: 'blue' | 'red'): MemoryCaptureTeam => ({
     key,
     name: displayTeamName(key, input.settings),
     color: teamColor(key, input.settings),
-    players: playerNamesForTeam(key),
+    players: playersForTeam(key).map((player) => ({ name: player.displayName.trim(), spymaster: player.spymaster, representative: player.representative })),
   });
   const sorted = displayCards(input.cards, cardModeFromImageCount(input.settings.imageCardCount ?? 0, input.settings.totalCards ?? defaultTotalCards), input.settings.mixedImageOrderFirst);
-  const generatedAt = input.generatedAt ?? new Date();
+  const generatedAt = input.finishedAt ? new Date(input.finishedAt) : (input.generatedAt ?? new Date());
   const generatedLabel = new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',

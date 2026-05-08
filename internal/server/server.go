@@ -578,6 +578,9 @@ func (a *app) handleWSMessage(ctx context.Context, roomID string, rt *roomRuntim
 		_ = conn.WriteJSON(errorMessage("command_rejected", err.Error()))
 		return
 	}
+	if rt.state.Phase == game.PhaseGameOver && rt.state.FinishedAt == "" {
+		rt.state.FinishedAt = time.Now().UTC().Format(time.RFC3339Nano)
+	}
 	room, err := a.store.RoomByID(ctx, roomID)
 	if err == nil {
 		if err := a.syncRoomPlayers(ctx, roomID, rt.state); err != nil {
@@ -1181,7 +1184,7 @@ func snapshotDTO(state game.State, viewerID string) map[string]any {
 			remaining[string(c.Color)]++
 		}
 	}
-	return map[string]any{"phase": s.Phase, "players": players, "settings": state.Settings, "currentTeam": s.CurrentTeam, "winner": s.Winner, "actionId": s.ActionID, "cards": cards, "lastSelected": s.LastSelected, "remainingCounts": remaining, "clueLog": s.ClueLog, "viewer": map[string]any{"playerId": viewerID, "userId": viewerID, "isHost": viewerID != "" && viewerID == state.HostID, "isMod": state.CanManage(viewerID)}}
+	return map[string]any{"phase": s.Phase, "players": players, "settings": state.Settings, "currentTeam": s.CurrentTeam, "winner": s.Winner, "finishedAt": s.FinishedAt, "actionId": s.ActionID, "cards": cards, "lastSelected": s.LastSelected, "remainingCounts": remaining, "clueLog": s.ClueLog, "viewer": map[string]any{"playerId": viewerID, "userId": viewerID, "isHost": viewerID != "" && viewerID == state.HostID, "isMod": state.CanManage(viewerID)}}
 }
 
 func clueNumber(v any) game.ClueNumber {
