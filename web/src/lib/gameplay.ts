@@ -544,13 +544,13 @@ export function cardWordTextClasses(word: string | undefined): string {
 
 export function fitCardWordSafeBox(width: number, height: number): { width: number; height: number } {
   return {
-    width: Math.max(0, width - 16),
-    height: Math.max(0, height - 12),
+    width: Math.max(0, width - 24),
+    height: Math.max(0, height - 24),
   };
 }
 
 export function fitCardWordFinalSize(fontSize: number, minimum = 8): number {
-  return Math.max(minimum, Math.floor(fontSize * 9.2) / 10);
+  return Math.max(minimum, Math.floor(fontSize * 8.5) / 10);
 }
 
 export function fitCardWordBoxClasses(): string {

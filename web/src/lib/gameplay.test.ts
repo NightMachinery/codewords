@@ -370,9 +370,9 @@ describe('board card state', () => {
   });
 
   it('reserves extra fitting space so visible glyph overhang stays inside card edges', () => {
-    expect(fitCardWordSafeBox(120, 72)).toEqual({ width: 104, height: 60 });
+    expect(fitCardWordSafeBox(120, 72)).toEqual({ width: 96, height: 48 });
     expect(fitCardWordSafeBox(10, 8)).toEqual({ width: 0, height: 0 });
-    expect(fitCardWordFinalSize(30)).toBe(27.6);
+    expect(fitCardWordFinalSize(30)).toBe(25.5);
     expect(fitCardWordFinalSize(8)).toBe(8);
   });
 
