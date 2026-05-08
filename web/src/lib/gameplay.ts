@@ -542,6 +542,17 @@ export function cardWordTextClasses(word: string | undefined): string {
   return ['block max-w-full whitespace-normal break-keep hyphens-none text-center font-black leading-[1.16] tracking-[0.02em]', size].join(' ');
 }
 
+export function fitCardWordSafeBox(width: number, height: number): { width: number; height: number } {
+  return {
+    width: Math.max(0, width - 16),
+    height: Math.max(0, height - 12),
+  };
+}
+
+export function fitCardWordFinalSize(fontSize: number, minimum = 8): number {
+  return Math.max(minimum, Math.floor(fontSize * 9.2) / 10);
+}
+
 export function fitCardWordBoxClasses(): string {
   return 'absolute inset-1.5 grid min-h-0 min-w-0 place-items-center overflow-visible [container-type:inline-size]';
 }

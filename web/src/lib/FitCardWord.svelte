@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount, tick } from 'svelte';
-  import { fitCardWordBoxClasses, fitCardWordLabelStyle } from './gameplay';
+  import { fitCardWordBoxClasses, fitCardWordFinalSize, fitCardWordLabelStyle, fitCardWordSafeBox } from './gameplay';
 
   interface Props {
     segments: string[];
@@ -34,16 +34,15 @@
 
     const minimum = 8;
     const maximum = Math.min(42, Math.max(14, width * 0.34, height * 0.5));
-    const safeWidth = Math.max(0, width - 6);
-    const safeHeight = Math.max(0, height - 4);
+    const safeBox = fitCardWordSafeBox(width, height);
     let low = minimum;
     let high = maximum;
 
     for (let attempt = 0; attempt < 9; attempt += 1) {
       const candidate = (low + high) / 2;
       label.style.fontSize = `${candidate}px`;
-      const fitsWidth = label.scrollWidth <= safeWidth;
-      const fitsHeight = label.scrollHeight <= safeHeight;
+      const fitsWidth = label.scrollWidth <= safeBox.width;
+      const fitsHeight = label.scrollHeight <= safeBox.height;
       if (fitsWidth && fitsHeight) {
         low = candidate;
       } else {
@@ -51,7 +50,7 @@
       }
     }
 
-    fontSize = Math.max(minimum, Math.floor(low * 9.6) / 10);
+    fontSize = fitCardWordFinalSize(low, minimum);
     label.style.fontSize = `${fontSize}px`;
     return true;
   }
