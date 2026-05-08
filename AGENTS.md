@@ -1,1 +1,1 @@
-- After finishing and committing, if you haven't already, run `zsh ./self_host.zsh redeploy` in tmux session `codewords-setup`.
+- After finishing and committing, if you haven't already, run `zsh ./self_host.zsh redeploy` in tmux session `codewords-setup`. Wait 60s before checking the logs in the session after sending the command.
