@@ -542,23 +542,12 @@ export function cardWordTextClasses(word: string | undefined): string {
   return ['block max-w-full whitespace-normal break-keep hyphens-none text-center font-black leading-[1.16] tracking-[0.02em]', size].join(' ');
 }
 
-export function fitCardWordSafeBox(width: number, height: number): { width: number; height: number } {
-  return {
-    width: Math.max(0, width - 24),
-    height: Math.max(0, height - 24),
-  };
-}
-
-export function fitCardWordFinalSize(fontSize: number, minimum = 8): number {
-  return Math.max(minimum, Math.floor(fontSize * 8.5) / 10);
-}
-
 export function fitCardWordBoxClasses(): string {
   return 'absolute inset-1.5 grid min-h-0 min-w-0 place-items-center overflow-visible [container-type:inline-size]';
 }
 
 export function fitCardWordLabelStyle(fontSize: number): string {
-  return `font-size: ${fontSize}px; max-width: 100%; overflow: visible; transform: translateY(-0.16em);`;
+  return `font-size: ${fontSize}px; overflow: visible;`;
 }
 
 export function clampTotalCards(value: unknown): number {

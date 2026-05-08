@@ -14,8 +14,6 @@ import {
   imageCountForMode,
   cardWordTextClasses,
   cardWordTextSegments,
-  fitCardWordSafeBox,
-  fitCardWordFinalSize,
   fitCardWordBoxClasses,
   fitCardWordLabelStyle,
   cardAspectRatioClasses,
@@ -365,16 +363,9 @@ describe('board card state', () => {
     expect(fitCardWordBoxClasses()).not.toContain('overflow-hidden');
     expect(fitCardWordLabelStyle(24)).toContain('font-size: 24px');
     expect(fitCardWordLabelStyle(24)).toContain('overflow: visible');
-    expect(fitCardWordLabelStyle(24)).toContain('transform: translateY(-0.16em)');
+    expect(fitCardWordLabelStyle(24)).not.toContain('transform');
     expect(fitCardWordLabelStyle(24)).not.toContain('max-height');
     expect(fitCardWordLabelStyle(24)).not.toContain('overflow: hidden');
-  });
-
-  it('reserves extra fitting space so visible glyph overhang stays inside card edges', () => {
-    expect(fitCardWordSafeBox(120, 72)).toEqual({ width: 96, height: 48 });
-    expect(fitCardWordSafeBox(10, 8)).toEqual({ width: 0, height: 0 });
-    expect(fitCardWordFinalSize(30)).toBe(25.5);
-    expect(fitCardWordFinalSize(8)).toBe(8);
   });
 
   it('keeps the active room shell full width on mobile without reserving chat space', () => {
