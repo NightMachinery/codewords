@@ -147,6 +147,7 @@
   let boardStatusMessage = $derived.by(() => {
     if (phase === 'game_over') return 'Game over. Review the board.';
     if (phase !== 'active') return '';
+    if (role.activeGuesser) return guessProblem || 'Select a card to guess';
     if (!role.player) return 'Spectators are read-only.';
     if (role.team !== currentTeam) return 'Their turn. Watch the board.';
     if (role.kind === 'spymaster' && !cluePermission.allowed) return 'Your team is guessing. Watch the board.';
@@ -1085,9 +1086,7 @@
         bind:clueText={clueText}
         bind:clueNumber={clueNumber}
         clueProblem={clueProblem}
-        guessProblem={guessProblem}
         passProblem={passProblem}
-        activeTeamHasRepresentative={activeTeamHasRepresentative}
         settings={settings}
         players={players}
         hostControls={hostControls}

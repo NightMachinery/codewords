@@ -1,7 +1,8 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import type { Settings } from './api';
-  import { filteredBottomShortcutItems, displayTeamName, formatClueNumber, hexWithAlpha, pressableButtonClasses, teamColor, type ClueEntry, type GameplayPhase } from './gameplay';
-  import { Grid2X2, List, MessageSquare, Settings as SettingsIcon, SlidersHorizontal, Users, ChevronDown } from 'lucide-svelte';
+  import { filteredBottomShortcutItems, displayTeamName, formatClueNumber, hexWithAlpha, pressableButtonClasses, sortedTurnPlayers, teamColor, type ClueEntry, type GameplayPhase } from './gameplay';
+  import { Grid2X2, List, MessageSquare, Settings as SettingsIcon, SlidersHorizontal, Users, ChevronDown, SkipForward } from 'lucide-svelte';
   import { customSvg } from './customSvg';
   import SvgMaskIcon from './SvgMaskIcon.svelte';
   import type { LobbyPlayer, Team } from './lobby';
@@ -15,9 +16,7 @@
     clueText: string;
     clueNumber: string;
     clueProblem: string;
-    guessProblem: string;
     passProblem: string;
-    activeTeamHasRepresentative: boolean;
     settings: Settings;
     players: LobbyPlayer[];
     hostControls: boolean;
@@ -37,9 +36,7 @@
     clueText = $bindable(),
     clueNumber = $bindable(),
     clueProblem,
-    guessProblem,
     passProblem,
-    activeTeamHasRepresentative,
     settings,
     players,
     hostControls,
@@ -51,21 +48,64 @@
   }: Props = $props();
 
   let controlsExpanded = $state(true);
+  let controlsBody: HTMLDivElement | null = $state(null);
+  let playerStrip: HTMLDivElement | null = $state(null);
+  let playersNeedOwnRow = $state(false);
+  let playersOverflow = $state(false);
 
   function setControlsExpanded(expanded: boolean) {
     controlsExpanded = expanded;
     window.requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('codewords:layout-change')));
   }
+
+  function measurePlayerStrip() {
+    if (controlsBody) playersNeedOwnRow = controlsBody.clientWidth < 720;
+    if (playerStrip) playersOverflow = playerStrip.scrollWidth > playerStrip.clientWidth + 1;
+  }
+
+  onMount(() => {
+    const observer = new ResizeObserver(() => measurePlayerStrip());
+    if (controlsBody) observer.observe(controlsBody);
+    if (playerStrip) observer.observe(playerStrip);
+    window.requestAnimationFrame(measurePlayerStrip);
+    return () => observer.disconnect();
+  });
+
   let isYourTeam = $derived(role.team === currentTeam);
   let teamLabel = $derived(displayTeamName(currentTeam, settings));
-  let currentTeamPlayers = $derived(players.filter((player) => player.team === currentTeam && (currentTeam === 'blue' || currentTeam === 'red')));
+  let currentTeamPlayers = $derived(sortedTurnPlayers(players, currentTeam));
   let canActNow = $derived(Boolean(phase === 'active' && isYourTeam && (role.activeGuesser || (role.kind === 'spymaster' && cluePermission.allowed))));
   let shortcutItems = $derived(filteredBottomShortcutItems(hostControls));
   let turnColor = $derived(teamColor(currentTeam, settings));
   let turnGlowStyle = $derived(currentTeam === 'blue' || currentTeam === 'red'
     ? `background-color: ${turnColor}; box-shadow: 0 0 0 1px ${hexWithAlpha(turnColor, '88')}, 0 0 ${canActNow ? '34px' : '18px'} ${hexWithAlpha(turnColor, canActNow ? 'AA' : '66')};`
     : '');
+
+  $effect(() => {
+    currentTeamPlayers;
+    controlsExpanded;
+    window.requestAnimationFrame(measurePlayerStrip);
+  });
 </script>
+
+{#snippet PlayerStrip()}
+  <div class="relative min-w-0 flex-1 overflow-hidden">
+    <div bind:this={playerStrip} class="flex min-w-0 flex-nowrap items-center gap-2 overflow-hidden whitespace-nowrap text-[11px] font-black text-slate-100">
+      {#each currentTeamPlayers as player (player.id)}
+        <span class="inline-flex min-w-0 max-w-28 shrink-0 items-center gap-1 truncate">
+          {#if player.spymaster}<SvgMaskIcon src={customSvg.spy} classes="h-3.5 w-3.5 shrink-0 text-cyan-100" />{/if}
+          {#if player.representative}<SvgMaskIcon src={customSvg.representative} classes="h-3.5 w-3.5 shrink-0 text-amber-100" />{/if}
+          <span class="truncate">{player.displayName.trim() || 'Player'}</span>
+        </span>
+      {:else}
+        <span class="truncate text-slate-400">Waiting for team.</span>
+      {/each}
+    </div>
+    {#if playersOverflow}
+      <span class="pointer-events-none absolute right-0 top-0 bg-slate-950/95 pl-2 text-[11px] font-black text-slate-300">…</span>
+    {/if}
+  </div>
+{/snippet}
 
 {#snippet MiniIcon(kind: 'spy' | 'rep' | 'board' | 'players' | 'clues' | 'settings' | 'local' | 'chat')}
   {#if kind === 'spy'}
@@ -106,9 +146,22 @@
     <ChevronDown class="h-5 w-5" />
   </button>
 
-  <div class="relative mx-auto flex max-w-7xl items-center justify-between gap-2 pr-10">
+  {#if playersNeedOwnRow && currentTeamPlayers.length}
+    <div class="mx-auto mb-1 max-w-7xl pr-10">
+      <div class="relative isolate overflow-hidden rounded-xl border border-slate-700/70 bg-slate-950/55 px-2.5 py-1.5">
+        {#if currentTeam === 'blue' || currentTeam === 'red'}
+          <span class="pointer-events-none absolute -left-5 top-1/2 h-16 w-16 -translate-y-1/2 rounded-full opacity-30 blur-xl" style={`background-color: ${turnColor};`}></span>
+        {/if}
+        <div class="relative z-10 flex min-w-0 items-center gap-2" title={`${teamLabel} players`}>
+          {@render PlayerStrip()}
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <div bind:this={controlsBody} class="relative mx-auto flex max-w-7xl items-center justify-between gap-2 pr-10">
     <!-- Turn/team row -->
-    <div class="relative min-w-0 flex-1 md:max-w-xs">
+    <div class={['relative min-w-0 flex-1', playersNeedOwnRow ? 'max-w-36' : 'md:max-w-xs'].join(' ')}>
       <div class="relative isolate overflow-hidden rounded-2xl border border-slate-700/70 bg-slate-950/55 px-2.5 py-1.5" title={`${teamLabel} turn`}>
         {#if currentTeam === 'blue' || currentTeam === 'red'}
           <span class="pointer-events-none absolute -left-5 top-1/2 h-20 w-20 -translate-y-1/2 rounded-full opacity-35 blur-xl" style={`background-color: ${turnColor};`}></span>
@@ -119,18 +172,8 @@
             style={turnGlowStyle}
           ></span>
           <div class="min-w-0 flex-1">
-            {#if currentTeamPlayers.length}
-              <div class="flex min-w-0 items-center gap-2 overflow-hidden text-[11px] font-black text-slate-100">
-                {#each currentTeamPlayers as player (player.id)}
-                  <span class="inline-flex min-w-0 shrink items-center gap-1 truncate">
-                    {#if player.spymaster}<SvgMaskIcon src={customSvg.spy} classes="h-3.5 w-3.5 shrink-0 text-cyan-100" />{/if}
-                    {#if player.representative}<SvgMaskIcon src={customSvg.representative} classes="h-3.5 w-3.5 shrink-0 text-amber-100" />{/if}
-                    <span class="truncate">{player.displayName.trim() || 'Player'}</span>
-                  </span>
-                {/each}
-              </div>
-            {:else}
-              <p class="truncate text-[11px] font-black text-slate-400">Waiting for team.</p>
+            {#if !playersNeedOwnRow}
+              {@render PlayerStrip()}
             {/if}
             {#if currentClue}
               <p class="mt-0.5 truncate text-[10px] font-black text-slate-100">
@@ -171,14 +214,16 @@
           </button>
         </div>
       {:else if role.activeGuesser && phase === 'active'}
-        <div class="flex w-full items-center gap-3">
-          <p class="min-w-0 flex-1 text-center text-xs font-bold text-slate-400">{guessProblem || 'Select a card to guess'}</p>
+        <div class="flex w-full items-center justify-end">
           <button
-            class={pressableButtonClasses('rounded-xl border border-slate-500 px-4 py-1.5 text-sm font-black text-slate-100 hover:border-emerald-300 hover:text-emerald-200 disabled:opacity-50')}
+            class={pressableButtonClasses('inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-500 px-2.5 py-1.5 text-sm font-black text-slate-100 hover:border-emerald-300 hover:text-emerald-200 disabled:opacity-50 min-[440px]:px-4')}
             disabled={Boolean(passProblem)}
             onclick={onPassTurn}
+            title="Pass"
+            aria-label="Pass turn"
           >
-            Pass
+            <SkipForward class="h-4 w-4" />
+            <span class="hidden min-[440px]:inline">Pass</span>
           </button>
         </div>
       {/if}

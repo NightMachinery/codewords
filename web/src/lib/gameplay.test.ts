@@ -52,6 +52,7 @@ import {
   viewerRole,
   bottomShortcutItems,
   ownTeamPlayerNames,
+  sortedTurnPlayers,
   chatToggleEventName,
   writePanelPreferences,
   writeGameplayPreferences,
@@ -279,6 +280,21 @@ describe('bottom control navigation helpers', () => {
     expect(ownTeamPlayerNames(players, 'blue')).toEqual(['Blue Spy', 'Blue Guess']);
     expect(ownTeamPlayerNames([{ ...players[0], displayName: '' }], 'blue')).toEqual(['Player']);
     expect(ownTeamPlayerNames(players, 'observers')).toEqual([]);
+  });
+
+  it('sorts turn players as spymasters, representatives, then others', () => {
+    const mixedPlayers: LobbyPlayer[] = [
+      { id: 'guess-1', displayName: 'Guess 1', team: 'blue', spymaster: false, representative: false, mod: false },
+      { id: 'rep-1', displayName: 'Rep 1', team: 'blue', spymaster: false, representative: true, mod: false },
+      { id: 'spy-1', displayName: 'Spy 1', team: 'blue', spymaster: true, representative: false, mod: false },
+      { id: 'guess-2', displayName: 'Guess 2', team: 'blue', spymaster: false, representative: false, mod: false },
+      { id: 'spy-2', displayName: 'Spy 2', team: 'blue', spymaster: true, representative: false, mod: false },
+      { id: 'red-rep', displayName: 'Red Rep', team: 'red', spymaster: false, representative: true, mod: false },
+      { id: 'rep-2', displayName: 'Rep 2', team: 'blue', spymaster: false, representative: true, mod: false },
+    ];
+
+    expect(sortedTurnPlayers(mixedPlayers, 'blue').map((player) => player.id)).toEqual(['spy-1', 'spy-2', 'rep-1', 'rep-2', 'guess-1', 'guess-2']);
+    expect(sortedTurnPlayers(mixedPlayers, 'observers')).toEqual([]);
   });
 });
 

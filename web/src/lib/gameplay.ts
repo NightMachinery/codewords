@@ -109,6 +109,20 @@ export function ownTeamPlayerNames(players: LobbyPlayer[], team: Team | undefine
     .map((player) => player.displayName.trim() || 'Player');
 }
 
+export function sortedTurnPlayers(players: LobbyPlayer[], team: Team | undefined): LobbyPlayer[] {
+  if (team !== 'blue' && team !== 'red') return [];
+  const roleRank = (player: LobbyPlayer): number => {
+    if (player.spymaster) return 0;
+    if (player.representative) return 1;
+    return 2;
+  };
+  return players
+    .map((player, index) => ({ player, index }))
+    .filter(({ player }) => player.team === team)
+    .sort((left, right) => roleRank(left.player) - roleRank(right.player) || left.index - right.index)
+    .map(({ player }) => player);
+}
+
 export const gameplayPreferencesStorageKey = 'codewords.gameplayPreferences';
 export const panelPreferencesStorageKey = 'codewords.panelPreferences';
 export const defaultGameplayPreferences: GameplayPreferences = {
