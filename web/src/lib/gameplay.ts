@@ -373,7 +373,7 @@ export function teamColorControlClasses(): string {
 }
 
 export function roomMainClasses(): string {
-  return 'min-h-screen w-full overflow-x-hidden bg-[oklch(14%_0.018_255)] pb-32 text-slate-100';
+  return 'min-h-screen w-full overflow-x-hidden bg-[oklch(14%_0.018_255)] pb-32 font-sans text-slate-100';
 }
 
 export function lobbyStartPanelClasses(): string {
@@ -464,6 +464,18 @@ export function selectedImageOverlayStyle(_visibleColor: VisibleCardColor, _cust
 
 export function boardGridClasses(): string {
   return '[grid-auto-rows:var(--card-mobile-grid-row)] md:[grid-auto-rows:var(--card-grid-row)]';
+}
+
+export function boardGridLayoutClasses(captureMode = false): string {
+  if (captureMode) {
+    return 'grid grid-flow-dense gap-3 [grid-template-columns:repeat(var(--card-columns),minmax(0,1fr))] [grid-auto-rows:var(--card-grid-row)]';
+  }
+  return ['grid grid-flow-dense gap-2 md:gap-3 [grid-template-columns:repeat(var(--mobile-card-columns),minmax(0,1fr))] md:[grid-template-columns:repeat(var(--card-columns),minmax(0,1fr))]', boardGridClasses()].join(' ');
+}
+
+export function boardCardSpanClasses(captureMode = false): string {
+  if (captureMode) return 'col-span-[var(--card-col-span)] row-span-[var(--card-row-span)]';
+  return 'col-span-[var(--card-mobile-col-span)] row-span-[var(--card-mobile-row-span)] md:col-span-[var(--card-col-span)] md:row-span-[var(--card-row-span)]';
 }
 
 export function imageCardGridStyle(card: Pick<DisplayCard, 'contentType'>, columns: number, scale: ImageCardScale, mobileColumns?: number): string {

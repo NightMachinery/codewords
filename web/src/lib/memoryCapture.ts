@@ -2,6 +2,7 @@ import type { MemoryCaptureModel } from './gameplay';
 
 export type MemoryCaptureColorName = 'blue' | 'red' | 'civilian' | 'black' | 'hidden';
 export type MemoryCaptureExporter = (node: HTMLElement) => Promise<Blob | null>;
+export const memoryCaptureDesktopWidth = 1400;
 
 interface CapturePalette {
   fill: string;
@@ -47,6 +48,7 @@ export async function downloadMemoryCapture(
 }
 
 async function exportMemoryNodeBlob(node: HTMLElement): Promise<Blob | null> {
+  await waitForMemoryCaptureReady(node);
   const { toBlob } = await import('html-to-image');
   return toBlob(node, {
     cacheBust: true,
@@ -57,5 +59,48 @@ async function exportMemoryNodeBlob(node: HTMLElement): Promise<Blob | null> {
     style: {
       transform: 'none',
     },
+  });
+}
+
+export async function waitForMemoryCaptureReady(node: HTMLElement, win: Pick<Window, 'requestAnimationFrame'> = window): Promise<void> {
+  await waitForFonts(node.ownerDocument);
+  await waitForImages(node);
+  await waitForAnimationFrame(win);
+
+  for (let attempt = 0; attempt < 7; attempt += 1) {
+    if (fitCardWordsReady(node)) return;
+    await waitForAnimationFrame(win);
+  }
+}
+
+async function waitForFonts(doc: Document | null): Promise<void> {
+  const fonts = doc?.fonts;
+  if (!fonts?.ready) return;
+  await fonts.ready.catch(() => undefined);
+}
+
+async function waitForImages(node: HTMLElement): Promise<void> {
+  const images = Array.from(node.querySelectorAll('img'));
+  await Promise.all(images.map(async (image) => {
+    if (image.complete && image.naturalWidth !== 0) return;
+    if (image.decode) {
+      await image.decode().catch(() => undefined);
+      return;
+    }
+    await new Promise<void>((resolve) => {
+      image.addEventListener('load', () => resolve(), { once: true });
+      image.addEventListener('error', () => resolve(), { once: true });
+    });
+  }));
+}
+
+function fitCardWordsReady(node: HTMLElement): boolean {
+  const labels = Array.from(node.querySelectorAll('[data-fit-card-word]'));
+  return labels.every((label) => label.getAttribute('data-fit-ready') === 'true');
+}
+
+function waitForAnimationFrame(win: Pick<Window, 'requestAnimationFrame'>): Promise<void> {
+  return new Promise((resolve) => {
+    win.requestAnimationFrame(() => resolve());
   });
 }

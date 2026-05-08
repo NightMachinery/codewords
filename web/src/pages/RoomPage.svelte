@@ -47,7 +47,7 @@
     type RemainingCounts,
     type MemoryCaptureModel,
   } from '../lib/gameplay';
-  import { downloadMemoryCapture } from '../lib/memoryCapture';
+  import { downloadMemoryCapture, memoryCaptureDesktopWidth } from '../lib/memoryCapture';
   import { getOrCreateAuthToken, resolveSessionCredential, type SessionCredential } from '../lib/identity';
   import { canManageLobby, startReadiness, type LobbyPlayer } from '../lib/lobby';
   import { RoomSocket, type BoardLayoutPreferences, type RoomSocketMessage } from '../lib/realtime';
@@ -652,7 +652,7 @@
     captureBusy = true;
     captureStatus = '';
     error = '';
-    captureViewportWidth = window.matchMedia('(max-width: 767px)').matches ? Math.max(360, Math.min(window.innerWidth || 430, 720)) : 1400;
+    captureViewportWidth = memoryCaptureDesktopWidth;
     const model = buildMemoryCaptureModel({
       roomId,
       winner,
@@ -730,7 +730,7 @@
 
     {#if pendingCaptureModel}
       <div class="fixed left-[-10000px] top-0 z-[-1]" aria-hidden="true">
-        <article bind:this={memoryCaptureElement} class="overflow-hidden bg-slate-950 p-6 text-slate-50 sm:p-24" style={`width: ${captureViewportWidth}px; background: radial-gradient(circle at 15% 8%, rgba(16,185,129,0.24), transparent 32%), radial-gradient(circle at 82% 16%, rgba(59,130,246,0.2), transparent 34%), linear-gradient(135deg, #07111f, #0f172a 52%, #07101a);`}>
+        <article bind:this={memoryCaptureElement} class="overflow-hidden bg-slate-950 p-6 font-sans text-slate-50 sm:p-24" style={`width: ${captureViewportWidth}px; background: radial-gradient(circle at 15% 8%, rgba(16,185,129,0.24), transparent 32%), radial-gradient(circle at 82% 16%, rgba(59,130,246,0.2), transparent 34%), linear-gradient(135deg, #07111f, #0f172a 52%, #07101a);`}>
           <header class="mb-14">
             <p class="text-base font-black uppercase tracking-[0.24em] text-slate-300 sm:text-2xl">{pendingCaptureModel.generatedLabel}</p>
             <h1 class="mt-4 text-4xl font-black tracking-tight text-slate-50 sm:text-7xl">{pendingCaptureModel.title}</h1>

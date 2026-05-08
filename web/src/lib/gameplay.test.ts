@@ -17,7 +17,9 @@ import {
   cardAspectRatioClasses,
   boardGridContainerClasses,
   boardGridClasses,
+  boardGridLayoutClasses,
   boardGridStyle,
+  boardCardSpanClasses,
   boardFitHeightStyle,
   boardFitAvailableHeight,
   cardChromeClasses,
@@ -235,6 +237,18 @@ describe('local gameplay preferences', () => {
     expect(boardGridStyle(4, 5)).toBe('--mobile-card-columns: 4; --card-columns: 5; --card-mobile-grid-row: calc(((100cqw - 3 * 0.5rem) / 4 * 0.75) - 0.25rem); --card-grid-row: calc(((100cqw - 4 * 0.75rem) / 5 * 0.75) - 0.375rem);');
     expect(boardGridContainerClasses()).toBe('[container-type:inline-size]');
     expect(boardGridClasses()).toBe('[grid-auto-rows:var(--card-mobile-grid-row)] md:[grid-auto-rows:var(--card-grid-row)]');
+  });
+
+  it('forces desktop board grid and card spans for memory capture exports', () => {
+    expect(boardGridLayoutClasses(false)).toContain('[grid-template-columns:repeat(var(--mobile-card-columns),minmax(0,1fr))]');
+    expect(boardGridLayoutClasses(false)).toContain('md:[grid-template-columns:repeat(var(--card-columns),minmax(0,1fr))]');
+    expect(boardGridLayoutClasses(true)).toContain('[grid-template-columns:repeat(var(--card-columns),minmax(0,1fr))]');
+    expect(boardGridLayoutClasses(true)).toContain('[grid-auto-rows:var(--card-grid-row)]');
+    expect(boardGridLayoutClasses(true)).not.toContain('--mobile-card-columns');
+    expect(boardGridLayoutClasses(true)).not.toContain('md:');
+    expect(boardCardSpanClasses(false)).toContain('col-span-[var(--card-mobile-col-span)]');
+    expect(boardCardSpanClasses(false)).toContain('md:col-span-[var(--card-col-span)]');
+    expect(boardCardSpanClasses(true)).toBe('col-span-[var(--card-col-span)] row-span-[var(--card-row-span)]');
   });
 
   it('computes desktop board fit from stable layout reserves rather than scroll position or shrunken width', () => {
