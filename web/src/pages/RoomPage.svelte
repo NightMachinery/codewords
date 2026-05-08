@@ -54,7 +54,11 @@
   import { applySettingsProfile, exportSettingsProfileJson5, parseSettingsProfileJson5, profileFromSettings, readSavedProfiles, writeSavedProfiles, type SettingsProfile } from '../lib/settingsProfiles';
   import vanillaProfileText from '../../../assets/profiles/vanilla.json5?raw';
   import mildlyMixedProfileText from '../../../assets/profiles/mildly-mixed.json5?raw';
-  import roastPackText from '../../../assets/roast-packs/roast_1.txt?raw';
+ ///
+ // Hardcoding the chosen roast pack:
+ // import roastPackText from '../../../assets/roast-packs/roast_1.txt?raw';
+ import roastPackText from '../../../assets/roast-packs/roast_adult_gem_3.txt?raw';
+ ///
   import { roomIdFromPath, roomPath, websocketRoomUrl } from '../lib/routes';
 
   import PlayerList from '../lib/PlayerList.svelte';

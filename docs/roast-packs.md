@@ -1,6 +1,6 @@
 # Roast Packs
 
-Roast packs are newline-delimited text files under `assets/roast-packs/`. The frontend currently imports `assets/roast-packs/roast_1.txt` as raw text for end-game memory captures.
+Roast packs are newline-delimited text files under `assets/roast-packs/`. The frontend currently imports a hardcoded roast pack file as raw text for end-game memory captures.
 
 ## Format
 
