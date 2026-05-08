@@ -546,10 +546,14 @@ export function fitCardWordBoxClasses(): string {
   return 'absolute inset-1.5 grid min-h-0 min-w-0 place-items-center overflow-visible [container-type:inline-size]';
 }
 
-export const fitCardWordConservativeShrinkPx = 4;
+export const fitCardWordConservativeShrinkPx = 14;
 
-export function conservativeFitCardWordSize(fittedSize: number): number {
-  return Math.max(8, Math.floor((fittedSize - fitCardWordConservativeShrinkPx) * 10) / 10);
+export function fitCardWordShrinkPx(captureMode: boolean): number {
+  return captureMode ? fitCardWordConservativeShrinkPx : 0;
+}
+
+export function conservativeFitCardWordSize(fittedSize: number, shrinkPx = 0): number {
+  return Math.max(8, Math.floor((fittedSize - shrinkPx) * 10) / 10);
 }
 
 export function fitCardWordLabelStyle(fontSize: number): string {

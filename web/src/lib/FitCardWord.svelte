@@ -5,9 +5,10 @@
   interface Props {
     segments: string[];
     classes: string;
+    shrinkPx?: number;
   }
 
-  let { segments, classes }: Props = $props();
+  let { segments, classes, shrinkPx = 0 }: Props = $props();
 
   let box: HTMLDivElement;
   let label: HTMLSpanElement;
@@ -49,7 +50,7 @@
       }
     }
 
-    fontSize = conservativeFitCardWordSize(low);
+    fontSize = conservativeFitCardWordSize(low, shrinkPx);
     label.style.fontSize = `${fontSize}px`;
     return true;
   }
@@ -69,6 +70,7 @@
   $effect(() => {
     segments;
     classes;
+    shrinkPx;
     scheduleFit();
   });
 </script>
