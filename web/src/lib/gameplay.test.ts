@@ -15,6 +15,7 @@ import {
   cardWordTextClasses,
   cardWordTextSegments,
   conservativeFitCardWordSize,
+  fitCardWordConservativeShrinkPx,
   fitCardWordBoxClasses,
   fitCardWordLabelStyle,
   cardAspectRatioClasses,
@@ -370,8 +371,8 @@ describe('board card state', () => {
   });
 
   it('applies a conservative fitted word size reduction', () => {
-    expect(conservativeFitCardWordSize(24)).toBe(20);
-    expect(conservativeFitCardWordSize(10)).toBe(8);
+    expect(conservativeFitCardWordSize(24)).toBe(24 - fitCardWordConservativeShrinkPx);
+    expect(conservativeFitCardWordSize(10)).toBe(Math.max(8, 10 - fitCardWordConservativeShrinkPx));
   });
 
   it('keeps the active room shell full width on mobile without reserving chat space', () => {
