@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { canManageLobby, playerBuckets, visiblePlayerBuckets, startReadiness, type LobbyPlayer } from './lobby';
+import { canManageLobby, canShowModControl, canShowRejoinTeamButton, canShowRoleControls, canShowTeamAssignmentButton, playerBuckets, visiblePlayerBuckets, startReadiness, type LobbyPlayer } from './lobby';
 
 const players: LobbyPlayer[] = [
   { id: 'host', displayName: 'Host', team: 'blue', spymaster: true, representative: false, mod: true },
@@ -28,6 +28,22 @@ describe('lobby helpers', () => {
     expect(canManageLobby({ userId: 'host', isHost: true, isMod: true })).toBe(true);
     expect(canManageLobby({ userId: 'guest', isHost: false, isMod: true })).toBe(true);
     expect(canManageLobby({ userId: 'guest', isHost: false, isMod: false })).toBe(false);
+  });
+
+  it('shows mid-game player controls to moderators and only self observer/rejoin controls to regular players', () => {
+    const viewer = { userId: 'guest', isHost: false, isMod: false };
+    const modViewer = { userId: 'host', isHost: false, isMod: true };
+    const guest = players[1];
+    const observer = { ...players[1], team: 'observers' as const, previousTeam: 'red' as const };
+
+    expect(canShowTeamAssignmentButton({ phase: 'active', hostControls: true, player: guest, viewer: modViewer, team: 'blue' })).toBe(true);
+    expect(canShowRoleControls({ phase: 'active', hostControls: true, player: guest })).toBe(true);
+    expect(canShowModControl({ phase: 'active', hostControls: true, player: guest, roomHostId: 'host' })).toBe(true);
+
+    expect(canShowTeamAssignmentButton({ phase: 'active', hostControls: false, player: guest, viewer, team: 'observers' })).toBe(true);
+    expect(canShowTeamAssignmentButton({ phase: 'active', hostControls: false, player: guest, viewer, team: 'blue' })).toBe(false);
+    expect(canShowTeamAssignmentButton({ phase: 'active', hostControls: false, player: players[0], viewer, team: 'observers' })).toBe(false);
+    expect(canShowRejoinTeamButton({ phase: 'active', hostControls: false, player: observer, viewer })).toBe(true);
   });
 
   it('explains what prevents the host from starting', () => {
