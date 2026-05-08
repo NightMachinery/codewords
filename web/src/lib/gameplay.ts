@@ -542,6 +542,14 @@ export function cardWordTextClasses(word: string | undefined): string {
   return ['block max-w-full whitespace-normal break-keep hyphens-none text-center font-black leading-[1.16] tracking-[0.02em]', size].join(' ');
 }
 
+export function fitCardWordBoxClasses(): string {
+  return 'absolute inset-1.5 grid min-h-0 min-w-0 place-items-center overflow-visible [container-type:inline-size]';
+}
+
+export function fitCardWordLabelStyle(fontSize: number): string {
+  return `font-size: ${fontSize}px; max-width: 100%; overflow: visible;`;
+}
+
 export function clampTotalCards(value: unknown): number {
   const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
   if (!Number.isFinite(parsed)) return defaultTotalCards;

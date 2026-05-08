@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount, tick } from 'svelte';
+  import { fitCardWordBoxClasses, fitCardWordLabelStyle } from './gameplay';
 
   interface Props {
     segments: string[];
@@ -74,8 +75,8 @@
   });
 </script>
 
-<div bind:this={box} data-fit-card-word data-fit-ready={fitReady ? 'true' : 'false'} class="absolute inset-1.5 grid min-h-0 min-w-0 place-items-center overflow-hidden [container-type:inline-size]">
-  <span bind:this={label} class={classes} style={`font-size: ${fontSize}px; max-width: 100%; max-height: 100%; overflow: hidden;`} dir="auto">
+<div bind:this={box} data-fit-card-word data-fit-ready={fitReady ? 'true' : 'false'} class={fitCardWordBoxClasses()}>
+  <span bind:this={label} class={classes} style={fitCardWordLabelStyle(fontSize)} dir="auto">
     {#each segments as segment, segmentIndex (segmentIndex)}
       {segment}{#if segmentIndex < segments.length - 1}<wbr />{/if}
     {/each}

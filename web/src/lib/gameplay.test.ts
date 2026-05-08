@@ -14,6 +14,8 @@ import {
   imageCountForMode,
   cardWordTextClasses,
   cardWordTextSegments,
+  fitCardWordBoxClasses,
+  fitCardWordLabelStyle,
   cardAspectRatioClasses,
   boardGridContainerClasses,
   boardGridClasses,
@@ -354,6 +356,15 @@ describe('board card state', () => {
     expect(cardWordTextSegments('exceptionally-long-unbroken-card-word')).toEqual(['exceptionally-long-unbroken-card-word']);
     expect(cardWordTextSegments('half‌space word')).toEqual(['half‌', 'space ', 'word']);
     expect(cardWordTextSegments('مقعد')).toEqual(['مقعد']);
+  });
+
+  it('allows Persian glyph ink to overhang fitted word labels without clipping', () => {
+    expect(fitCardWordBoxClasses()).toContain('overflow-visible');
+    expect(fitCardWordBoxClasses()).not.toContain('overflow-hidden');
+    expect(fitCardWordLabelStyle(24)).toContain('font-size: 24px');
+    expect(fitCardWordLabelStyle(24)).toContain('overflow: visible');
+    expect(fitCardWordLabelStyle(24)).not.toContain('max-height');
+    expect(fitCardWordLabelStyle(24)).not.toContain('overflow: hidden');
   });
 
   it('keeps the active room shell full width on mobile without reserving chat space', () => {
