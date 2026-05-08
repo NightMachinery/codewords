@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import { Copy, Power, Smartphone } from 'lucide-svelte';
 
   import { api, defaultSettings, type ChatMessage, type PictureAsset, type Settings, type Viewer, type Wordpack } from '../lib/api';
@@ -7,20 +7,9 @@
   import {
     activeMatchLayoutClasses,
     canSubmitClue,
-    cardAspectRatioClasses,
-    boardGridContainerClasses,
-    boardGridClasses,
-    boardGridStyle,
     boardFitHeightStyle,
-    cardChromeClasses,
-    cardChromeStyle,
-    cardDisabledStateClasses,
     cardContentLabel,
-    cardImageUrl,
     cardModeFromImageCount,
-    cardViewState,
-    cardWordTextClasses,
-    cardWordTextSegments,
     clueLogKey,
     clueNumberFromInput,
     clueSubmitProblem,
@@ -33,9 +22,6 @@
     buildMemoryCaptureModel,
     findViewerPlayer,
     formatClueNumber,
-    imageCardGridStyle,
-    imageColorFrameClasses,
-    selectedImageOverlayStyle,
     lobbyStartPanelClasses,
     pressableButtonClasses,
     normalizeLobbySettingsForSave,
@@ -49,7 +35,6 @@
     viewerRole,
     writePanelPreferences,
     writeGameplayPreferences,
-    toTitleCase,
     hexWithAlpha,
     teamColor,
     type ClueEntry,
@@ -60,6 +45,7 @@
     type PanelPreferences,
     type EndGameOutcome,
     type RemainingCounts,
+    type MemoryCaptureModel,
   } from '../lib/gameplay';
   import { downloadMemoryCapture } from '../lib/memoryCapture';
   import { getOrCreateAuthToken, resolveSessionCredential, type SessionCredential } from '../lib/identity';
@@ -74,7 +60,7 @@
   import PlayerList from '../lib/PlayerList.svelte';
   import ChatSidebar from '../lib/ChatSidebar.svelte';
   import BottomControls from '../lib/BottomControls.svelte';
-  import FitCardWord from '../lib/FitCardWord.svelte';
+  import BoardGrid from '../lib/BoardGrid.svelte';
   import ModSettings from '../lib/ModSettings.svelte';
   import { customSvg } from '../lib/customSvg';
   import SvgMaskIcon from '../lib/SvgMaskIcon.svelte';
@@ -126,11 +112,15 @@
   let localProfiles = $state<SettingsProfile[]>([]);
   let profileNotice = $state('');
   let boardShell = $state<HTMLElement | null>(null);
+  let memoryCaptureElement = $state<HTMLElement | null>(null);
+  let pendingCaptureModel = $state<MemoryCaptureModel | null>(null);
+  let captureViewportWidth = $state(1400);
   let boardFitStyle = $state('');
   let bottomPanelObserver: ResizeObserver | null = null;
 
   let cardMode = $derived(cardModeFromImageCount(settings.imageCardCount ?? 0, settings.totalCards ?? 25));
   let sortedCards = $derived(displayCards(cards, cardMode, settings.mixedImageOrderFirst));
+  let capturePreferences = $derived.by(() => pendingCaptureModel ? { ...preferences, ...pendingCaptureModel.boardLayout, showNumberBadges: pendingCaptureModel.showNumberBadges } : preferences);
   let canRandomizeTeams = $derived(players.filter((player) => player.team !== 'observers').length >= 2);
   let startState = $derived(startReadiness(players));
   let hostControls = $derived(canManageLobby(viewer));
@@ -660,14 +650,34 @@
     captureBusy = true;
     captureStatus = '';
     error = '';
+    captureViewportWidth = window.matchMedia('(max-width: 767px)').matches ? Math.max(360, Math.min(window.innerWidth || 430, 720)) : 1400;
+    const model = buildMemoryCaptureModel({
+      roomId,
+      winner,
+      players,
+      cards,
+      settings,
+      lastSelected,
+      showNumberBadges: preferences.showNumberBadges,
+      boardLayout: {
+        boardColumnsMobile: preferences.boardColumnsMobile,
+        boardColumnsDesktop: preferences.boardColumnsDesktop,
+        imageCardScale: preferences.imageCardScale,
+        strictCardAspectRatios: preferences.strictCardAspectRatios,
+      },
+      roastTemplates: roastPackText.split(/\r?\n/),
+    });
+    pendingCaptureModel = model;
     try {
-      const model = buildMemoryCaptureModel({ roomId, winner, players, cards, settings, lastSelected, showNumberBadges: preferences.showNumberBadges, roastTemplates: roastPackText.split(/\r?\n/) });
-      await downloadMemoryCapture(model);
+      await tick();
+      if (!memoryCaptureElement) throw new Error('Could not prepare the memory board.');
+      await downloadMemoryCapture(model, memoryCaptureElement);
       captureStatus = 'Memory image downloaded.';
       clearCaptureStatusSoon(captureStatus);
     } catch (err) {
       error = err instanceof Error ? err.message : 'Could not capture the memory image.';
     } finally {
+      pendingCaptureModel = null;
       captureBusy = false;
     }
   }
@@ -714,6 +724,51 @@
         {/if}
       </div>
     </nav>
+
+    {#if pendingCaptureModel}
+      <div class="fixed left-[-10000px] top-0 z-[-1]" aria-hidden="true">
+        <article bind:this={memoryCaptureElement} class="overflow-hidden bg-slate-950 p-6 text-slate-50 sm:p-24" style={`width: ${captureViewportWidth}px; background: radial-gradient(circle at 15% 8%, rgba(16,185,129,0.24), transparent 32%), radial-gradient(circle at 82% 16%, rgba(59,130,246,0.2), transparent 34%), linear-gradient(135deg, #07111f, #0f172a 52%, #07101a);`}>
+          <header class="mb-14">
+            <p class="text-base font-black uppercase tracking-[0.24em] text-slate-300 sm:text-2xl">{pendingCaptureModel.generatedLabel}</p>
+            <h1 class="mt-4 text-4xl font-black tracking-tight text-slate-50 sm:text-7xl">{pendingCaptureModel.title}</h1>
+            {#if pendingCaptureModel.roastLine}
+              <p class="mt-8 max-w-5xl text-2xl font-black leading-tight text-amber-200 sm:text-4xl">{pendingCaptureModel.roastLine}</p>
+            {/if}
+          </header>
+
+          <section class="mb-16 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-8">
+            <div class="rounded-[2rem] border bg-slate-900/80 p-8 shadow-2xl shadow-slate-950/30" style={`border-color: ${hexWithAlpha(pendingCaptureModel.winner.color, 'CC')};`}>
+              <p class="text-sm font-black uppercase tracking-[0.22em] text-slate-400 sm:text-lg">Winners</p>
+              <h2 class="mt-3 text-2xl font-black text-slate-50 sm:text-4xl">{pendingCaptureModel.winner.name}</h2>
+              <p class="mt-5 text-lg font-bold leading-snug text-slate-300 sm:text-2xl">{pendingCaptureModel.winner.players.length ? pendingCaptureModel.winner.players.join(', ') : 'No seated players'}</p>
+            </div>
+            <div class="rounded-[2rem] border bg-slate-900/80 p-8 shadow-2xl shadow-slate-950/30" style={`border-color: ${hexWithAlpha(pendingCaptureModel.loser.color, 'CC')};`}>
+              <p class="text-sm font-black uppercase tracking-[0.22em] text-slate-400 sm:text-lg">Rivals</p>
+              <h2 class="mt-3 text-2xl font-black text-slate-50 sm:text-4xl">{pendingCaptureModel.loser.name}</h2>
+              <p class="mt-5 text-lg font-bold leading-snug text-slate-300 sm:text-2xl">{pendingCaptureModel.loser.players.length ? pendingCaptureModel.loser.players.join(', ') : 'No seated players'}</p>
+            </div>
+          </section>
+
+          <section class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5 shadow-2xl shadow-slate-950/35">
+            <div class="mb-5 flex items-center justify-between gap-3">
+              <p class="text-xs font-black uppercase tracking-[0.22em] text-slate-400">Board</p>
+              <p class="text-xs font-bold text-slate-400">Captured from the in-game board layout</p>
+            </div>
+            <BoardGrid
+              cards={sortedCards}
+              {settings}
+              preferences={capturePreferences}
+              {role}
+              {spymasterViewActive}
+              {lastSelected}
+              {phase}
+              {guessDisabledReason}
+              captureMode
+            />
+          </section>
+        </article>
+      </div>
+    {/if}
 
     {#if loading}
       <section class="grid min-h-[70vh] place-items-center">
@@ -864,46 +919,17 @@
                 </div>
               </div>
 
-              <div class={boardGridContainerClasses()}>
-                <div id="board" class={['grid grid-flow-dense gap-2 md:gap-3 [grid-template-columns:repeat(var(--mobile-card-columns),minmax(0,1fr))] md:[grid-template-columns:repeat(var(--card-columns),minmax(0,1fr))]', boardGridClasses()].join(' ')} style={boardGridStyle(mobileColumns, activeColumns)}>
-                  {#each sortedCards as card, index (`${card.word ?? card.imageId ?? 'card'}-${card.originalIndex}`)}
-                    {@const showHiddenColor = role.canSeeHiddenColors && (role.kind !== 'spymaster' || spymasterViewActive)}
-                    {@const revealedStyle = (role.kind === 'spymaster' && spymasterViewActive) ? preferences.spymasterRevealedStyle : 'normal'}
-                    {@const view = cardViewState(card, card.originalIndex, showHiddenColor, lastSelected, revealedStyle)}
-                    {@const customColor = card.color === 'blue' ? teamColor('blue', settings) : card.color === 'red' ? teamColor('red', settings) : ''}
-                    <button
-                      class={pressableButtonClasses(['group relative col-span-[var(--card-mobile-col-span)] row-span-[var(--card-mobile-row-span)] md:col-span-[var(--card-col-span)] md:row-span-[var(--card-row-span)] rounded-xl border text-left duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', cardAspectRatioClasses(card, preferences.strictCardAspectRatios), cardChromeClasses(card, view.isLastSelected), view.classes, cardDisabledStateClasses({ disabled: !role.activeGuesser || card.revealed || phase !== 'active', revealed: card.revealed, revealedStyle })].join(' '))}
-                      style={`${imageCardGridStyle(card, activeColumns, preferences.imageCardScale, mobileColumns)} ${cardChromeStyle(card, view.visibleColor, customColor, view.isLastSelected)}`}
-                      disabled={Boolean(guessDisabledReason(card))}
-                      title={guessDisabledReason(card) || `Reveal ${cardContentLabel(card)}`}
-                      onclick={() => guessCard(card.originalIndex, card)}
-                    >
-                      {#if preferences.showNumberBadges}
-                        <span class="absolute left-0 top-0 z-10 rounded-br-xl bg-slate-950/85 px-1.5 py-1 text-[10px] font-black leading-none text-slate-100">
-                          #{card.badgeNumber}
-                        </span>
-                      {/if}
-                      {#if card.contentType === 'image'}
-                        <img class="h-full w-full rounded-lg object-cover" src={cardImageUrl(card)} alt="Card illustration" loading="lazy" />
-                        {#if view.visibleColor !== 'hidden' && customColor && view.isLastSelected}
-                          <span class={imageColorFrameClasses(view.isLastSelected)} style={`border-color: ${hexWithAlpha(customColor, 'E6')};`}></span>
-                        {/if}
-                        {#if view.isLastSelected}
-                          <span class="pointer-events-none absolute inset-0 z-30 rounded-xl border-4" style={selectedImageOverlayStyle(view.visibleColor, customColor)}></span>
-                        {/if}
-                      {:else}
-                        {@const wordSegments = cardWordTextSegments(toTitleCase(card.word) || 'Card')}
-                        <FitCardWord segments={wordSegments} classes={cardWordTextClasses(card.word)} />
-                        {#if view.isLastSelected}
-                          <span class="pointer-events-none absolute inset-0 z-30 rounded-xl border-4 border-emerald-200"></span>
-                        {/if}
-                      {/if}
-                    </button>
-                  {:else}
-                    <p class="col-span-full rounded-2xl border border-slate-700 bg-slate-950 p-6 text-slate-300">Waiting for the board snapshot...</p>
-                  {/each}
-                </div>
-              </div>
+              <BoardGrid
+                cards={sortedCards}
+                {settings}
+                {preferences}
+                {role}
+                {spymasterViewActive}
+                {lastSelected}
+                {phase}
+                {guessDisabledReason}
+                onGuess={guessCard}
+              />
             </section>
           </div>
 

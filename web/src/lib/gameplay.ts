@@ -718,6 +718,13 @@ export interface MemoryCaptureCard {
   isLastSelected: boolean;
 }
 
+export interface MemoryCaptureBoardLayout {
+  boardColumnsMobile: number;
+  boardColumnsDesktop: number;
+  imageCardScale: ImageCardScale;
+  strictCardAspectRatios: boolean;
+}
+
 export interface MemoryCaptureModel {
   roomId: string;
   title: string;
@@ -725,6 +732,7 @@ export interface MemoryCaptureModel {
   generatedLabel: string;
   roastLine: string;
   showNumberBadges: boolean;
+  boardLayout: MemoryCaptureBoardLayout;
   winner: MemoryCaptureTeam;
   loser: MemoryCaptureTeam;
   cards: MemoryCaptureCard[];
@@ -745,6 +753,7 @@ export function buildMemoryCaptureModel(input: {
   settings: Settings;
   lastSelected?: LastSelected | null;
   showNumberBadges?: boolean;
+  boardLayout?: Partial<MemoryCaptureBoardLayout>;
   roastTemplates?: string[];
   generatedAt?: Date;
 }): MemoryCaptureModel {
@@ -791,6 +800,12 @@ export function buildMemoryCaptureModel(input: {
     generatedLabel,
     roastLine,
     showNumberBadges: input.showNumberBadges ?? true,
+    boardLayout: {
+      boardColumnsMobile: clampBoardColumns(input.boardLayout?.boardColumnsMobile, defaultGameplayPreferences.boardColumnsMobile),
+      boardColumnsDesktop: clampBoardColumns(input.boardLayout?.boardColumnsDesktop, defaultGameplayPreferences.boardColumnsDesktop),
+      imageCardScale: clampImageCardScale(input.boardLayout?.imageCardScale),
+      strictCardAspectRatios: input.boardLayout?.strictCardAspectRatios ?? defaultGameplayPreferences.strictCardAspectRatios,
+    },
     winner: team(input.winner),
     loser: team(loser),
     cards: sorted.map((card) => ({

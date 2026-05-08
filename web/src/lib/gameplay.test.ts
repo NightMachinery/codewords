@@ -631,6 +631,7 @@ describe('end-game memory and cues', () => {
       settings: endSettings,
       lastSelected: { index: 1, team: 'blue' },
       showNumberBadges: false,
+      boardLayout: { boardColumnsMobile: 3, boardColumnsDesktop: 6, imageCardScale: 4, strictCardAspectRatios: true },
       roastTemplates: ['{LOSER_TEAM} were cooked', 'It is all {RANDOM_LOSING_SPYMASTER} fault!'],
       generatedAt: new Date('2026-05-06T12:00:00.000Z'),
     });
@@ -640,6 +641,12 @@ describe('end-game memory and cues', () => {
     expect(model.winner.players).toEqual(['Blue Spy', 'Blue Guess']);
     expect(model.loser.players).toEqual(['Red Spy']);
     expect(model.showNumberBadges).toBe(false);
+    expect(model.boardLayout).toEqual({
+      boardColumnsMobile: 3,
+      boardColumnsDesktop: 6,
+      imageCardScale: 4,
+      strictCardAspectRatios: true,
+    });
     expect(model.generatedLabel).toContain('May 6, 2026');
     expect(model.cards.map((card) => `${card.badgeNumber}:${card.label}:${card.color}:${card.isLastSelected}:${card.imageUrl ?? ''}`)).toEqual([
       '1:Picture #1:red:true:/api/pictures/fox',
