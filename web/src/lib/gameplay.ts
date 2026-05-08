@@ -546,6 +546,10 @@ export function fitCardWordBoxClasses(): string {
   return 'absolute inset-1.5 grid min-h-0 min-w-0 place-items-center overflow-visible [container-type:inline-size]';
 }
 
+export function conservativeFitCardWordSize(fittedSize: number): number {
+  return Math.max(8, Math.floor((fittedSize - 4) * 10) / 10);
+}
+
 export function fitCardWordLabelStyle(fontSize: number): string {
   return `font-size: ${fontSize}px; overflow: visible;`;
 }

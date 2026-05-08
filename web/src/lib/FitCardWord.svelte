@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount, tick } from 'svelte';
-  import { fitCardWordBoxClasses, fitCardWordLabelStyle } from './gameplay';
+  import { conservativeFitCardWordSize, fitCardWordBoxClasses, fitCardWordLabelStyle } from './gameplay';
 
   interface Props {
     segments: string[];
@@ -49,7 +49,7 @@
       }
     }
 
-    fontSize = Math.max(minimum, Math.floor(low * 10) / 10);
+    fontSize = conservativeFitCardWordSize(low);
     label.style.fontSize = `${fontSize}px`;
     return true;
   }
