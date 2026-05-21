@@ -10,6 +10,9 @@
     boardFitHeightStyle,
     cardContentLabel,
     cardModeFromImageCount,
+    clueCueSignature,
+    currentSubmittedClue,
+    formatClueEntryLabel,
     clueLogKey,
     clueNumberFromInput,
     clueSubmitProblem,
@@ -32,6 +35,7 @@
     shouldCueChatMessage,
     shouldCueCardReveal,
     shouldResetClueDraft,
+    visibleClueLogEntries,
     viewerRole,
     writePanelPreferences,
     writeGameplayPreferences,
@@ -136,7 +140,8 @@
   let cluePermission = $derived(canSubmitClue(players, viewer, currentTeam as any, phase, settings));
   let clueNumberParsed = $derived(clueNumberFromInput(clueNumber));
   let clueProblem = $derived(clueSubmitProblem(clueText, clueNumberParsed as any, settings));
-  let currentClue = $derived(clueLog.slice().reverse().find((entry) => entry.status === 'active') ?? null);
+  let currentClue = $derived(currentSubmittedClue(clueLog));
+  let visibleClueLog = $derived(visibleClueLogEntries(clueLog));
   let guessProblem = $derived(guessDisabledReason());
   let passProblem = $derived(passDisabledReason());
   let boardStatusMessage = $derived.by(() => {
@@ -275,7 +280,7 @@
 
   function handleSocketMessage(message: RoomSocketMessage) {
     if (message.type === 'snapshot') {
-      const nextClueSignature = clueSignature(message.snapshot.clueLog ?? []);
+      const nextClueSignature = clueCueSignature(message.snapshot.clueLog ?? []);
       const nextCards = message.snapshot.cards ?? [];
       const enteredGameOver = sawSnapshot && phase !== 'game_over' && message.snapshot.phase === 'game_over' && Boolean(message.snapshot.winner);
       if (sawSnapshot && shouldCueCardReveal(previousCardsForCue, nextCards)) {
@@ -300,7 +305,7 @@
       remainingCounts = message.snapshot.remainingCounts ?? { blue: 0, red: 0, civilian: 0, black: 0 };
       const previousClue = currentClue;
       const nextClueLog = message.snapshot.clueLog ?? [];
-      const nextClue = nextClueLog.slice().reverse().find((entry) => entry.status === 'active') ?? null;
+      const nextClue = currentSubmittedClue(nextClueLog);
       if (shouldResetClueDraft({ reason: 'snapshot', previousClue, nextClue, previousPhase: previousPhaseForDraft, nextPhase: message.snapshot.phase })) {
         clueText = '';
         clueNumber = '';
@@ -510,11 +515,6 @@
     } catch {
       // Browsers may block audio until a user gesture; local visual cues still work.
     }
-  }
-
-  function clueSignature(entries: ClueEntry[]) {
-    const latest = entries.at(-1);
-    return latest ? `${latest.round}:${latest.team}:${latest.status}:${latest.text}:${formatClueNumber(latest.number)}:${latest.guesses}` : '';
   }
 
   function sendChat() {
@@ -984,13 +984,13 @@
             <section id="clues" class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5">
               <h2 class="text-xl font-black tracking-tight">Clue log</h2>
               <div class="mt-4 space-y-3">
-                {#each clueLog.slice().reverse() as clue, index (clueLogKey(clue, index))}
+                {#each visibleClueLog.slice().reverse() as clue, index (clueLogKey(clue, index))}
                   <article class="rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-3">
                     <div class="flex items-center justify-between gap-3">
                       <span class={['rounded-full px-2.5 py-1 text-xs font-black capitalize', clue.team === 'blue' ? 'bg-blue-300 text-blue-950' : 'bg-red-300 text-red-950']} style={`background-color: ${teamColor(clue.team, settings)}; color: white`}>{displayTeamName(clue.team, settings)}</span>
                       <span class="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{clue.status}</span>
                     </div>
-                    <p class="mt-2 font-black">{clue.text} · {formatClueNumber(clue.number)}</p>
+                    <p class="mt-2 font-black">{formatClueEntryLabel(clue)}</p>
                     <p class="text-xs text-slate-500">Round {clue.round} · {clue.guesses} guesses</p>
                   </article>
                 {:else}

@@ -246,6 +246,28 @@ export function formatClueNumber(number: ClueNumber | undefined): string {
   return String(number.value ?? '');
 }
 
+export function hasSubmittedClueText(clue: ClueEntry | null | undefined): clue is ClueEntry {
+  return Boolean(clue && clue.status !== 'na' && clue.text.trim());
+}
+
+export function currentSubmittedClue(entries: ClueEntry[]): ClueEntry | null {
+  return entries.slice().reverse().find((entry) => entry.status === 'active' && hasSubmittedClueText(entry)) ?? null;
+}
+
+export function visibleClueLogEntries(entries: ClueEntry[]): ClueEntry[] {
+  return entries.filter((entry) => entry.status === 'na' || hasSubmittedClueText(entry));
+}
+
+export function formatClueEntryLabel(clue: ClueEntry): string {
+  if (clue.status === 'na') return clue.text || 'NA';
+  return `${clue.text} · ${formatClueNumber(clue.number)}`;
+}
+
+export function clueCueSignature(entries: ClueEntry[]): string {
+  const latest = entries.slice().reverse().find(hasSubmittedClueText);
+  return latest ? `${latest.round}:${latest.team}:${latest.text}:${formatClueNumber(latest.number)}:${latest.submittedBy ?? ''}:${latest.updatedBy ?? ''}` : '';
+}
+
 export function clueSubmitProblem(text: string, number: ClueNumber, settings: Settings): string {
   if (!text.trim()) return 'Enter a one-word clue.';
   if (settings.enforceClueGuessLimit && number.kind === 'blank') return 'Pick a clue number when clue limits are enforced.';

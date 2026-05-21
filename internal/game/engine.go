@@ -511,6 +511,7 @@ func (c StartCommand) apply(state *State, actorID string) (Event, error) {
 	state.LastSelected = nil
 	state.ClueLog = nil
 	state.Round = state.startRound(board.StartingTeam)
+	state.RoundGuesses = 0
 	return Event{Type: EventMatchStarted}, nil
 }
 
@@ -545,6 +546,7 @@ func (c SubmitClueCommand) apply(state *State, actorID string) (Event, error) {
 	entry.Text = text
 	entry.Number = c.Number
 	entry.Status = ClueActive
+	entry.Guesses = state.currentRoundGuesses()
 	if entry.SubmittedBy == "" {
 		entry.SubmittedBy = actorID
 	}
@@ -576,6 +578,7 @@ func (c GuessCommand) apply(state *State, actorID string) (Event, error) {
 	selectedColor := state.Cards[c.Index].Color
 	if state.resolveWin() {
 		state.finalizeRound()
+		state.RoundGuesses = 0
 		return Event{Type: EventGuessAccepted}, nil
 	}
 	if selectedColor != state.CurrentTeam.Color() {
@@ -666,6 +669,7 @@ func (c RestartMatchCommand) apply(state *State, actorID string) (Event, error) 
 	state.FinishedAt = ""
 	state.LastSelected = nil
 	state.Round = 0
+	state.RoundGuesses = 0
 	state.Settings.Seed++
 	state.ActionID++
 	return Event{Type: EventMatchRestarted}, nil
@@ -822,38 +826,54 @@ func (s *State) ensureCurrentClue() int {
 }
 
 func (s *State) currentRoundGuesses() int {
-	if len(s.ClueLog) == 0 {
-		return 0
+	guesses := s.RoundGuesses
+	if len(s.ClueLog) > 0 {
+		entry := s.ClueLog[len(s.ClueLog)-1]
+		if entry.Round == s.Round && entry.Status == ClueActive && entry.Guesses > guesses {
+			guesses = entry.Guesses
+		}
 	}
-	entry := s.ClueLog[len(s.ClueLog)-1]
-	if entry.Round != s.Round {
-		return 0
-	}
-	return entry.Guesses
+	return guesses
 }
 
 func (s *State) incrementCurrentClueGuesses() {
-	idx := s.ensureCurrentClue()
-	s.ClueLog[idx].Guesses++
+	s.RoundGuesses = s.currentRoundGuesses() + 1
+	if len(s.ClueLog) == 0 {
+		return
+	}
+	idx := len(s.ClueLog) - 1
+	if s.ClueLog[idx].Round == s.Round && s.ClueLog[idx].Status == ClueActive && s.ClueLog[idx].Text != "" {
+		s.ClueLog[idx].Guesses = s.RoundGuesses
+	}
 }
 
 func (s *State) finalizeRound() {
-	idx := s.ensureCurrentClue()
-	entry := s.ClueLog[idx]
-	if entry.Text == "" {
-		entry.Text = "NA"
-		entry.Number = ClueNumber{Kind: ClueNumberBlank}
-		entry.Status = ClueNA
-	} else {
-		entry.Status = ClueFinal
+	guesses := s.currentRoundGuesses()
+	if len(s.ClueLog) > 0 {
+		idx := len(s.ClueLog) - 1
+		entry := s.ClueLog[idx]
+		if entry.Round == s.Round && entry.Status == ClueActive && entry.Text != "" {
+			entry.Guesses = guesses
+			entry.Status = ClueFinal
+			s.ClueLog[idx] = entry
+			return
+		}
 	}
-	s.ClueLog[idx] = entry
+	s.ClueLog = append(s.ClueLog, ClueEntry{
+		Round:   s.Round,
+		Team:    s.CurrentTeam,
+		Text:    "NA",
+		Number:  ClueNumber{Kind: ClueNumberBlank},
+		Status:  ClueNA,
+		Guesses: guesses,
+	})
 }
 
 func (s *State) endRoundAndSwitch() {
 	s.finalizeRound()
 	s.CurrentTeam = s.CurrentTeam.Opponent()
 	s.Round = s.startRound(s.CurrentTeam)
+	s.RoundGuesses = 0
 }
 
 func (s *State) resolveWin() bool {

@@ -611,6 +611,53 @@ func TestClueOptionalModeLogsNAAndAllowsUpdatesBeforeRoundEnds(t *testing.T) {
 	}
 }
 
+func TestNoClueGuessesTrackRoundGuessesWithoutLiveCluePlaceholder(t *testing.T) {
+	state := startedState(t, Settings{Seed: 35, BlackCards: 0, WordpackID: "test"})
+	state.CurrentTeam = TeamBlue
+	setCardColors(&state, []Color{ColorBlue, ColorRed})
+
+	mustApply(t, &state, GuessCommand{Index: 0}, "blueGuess")
+	if state.RoundGuesses != 1 {
+		t.Fatalf("expected one tracked round guess, got %d", state.RoundGuesses)
+	}
+	if len(state.ClueLog) != 0 {
+		t.Fatalf("guess before clue should not create a clue log row, got %#v", state.ClueLog)
+	}
+	if got := state.CurrentClue(); got != nil {
+		t.Fatalf("guess before clue should not create current clue, got %#v", got)
+	}
+
+	mustApply(t, &state, SubmitClueCommand{Text: "Ocean", Number: ClueNumber{Kind: ClueNumberNumeric, Value: 2}}, "blueSpy")
+	if got := state.CurrentClue(); got == nil || got.Text != "Ocean" || got.Guesses != 1 {
+		t.Fatalf("submitted clue should inherit existing round guesses, got %#v", got)
+	}
+
+	mustApply(t, &state, GuessCommand{Index: 1}, "blueGuess")
+	if state.RoundGuesses != 0 {
+		t.Fatalf("round guesses should reset after round switch, got %d", state.RoundGuesses)
+	}
+	if got := state.ClueLog[len(state.ClueLog)-1]; got.Text != "Ocean" || got.Status != ClueFinal || got.Guesses != 2 {
+		t.Fatalf("finalized clue should include all round guesses, got %#v", got)
+	}
+}
+
+func TestNoClueRoundLogsNAOnlyWhenRoundEnds(t *testing.T) {
+	state := startedState(t, Settings{Seed: 36, BlackCards: 0, WordpackID: "test"})
+	state.CurrentTeam = TeamBlue
+	setCardColors(&state, []Color{ColorRed})
+
+	mustApply(t, &state, GuessCommand{Index: 0}, "blueGuess")
+	if len(state.ClueLog) != 1 {
+		t.Fatalf("ending a no-clue round should append one clue log row, got %#v", state.ClueLog)
+	}
+	if last := state.ClueLog[0]; last.Status != ClueNA || last.Text != "NA" || last.Guesses != 1 {
+		t.Fatalf("ended no-clue round should log NA with guesses, got %#v", last)
+	}
+	if state.RoundGuesses != 0 {
+		t.Fatalf("round guesses should reset after no-clue round ends, got %d", state.RoundGuesses)
+	}
+}
+
 func TestEnforcedClueLimitRequiresClueAndCapsGuesses(t *testing.T) {
 	state := startedState(t, Settings{Seed: 16, BlackCards: 0, WordpackID: "test", EnforceClueGuessLimit: true})
 	state.CurrentTeam = TeamBlue

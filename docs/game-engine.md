@@ -18,7 +18,7 @@ Automatic color-count mode applies the configured starting-team handicap to whic
 
 A round is one team turn. It starts when a team becomes current and ends on pass, wrong/civilian/assassin reveal, or win. Correct same-team guesses keep the same clue round open.
 
-Current-team spymasters may submit or update a clue while the round is open. Clue text is required when submitting. Numeric clue values are `1..9`; blank is allowed only when clue limits are not enforced; infinity is allowed only when `AllowInfinityClue` is enabled. If a round ends without a submitted clue, the clue log records `NA`.
+Current-team spymasters may submit or update a clue while the round is open. Clue text is required when submitting. Numeric clue values are `1..9`; blank is allowed only when clue limits are not enforced; infinity is allowed only when `AllowInfinityClue` is enabled. Guesses before a clue do not create a live placeholder clue row; if a round ends without a submitted clue, the clue log records `NA`.
 
 When `EnforceClueGuessLimit` is enabled, guessing is rejected until a clue with a nonblank number is submitted. Numeric clues cap accepted reveals to that number; infinity has no cap. Updates that would lower a numeric clue below already accepted guesses are rejected.
 

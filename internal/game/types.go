@@ -220,6 +220,7 @@ type State struct {
 	LastSelected *LastSelected     `json:"lastSelected"`
 	ClueLog      []ClueEntry       `json:"clueLog"`
 	Round        int               `json:"round"`
+	RoundGuesses int               `json:"roundGuesses,omitempty"`
 }
 
 // Board is a generated board plus starting team.

@@ -42,8 +42,11 @@ import {
   lobbyStartPanelClasses,
   roomMainClasses,
   clueLogKey,
+  clueCueSignature,
+  currentSubmittedClue,
   defaultTeamNames,
   displayTeamName,
+  formatClueEntryLabel,
   isValidHexColor,
   isActiveGuesser,
   parseClueNumber,
@@ -61,6 +64,7 @@ import {
   ownTeamPlayerNames,
   sortedTurnPlayers,
   chatToggleEventName,
+  visibleClueLogEntries,
   writePanelPreferences,
   writeGameplayPreferences,
   normalizeLobbySettingsForSave,
@@ -615,6 +619,36 @@ describe('regression helpers', () => {
     ];
 
     expect(new Set(clues.map((clue, index) => clueLogKey(clue, index))).size).toBe(3);
+  });
+
+  it('uses only submitted clues for current clue and visible clue-log rows', () => {
+    const placeholder: ClueEntry = { round: 1, team: 'blue', text: '', number: { kind: 'blank' }, status: 'active', guesses: 1 };
+    const submitted: ClueEntry = { round: 2, team: 'red', text: 'Forest', number: { kind: 'numeric', value: 2 }, status: 'active', submittedBy: 'redSpy', updatedBy: 'redSpy', guesses: 0 };
+    const absent: ClueEntry = { round: 3, team: 'blue', text: 'NA', number: { kind: 'blank' }, status: 'na', guesses: 1 };
+
+    expect(currentSubmittedClue([placeholder])).toBeNull();
+    expect(currentSubmittedClue([placeholder, submitted])).toEqual(submitted);
+    expect(visibleClueLogEntries([placeholder, submitted, absent])).toEqual([submitted, absent]);
+  });
+
+  it('cues only for real submitted clue changes', () => {
+    const placeholder: ClueEntry = { round: 1, team: 'blue', text: '', number: { kind: 'blank' }, status: 'active', guesses: 1 };
+    const absent: ClueEntry = { round: 1, team: 'blue', text: 'NA', number: { kind: 'blank' }, status: 'na', guesses: 1 };
+    const submitted: ClueEntry = { round: 1, team: 'blue', text: 'Ocean', number: { kind: 'numeric', value: 2 }, status: 'active', submittedBy: 'blueSpy', updatedBy: 'blueSpy', guesses: 0 };
+    const guessed: ClueEntry = { ...submitted, guesses: 1 };
+    const finalized: ClueEntry = { ...guessed, status: 'final' };
+    const updated: ClueEntry = { ...submitted, text: 'Forest', updatedBy: 'blueSpy' };
+
+    expect(clueCueSignature([placeholder])).toBe('');
+    expect(clueCueSignature([absent])).toBe('');
+    expect(clueCueSignature([submitted])).toBe(clueCueSignature([guessed]));
+    expect(clueCueSignature([submitted])).toBe(clueCueSignature([finalized]));
+    expect(clueCueSignature([updated])).not.toBe(clueCueSignature([submitted]));
+  });
+
+  it('formats NA clue-log rows without a blank clue-number label', () => {
+    expect(formatClueEntryLabel({ round: 1, team: 'blue', text: 'NA', number: { kind: 'blank' }, status: 'na', guesses: 0 })).toBe('NA');
+    expect(formatClueEntryLabel({ round: 1, team: 'blue', text: 'Ocean', number: { kind: 'numeric', value: 2 }, status: 'active', guesses: 0 })).toBe('Ocean · 2');
   });
 });
 
