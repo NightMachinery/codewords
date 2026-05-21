@@ -227,11 +227,12 @@ type ClueEntry struct {
 
 // UnityBoardState is the authoritative hidden state for one player's Unity board.
 type UnityBoardState struct {
-	OwnerID              string      `json:"ownerId"`
-	Cards                []Card      `json:"cards"`
-	ClueLog              []ClueEntry `json:"clueLog,omitempty"`
-	TurnsUsed            int         `json:"turnsUsed"`
-	WithdrawnSharedTurns int         `json:"withdrawnSharedTurns,omitempty"`
+	OwnerID              string        `json:"ownerId"`
+	Cards                []Card        `json:"cards"`
+	ClueLog              []ClueEntry   `json:"clueLog,omitempty"`
+	TurnsUsed            int           `json:"turnsUsed"`
+	LastSelected         *LastSelected `json:"lastSelected,omitempty"`
+	WithdrawnSharedTurns int           `json:"withdrawnSharedTurns,omitempty"`
 }
 
 // UnityEndStats summarizes a finished Unity match.
@@ -320,6 +321,7 @@ type SnapshotBoard struct {
 	Cards           []SnapshotCard
 	ClueLog         []ClueEntry
 	TurnsUsed       int
+	LastSelected    *LastSelected
 	RemainingCounts CardCounts
 }
 

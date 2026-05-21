@@ -59,6 +59,94 @@ func TestUnityStartGeneratesPersonalBoardsAndSafeSnapshots(t *testing.T) {
 	}
 }
 
+func TestUnityDefaultsToSixTurnsPerBoard(t *testing.T) {
+	settings := SettingsWithDefaults(Settings{Mode: ModeUnity, Seed: 510})
+
+	if settings.UnityTurnLimit != 6 {
+		t.Fatalf("expected Unity finite default to be 6 turns per board, got %d", settings.UnityTurnLimit)
+	}
+}
+
+func TestUnityLobbyRejoinReturnsObserverToUnityWithoutLosingPolarityMetadata(t *testing.T) {
+	state := NewLobby("host", Settings{Mode: ModeUnity, Seed: 511})
+	mustApply(t, &state, AddPlayerCommand{PlayerID: "host", DisplayName: "Host"}, "host")
+	state.Players["host"] = Player{
+		ID:                     "host",
+		DisplayName:            "Host",
+		Team:                   TeamObservers,
+		PreviousTeam:           TeamRed,
+		PreviousSpymaster:      true,
+		PreviousRepresentative: false,
+		Mod:                    true,
+	}
+
+	mustApply(t, &state, RejoinTeamCommand{PlayerID: "host"}, "host")
+
+	player := state.Players["host"]
+	if player.Team != TeamUnity {
+		t.Fatalf("expected Unity-mode rejoin to assign Unity, got %#v", player)
+	}
+	if player.PreviousTeam != TeamRed || !player.PreviousSpymaster {
+		t.Fatalf("expected retained Polarity metadata, got %#v", player)
+	}
+	if player.Spymaster || player.Representative {
+		t.Fatalf("Unity rejoin should not restore Polarity roles onto Unity, got %#v", player)
+	}
+}
+
+func TestUnityLobbyAddsNewPlayersToUnityTeam(t *testing.T) {
+	state := NewLobby("host", Settings{Mode: ModeUnity, Seed: 514, RandomizeTeams: true})
+
+	mustApply(t, &state, AddPlayerCommand{PlayerID: "guest", DisplayName: "Guest"}, "guest")
+
+	if state.Players["guest"].Team != TeamUnity {
+		t.Fatalf("expected new Unity lobby player to join Unity, got %#v", state.Players["guest"])
+	}
+}
+
+func TestUnityTracksLastSelectedPerBoard(t *testing.T) {
+	state := unityLobby(t, Settings{Mode: ModeUnity, Seed: 512, UnityTurnLimit: 10})
+	mustApply(t, &state, StartCommand{GameID: "game-last-selected", Words: makeWords(80)}, "host")
+	state.ActiveBoardOwner = "host"
+	setUnityBoardColors(&state, "host", []Color{ColorUnity, ColorUnity})
+	setUnityBoardColors(&state, "p2", []Color{ColorUnity, ColorUnity})
+
+	mustApply(t, &state, GuessCommand{Index: 0}, "p2")
+
+	hostBoard := state.SnapshotFor(Viewer{PlayerID: "p2"}).ActiveBoard
+	if hostBoard.LastSelected == nil || hostBoard.LastSelected.Index != 0 || hostBoard.LastSelected.Team != TeamUnity {
+		t.Fatalf("expected host board last-selected index 0, got %#v", hostBoard.LastSelected)
+	}
+	ownBoard := state.SnapshotFor(Viewer{PlayerID: "p2"}).OwnBoard
+	if ownBoard == nil {
+		t.Fatalf("expected p2 own board")
+	}
+	if ownBoard.LastSelected != nil {
+		t.Fatalf("p2 board should not inherit host board last-selected, got %#v", ownBoard.LastSelected)
+	}
+}
+
+func TestUnityUsesDistinctImagesAcrossBoardsWhenEnoughImagesExist(t *testing.T) {
+	state := unityLobby(t, Settings{Mode: ModeUnity, Seed: 513, TotalCards: 9, ImageCardCount: 2, UnityTurnLimit: 6})
+	mustApply(t, &state, StartCommand{GameID: "game-images", Words: makeWords(40), ImageIDs: []string{"img-a", "img-b", "img-c", "img-d", "img-e", "img-f"}}, "host")
+
+	seen := map[string]string{}
+	for ownerID, board := range state.UnityBoards {
+		for _, card := range board.Cards {
+			if card.Content.Type != ContentImage {
+				continue
+			}
+			if previousOwner, ok := seen[card.Content.ImageID]; ok {
+				t.Fatalf("image %s duplicated on owners %s and %s", card.Content.ImageID, previousOwner, ownerID)
+			}
+			seen[card.Content.ImageID] = ownerID
+		}
+	}
+	if len(seen) != 6 {
+		t.Fatalf("expected six distinct image cards across Unity boards, got %#v", seen)
+	}
+}
+
 func TestUnityRepresentativeGuessingRules(t *testing.T) {
 	state := unityLobby(t, Settings{Mode: ModeUnity, Seed: 52, UnityTurnLimit: 5})
 	mustApply(t, &state, StartCommand{GameID: "game-2", Words: makeWords(80)}, "host")

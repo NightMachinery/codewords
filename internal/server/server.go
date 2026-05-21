@@ -631,7 +631,7 @@ func (a *app) startMatchLocked(ctx context.Context, room storage.Room, rt *roomR
 		_, _ = game.Apply(&rt.state, game.AddPlayerCommand{PlayerID: p.UserID, DisplayName: u.DisplayName}, p.UserID)
 	}
 	pack := a.packs[rt.state.Settings.WordpackID]
-	imageIDs, err := a.pictureIDsForStart(ctx, rt.state.Settings)
+	imageIDs, err := a.pictureIDsForStart(ctx, rt.state)
 	if err != nil {
 		return storage.Match{}, err
 	}
@@ -1102,19 +1102,32 @@ func (a *app) pictureIDs() []string {
 	return ids
 }
 
-func (a *app) pictureIDsForStart(ctx context.Context, settings game.Settings) ([]string, error) {
+func (a *app) pictureIDsForStart(ctx context.Context, state game.State) ([]string, error) {
 	if a.pictures == nil {
 		return nil, nil
 	}
+	settings := state.Settings
 	settings = game.SettingsWithDefaults(settings)
 	imageCount := settings.ImageCardCount
 	if imageCount == 0 {
 		return a.pictureIDs(), nil
 	}
+	needed := imageCount
+	if settings.Mode == game.ModeUnity || state.Mode == game.ModeUnity {
+		unityPlayers := 0
+		for _, player := range state.Players {
+			if player.Team == game.TeamUnity {
+				unityPlayers++
+			}
+		}
+		if unityPlayers > 1 {
+			needed = imageCount * unityPlayers
+		}
+	}
 	if a.pictures.diag.ProcessAVIF {
 		return game.ShuffledImageIDs(settings, a.pictureIDs()), nil
 	}
-	selected := a.pictures.cachedImageIDsForStart(ctx, settings, imageCount)
+	selected := a.pictures.cachedImageIDsForStart(ctx, settings, needed)
 	if len(selected) < imageCount {
 		return nil, game.ErrNotEnoughImages
 	}
@@ -1273,7 +1286,11 @@ func snapshotBoardDTO(board game.SnapshotBoard) map[string]any {
 		}
 		cards[i] = card
 	}
-	return map[string]any{"ownerId": board.OwnerID, "cards": cards, "clueLog": board.ClueLog, "turnsUsed": board.TurnsUsed, "remainingCounts": remaining}
+	out := map[string]any{"ownerId": board.OwnerID, "cards": cards, "clueLog": board.ClueLog, "turnsUsed": board.TurnsUsed, "remainingCounts": remaining}
+	if board.LastSelected != nil {
+		out["lastSelected"] = board.LastSelected
+	}
+	return out
 }
 
 func unityBoardSummaryDTOs(summaries []game.UnityBoardSummary) []map[string]any {

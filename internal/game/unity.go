@@ -32,9 +32,13 @@ func (c StartCommand) startUnity(state *State, actorID string) (Event, error) {
 	state.UnityImageIDs = uniqueImageIDs(c.ImageIDs)
 	state.UnityBoards = map[string]UnityBoardState{}
 	state.UnityBoardOrder = state.unityActivePlayerIDs()
+	imageIDsByOwner, err := unityImageIDsByOwner(state.Settings, state.GameID, state.UnityBoardOrder, state.UnityImageIDs)
+	if err != nil {
+		return Event{}, err
+	}
 
 	for _, ownerID := range state.UnityBoardOrder {
-		board, err := GenerateUnityBoard(state.Settings, state.GameID, ownerID, state.UnityWords, state.UnityImageIDs)
+		board, err := GenerateUnityBoard(state.Settings, state.GameID, ownerID, state.UnityWords, imageIDsByOwner[ownerID])
 		if err != nil {
 			return Event{}, err
 		}
@@ -104,6 +108,64 @@ func unityBoardSeed(seed int64, gameID string, ownerID string) int64 {
 	h := fnv.New64a()
 	_, _ = h.Write([]byte(fmt.Sprintf("%d:%s:%s", seed, gameID, ownerID)))
 	return int64(h.Sum64())
+}
+
+func unityImagePoolSeed(seed int64, gameID string) int64 {
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(fmt.Sprintf("%d:%s:unity-images", seed, gameID)))
+	return int64(h.Sum64())
+}
+
+func unityImageIDsByOwner(settings Settings, gameID string, ownerIDs []string, imageIDs []string) (map[string][]string, error) {
+	result := make(map[string][]string, len(ownerIDs))
+	settings = SettingsWithDefaults(settings)
+	imageCount := settings.ImageCardCount
+	if imageCount == 0 {
+		for _, ownerID := range ownerIDs {
+			result[ownerID] = imageIDs
+		}
+		return result, nil
+	}
+	uniqueImages := uniqueImageIDs(imageIDs)
+	if len(uniqueImages) < imageCount {
+		return nil, ErrNotEnoughImages
+	}
+	rng := rand.New(rand.NewSource(unityImagePoolSeed(settings.Seed, gameID)))
+	unused := shuffledUnityImages(rng, uniqueImages)
+	for _, ownerID := range ownerIDs {
+		ownerImages := make([]string, 0, imageCount)
+		for len(ownerImages) < imageCount {
+			if len(unused) == 0 {
+				unused = shuffledUnityImages(rng, uniqueImages)
+			}
+			next := unused[0]
+			unused = unused[1:]
+			if stringInSlice(next, ownerImages) {
+				continue
+			}
+			ownerImages = append(ownerImages, next)
+		}
+		result[ownerID] = ownerImages
+	}
+	return result, nil
+}
+
+func shuffledUnityImages(rng *rand.Rand, images []string) []string {
+	perm := rng.Perm(len(images))
+	out := make([]string, len(images))
+	for i, idx := range perm {
+		out[i] = images[idx]
+	}
+	return out
+}
+
+func stringInSlice(value string, values []string) bool {
+	for _, candidate := range values {
+		if candidate == value {
+			return true
+		}
+	}
+	return false
 }
 
 func (s State) unityActivePlayerIDs() []string {
@@ -275,6 +337,7 @@ func (c GuessCommand) guessUnity(state *State, actorID string) (Event, error) {
 	board.Cards[c.Index].Revealed = true
 	state.ActionID++
 	state.LastSelected = &LastSelected{Index: c.Index, Team: TeamUnity}
+	board.LastSelected = &LastSelected{Index: c.Index, Team: TeamUnity}
 	state.incrementUnityClueGuesses(&board)
 	selectedColor := board.Cards[c.Index].Color
 	state.UnityBoards[board.OwnerID] = board
@@ -616,5 +679,5 @@ func (s State) safeUnityBoardSnapshot(ownerID string, viewerID string) SnapshotB
 	}
 	log := make([]ClueEntry, len(board.ClueLog))
 	copy(log, board.ClueLog)
-	return SnapshotBoard{OwnerID: ownerID, Cards: cards, ClueLog: log, TurnsUsed: board.TurnsUsed, RemainingCounts: counts}
+	return SnapshotBoard{OwnerID: ownerID, Cards: cards, ClueLog: log, TurnsUsed: board.TurnsUsed, LastSelected: board.LastSelected, RemainingCounts: counts}
 }

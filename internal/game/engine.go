@@ -128,7 +128,7 @@ func SettingsWithDefaults(settings Settings) Settings {
 			settings.BlackCards = 4
 		}
 		if settings.UnityTurnLimit == 0 && !settings.UnityUnlimitedTurns {
-			settings.UnityTurnLimit = 9
+			settings.UnityTurnLimit = 6
 		}
 		settings.AutoColorCounts = true
 		settings.BlueCards = 0
@@ -331,6 +331,9 @@ func (c AddPlayerCommand) apply(state *State, actorID string) (Event, error) {
 	if c.PlayerID == state.HostID {
 		player.Mod = true
 	}
+	if player.Team == "" && state.Phase == PhaseLobby && (state.Settings.Mode == ModeUnity || state.Mode == ModeUnity) {
+		player.Team = TeamUnity
+	}
 	if player.Team == "" && state.Phase == PhaseLobby && state.Settings.RandomizeTeams {
 		player.Team = state.nextBalancedTeam(c.PlayerID)
 	}
@@ -380,9 +383,15 @@ func (c RejoinTeamCommand) apply(state *State, actorID string) (Event, error) {
 	if player.PreviousTeam != TeamBlue && player.PreviousTeam != TeamRed && player.PreviousTeam != TeamUnity {
 		return Event{}, fmt.Errorf("%w: no previous playable team", ErrInvalidCommand)
 	}
-	player.Team = player.PreviousTeam
-	player.Spymaster = player.PreviousSpymaster
-	player.Representative = player.PreviousRepresentative && !player.Spymaster
+	if state.Settings.Mode == ModeUnity || state.Mode == ModeUnity {
+		player.Team = TeamUnity
+		player.Spymaster = false
+		player.Representative = false
+	} else {
+		player.Team = player.PreviousTeam
+		player.Spymaster = player.PreviousSpymaster
+		player.Representative = player.PreviousRepresentative && !player.Spymaster
+	}
 	state.Players[c.PlayerID] = player
 	if state.Phase == PhaseActive && state.Mode == ModeUnity {
 		state.reconcileUnityRoster(c.PlayerID, player.Team)
