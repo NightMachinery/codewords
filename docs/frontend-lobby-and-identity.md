@@ -96,7 +96,7 @@ The game-over panel includes a **Capture Memory** button. It generates a client-
 
 ## May 2026 UI/profile polish
 
-The room header now carries compact action buttons for copying the room link, creating a migrate-device link, and moderator-only active-match restart. General UI actions use Lucide icons; bespoke game glyphs are stored as SVG files in `assets/SVG/` and consumed by the Svelte UI instead of being hand-inlined in components.
+The room header now carries compact action buttons for copying the room link, creating a migrate-device link, and moderator-only active-match restart. General UI actions use direct per-icon Lucide imports like `lucide-svelte/icons/copy` to keep production build work smaller; bespoke game glyphs are stored as SVG files in `assets/SVG/` and consumed by the Svelte UI instead of being hand-inlined in components.
 
 Local board layout defaults now use strict ratios, eight desktop columns, and large 2×4 image cards. The optional default-on “Board must fit height” mode applies on desktop/tablet only: it subtracts the measured bottom sticky control panel from viewport height, then narrows and centers the board so the card area fits in the remaining vertical space. Mobile keeps the board full-width.
 

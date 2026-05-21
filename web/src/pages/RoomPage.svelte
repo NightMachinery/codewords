@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onDestroy, onMount, tick } from 'svelte';
-  import { Copy, Power, Smartphone } from 'lucide-svelte';
+  import Copy from 'lucide-svelte/icons/copy';
+  import Power from 'lucide-svelte/icons/power';
+  import Smartphone from 'lucide-svelte/icons/smartphone';
 
   import { api, defaultSettings, type ChatMessage, type PictureAsset, type Settings, type Viewer, type Wordpack } from '../lib/api';
   import { copyText } from '../lib/clipboard';

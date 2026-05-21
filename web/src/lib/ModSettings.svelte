@@ -1,6 +1,9 @@
 <script lang="ts">
   import type { PictureAsset, Settings, Wordpack } from './api';
-  import { Download, FileUp, Save, Upload } from 'lucide-svelte';
+  import Download from 'lucide-svelte/icons/download';
+  import FileUp from 'lucide-svelte/icons/file-up';
+  import Save from 'lucide-svelte/icons/save';
+  import Upload from 'lucide-svelte/icons/upload';
   import type { SettingsProfile } from './settingsProfiles';
   import { cardModeFromImageCount, colorPickerCtaLabel, colorSettingsGridClasses, displayTeamName, imageCountForMode, isValidHexColor, modSettingsShellClasses, normalizeLobbySettingsForSave, teamColor, teamColorControlClasses } from './gameplay';
 

@@ -2,7 +2,15 @@
   import { onMount } from 'svelte';
   import type { Settings } from './api';
   import { filteredBottomShortcutItems, displayTeamName, formatClueNumber, hexWithAlpha, pressableButtonClasses, sortedTurnPlayers, teamColor, type ClueEntry, type GameplayPhase } from './gameplay';
-  import { Grid2X2, List, MessageSquare, Settings as SettingsIcon, SlidersHorizontal, Users, ChevronDown, SendHorizontal, SkipForward } from 'lucide-svelte';
+  import ChevronDown from 'lucide-svelte/icons/chevron-down';
+  import Grid2X2 from 'lucide-svelte/icons/grid-2x2';
+  import List from 'lucide-svelte/icons/list';
+  import MessageSquare from 'lucide-svelte/icons/message-square';
+  import SendHorizontal from 'lucide-svelte/icons/send-horizontal';
+  import SettingsIcon from 'lucide-svelte/icons/settings';
+  import SkipForward from 'lucide-svelte/icons/skip-forward';
+  import SlidersHorizontal from 'lucide-svelte/icons/sliders-horizontal';
+  import Users from 'lucide-svelte/icons/users';
   import { customSvg } from './customSvg';
   import SvgMaskIcon from './SvgMaskIcon.svelte';
   import type { LobbyPlayer, Team } from './lobby';
