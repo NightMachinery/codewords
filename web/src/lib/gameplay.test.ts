@@ -68,6 +68,7 @@ import {
   writePanelPreferences,
   writeGameplayPreferences,
   normalizeLobbySettingsForSave,
+  unityCounterSegmentClasses,
   type ClueEntry,
   type GameplayCard,
   type GameplayPreferences,
@@ -148,6 +149,14 @@ describe('gameplay permissions', () => {
     expect(canSubmitClue(players, viewer('blueGuess'), 'blue', 'active').reason).toBe('Only spymasters can clue.');
     expect(canSubmitClue(players, viewer('observer'), 'blue', 'active').reason).toBe('Observers are read-only.');
     expect(canSubmitClue(players, viewer('blueSpy'), 'blue', 'game_over').reason).toBe('The match is over.');
+  });
+
+  it('balances Unity counter segment padding with tighter outer edges and roomier seams', () => {
+    expect(unityCounterSegmentClasses('first')).toContain('pl-2');
+    expect(unityCounterSegmentClasses('first')).toContain('pr-3');
+    expect(unityCounterSegmentClasses('middle')).toContain('px-3');
+    expect(unityCounterSegmentClasses('last')).toContain('pl-3');
+    expect(unityCounterSegmentClasses('last')).toContain('pr-2');
   });
 });
 

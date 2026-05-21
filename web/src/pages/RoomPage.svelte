@@ -41,9 +41,11 @@
     writeGameplayPreferences,
     hexWithAlpha,
     teamColor,
+    unityCounterSegmentClasses,
     unityBoardViewCards,
     unityEndGameSummary,
     unityGuessDisabledReason,
+    unityPlayerBoardRows,
     unityStartReadiness,
     type ClueEntry,
     type GameplayCard,
@@ -123,12 +125,14 @@
   let migrateUrl = $state('');
   let cueNotice = $state('');
   let endGameCue = $state<{ outcome: EndGameOutcome; team: 'blue' | 'red' | 'unity' | 'observers'; text: string } | null>(null);
+  let unifiedBoardCue = $state('');
   let captureStatus = $state('');
   let captureBusy = $state(false);
   let forceBoardLayoutPending = $state(false);
   let socket: RoomSocket | null = null;
   let sawSnapshot = false;
   let previousCardsForCue: GameplayCard[] = [];
+  let previousUnityBoardsForCue: UnityBoardSummary[] = [];
   let lastClueSignature = '';
   let previousPhaseForDraft: 'lobby' | 'active' | 'game_over' = 'lobby';
   let spymasterViewActive = $state(true);
@@ -306,6 +310,7 @@
       const nextMode = message.snapshot.settings?.mode === 'unity' ? 'unity' : 'polarity';
       const nextActiveBoard = message.snapshot.activeBoard ?? null;
       const nextOwnBoard = message.snapshot.ownBoard ?? null;
+      const nextUnityBoards = message.snapshot.unityBoards ?? [];
       const nextDisplayedCards = nextMode === 'unity' ? unityBoardViewCards(unityBoardView, nextActiveBoard, nextOwnBoard) : (message.snapshot.cards ?? []);
       const nextActiveClueLog = nextMode === 'unity' ? (nextActiveBoard?.clueLog ?? []) : (message.snapshot.clueLog ?? []);
       const nextClueSignature = clueCueSignature(nextActiveClueLog);
@@ -320,8 +325,12 @@
       if (sawSnapshot && nextMode === 'unity' && nextActiveBoard?.ownerId === message.snapshot.viewer?.userId && activeBoard?.ownerId !== nextActiveBoard.ownerId) {
         emitUnitySpymasterCue();
       }
+      if (sawSnapshot && nextMode === 'unity' && message.snapshot.phase === 'active') {
+        emitUnifiedBoardCues(previousUnityBoardsForCue, nextUnityBoards, message.snapshot.players);
+      }
       sawSnapshot = true;
       previousCardsForCue = nextCards;
+      previousUnityBoardsForCue = nextUnityBoards;
       lastClueSignature = nextClueSignature;
       players = message.snapshot.players;
       settings = { ...defaultSettings, ...message.snapshot.settings };
@@ -334,7 +343,7 @@
       cards = message.snapshot.cards ?? [];
       activeBoard = nextActiveBoard;
       ownBoard = nextOwnBoard;
-      unityBoards = message.snapshot.unityBoards ?? [];
+      unityBoards = nextUnityBoards;
       unityProgress = message.snapshot.unityProgress ?? null;
       unityEndStats = message.snapshot.unityEndStats ?? null;
       lastSelected = message.snapshot.lastSelected ?? null;
@@ -370,20 +379,53 @@
     if (message.type === 'error') {
       forceBoardLayoutPending = false;
       error = message.message;
+      appendSystemMessage(`Server rejected action: ${message.message}`, message.code || 'server-error');
     }
+  }
+
+  function sendSocketAction(action: string, message: Record<string, unknown>): boolean {
+    const sent = socket?.send(message) ?? false;
+    if (!sent) {
+      const detail = `Action not sent: socket is ${connection}.`;
+      error = detail;
+      appendSystemMessage(detail, action);
+    }
+    return sent;
+  }
+
+  function actionDebugContext(action: string): string {
+    const roleLabel = role.player ? `${role.kind}/${role.team ?? 'none'}${role.activeGuesser ? '/guesser' : ''}` : 'observer';
+    const timestamp = new Date().toLocaleTimeString();
+    return `[${timestamp}] ${action} · connection=${connection} · phase=${phase} · role=${roleLabel} · activeBoard=${activeBoardOwner || 'none'} · view=${mode === 'unity' ? unityBoardView : 'active'}`;
+  }
+
+  function appendSystemMessage(body: string, action = 'system'): void {
+    const message = `${body}\n${actionDebugContext(action)}`;
+    chatMessages = [...chatMessages, {
+      id: `local-system-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      roomId,
+      matchId: '',
+      senderUserId: 'system',
+      displayName: 'System',
+      body: message,
+      createdAt: new Date().toISOString(),
+      system: true,
+    }].slice(-50);
   }
 
   function submitClue() {
     error = '';
     if (!cluePermission.allowed) {
       error = cluePermission.reason;
+      appendSystemMessage(cluePermission.reason, 'submitClue');
       return;
     }
     if (clueProblem) {
       error = clueProblem;
+      appendSystemMessage(clueProblem, 'submitClue');
       return;
     }
-    socket?.send({ type: 'submitClue', text: clueText, number: clueNumber });
+    sendSocketAction('submitClue', { type: 'submitClue', text: clueText, number: clueNumber });
   }
 
   function guessCard(index: number, card: GameplayCard) {
@@ -391,12 +433,13 @@
     const reason = guessDisabledReason(card);
     if (reason) {
       error = reason;
+      appendSystemMessage(reason, 'guessCard');
       return;
     }
     if (preferences.confirmGuesses && !window.confirm(`Reveal ${cardContentLabel(card)}?`)) {
       return;
     }
-    socket?.send({ type: 'guessCard', index });
+    sendSocketAction('guessCard', { type: 'guessCard', index });
   }
 
   function passTurn() {
@@ -404,12 +447,13 @@
     const reason = passDisabledReason();
     if (reason) {
       error = reason;
+      appendSystemMessage(reason, 'passTurn');
       return;
     }
     if (preferences.confirmPasses && !window.confirm('Pass this turn?')) {
       return;
     }
-    socket?.send({ type: 'passTurn' });
+    sendSocketAction('passTurn', { type: 'passTurn' });
   }
 
   function guessDisabledReason(card?: GameplayCard): string {
@@ -432,9 +476,7 @@
     if (phase === 'game_over') return 'The match is over.';
     if (phase !== 'active') return 'The match has not started.';
     if (!role.player) return 'Observers are read-only.';
-    if (mode === 'unity' && unityProgress?.waitingForGuessers) return 'Waiting for eligible Unity guessers.';
     if (!role.activeGuesser) {
-      if (mode === 'unity' && role.player?.id === activeBoardOwner) return 'You cannot guess on your own board.';
       if (role.kind === 'spymaster') return 'Spymasters cannot guess while teammates can.';
       return `Only the ${displayTeamName(currentTeam, settings)} guesser can reveal cards.`;
     }
@@ -474,14 +516,13 @@
   function forceBoardLayoutForRoom() {
     if (!hostControls) {
       error = 'Only moderators can force board layout options.';
-      return;
-    }
-    if (!socket) {
-      error = 'Board layout sync is unavailable until the room reconnects.';
+      appendSystemMessage(error, 'forceBoardLayout');
       return;
     }
     forceBoardLayoutPending = true;
-    socket.send({ type: 'forceBoardLayout', preferences: currentBoardLayoutPreferences() });
+    if (!sendSocketAction('forceBoardLayout', { type: 'forceBoardLayout', preferences: currentBoardLayoutPreferences() })) {
+      forceBoardLayoutPending = false;
+    }
   }
 
   function updatePanelPreferences(next: Partial<PanelPreferences>) {
@@ -496,10 +537,11 @@
       : winningTeam === 'observers'
         ? 'loss'
         : endGameOutcome(winningTeam, snapshotViewer, snapshotPlayers);
-    const teamName = displayTeamName(winningTeam, settings);
     const text = settings.mode === 'unity' && outcome === 'loss'
-      ? 'Players lose.'
-      : outcome === 'win' ? `${teamName} takes the board.` : outcome === 'loss' ? `${teamName} wins this round.` : `${teamName} wins.`;
+      ? 'Players were divided.'
+      : settings.mode === 'unity' && outcome === 'win'
+        ? 'Unification successful.'
+        : outcome === 'win' ? `${displayTeamName(winningTeam, settings)} takes the board.` : outcome === 'loss' ? `${displayTeamName(winningTeam, settings)} wins this round.` : `${displayTeamName(winningTeam, settings)} wins.`;
     if (preferences.endGameVisualCue) {
       endGameCue = { outcome, team: winningTeam, text };
       window.setTimeout(() => {
@@ -530,6 +572,21 @@
     window.setTimeout(() => {
       if (cueNotice === notice) cueNotice = '';
     }, 2400);
+  }
+
+  function playerDisplayName(playerId: string, snapshotPlayers = players): string {
+    return snapshotPlayers.find((player) => player.id === playerId)?.displayName.trim() || 'Player';
+  }
+
+  function emitUnifiedBoardCues(previousBoards: UnityBoardSummary[], nextBoards: UnityBoardSummary[], snapshotPlayers: LobbyPlayer[]) {
+    const previousRemaining = new Map(previousBoards.map((board) => [board.ownerId, board.unityRemaining]));
+    const unified = nextBoards.find((board) => (previousRemaining.get(board.ownerId) ?? board.unityRemaining) > 0 && board.unityRemaining === 0);
+    if (!unified) return;
+    const notice = `${playerDisplayName(unified.ownerId, snapshotPlayers)}'s board has been unified.`;
+    unifiedBoardCue = notice;
+    window.setTimeout(() => {
+      if (unifiedBoardCue === notice) unifiedBoardCue = '';
+    }, 3400);
   }
 
   function emitUnitySpymasterCue() {
@@ -620,10 +677,12 @@
     if (!body) return;
     if (!currentPlayer) {
       error = 'Observers must join the room before sending messages.';
+      appendSystemMessage(error, 'sendChat');
       return;
     }
-    socket?.send({ type: 'sendChat', body });
-    chatDraft = '';
+    if (sendSocketAction('sendChat', { type: 'sendChat', body })) {
+      chatDraft = '';
+    }
   }
 
   async function copyRoomLink() {
@@ -649,22 +708,22 @@
   }
 
   function shuffleRoles() {
-    socket?.send({ type: 'shuffleRoles' });
+    sendSocketAction('shuffleRoles', { type: 'shuffleRoles' });
   }
 
   function randomizeTeams() {
-    socket?.send({ type: 'randomizeTeams' });
+    sendSocketAction('randomizeTeams', { type: 'randomizeTeams' });
   }
 
   function resetClue() {
     clueText = '';
     clueNumber = '';
-    socket?.send({ type: 'resetClue' });
+    sendSocketAction('resetClue', { type: 'resetClue' });
   }
 
   function restartMatch() {
     if (window.confirm('Restart this match and return everyone to the lobby?')) {
-      socket?.send({ type: 'restartMatch' });
+      sendSocketAction('restartMatch', { type: 'restartMatch' });
     }
   }
 
@@ -808,7 +867,7 @@
 
   function saveRoomSettings() {
     settings = normalizeLobbySettingsForSave(settings);
-    socket?.send({ type: 'updateSettings', settings });
+    sendSocketAction('updateSettings', { type: 'updateSettings', settings });
   }
 </script>
 
@@ -929,7 +988,7 @@
       {#if phase !== 'active'}
       <header class="px-3 py-8 sm:px-0 lg:py-12">
         <h1 class="max-w-5xl text-5xl font-black leading-[0.96] tracking-[-0.05em] text-slate-50 sm:text-7xl">
-          {phase === 'lobby' ? 'Gather teams, choose roles, then start.' : phase === 'game_over' ? `${displayTeamName(winner, settings)} wins the board.` : ''}
+          {phase === 'lobby' ? 'Gather teams, choose roles, then start.' : phase === 'game_over' && mode === 'unity' ? unityEndGameSummary(unityEndStats, unityProgress).headline : phase === 'game_over' ? `${displayTeamName(winner, settings)} wins the board.` : ''}
         </h1>
       </header>
       {/if}
@@ -948,11 +1007,11 @@
             activeBoardOwner={activeBoardOwner}
             unityBoards={unityBoards}
             unityProgress={unityProgress}
-            onAssignTeam={(id, team) => socket?.send({ type: 'assignTeam', playerId: id, team })}
-            onToggleSpymaster={(id) => socket?.send({ type: 'toggleSpymaster', playerId: id })}
-            onToggleRepresentative={(id) => socket?.send({ type: 'toggleRepresentative', playerId: id })}
-            onToggleMod={(id) => socket?.send({ type: 'toggleMod', playerId: id })}
-            onRejoinTeam={(id) => socket?.send({ type: 'rejoinTeam', playerId: id })}
+            onAssignTeam={(id, team) => sendSocketAction('assignTeam', { type: 'assignTeam', playerId: id, team })}
+            onToggleSpymaster={(id) => sendSocketAction('toggleSpymaster', { type: 'toggleSpymaster', playerId: id })}
+            onToggleRepresentative={(id) => sendSocketAction('toggleRepresentative', { type: 'toggleRepresentative', playerId: id })}
+            onToggleMod={(id) => sendSocketAction('toggleMod', { type: 'toggleMod', playerId: id })}
+            onRejoinTeam={(id) => sendSocketAction('rejoinTeam', { type: 'rejoinTeam', playerId: id })}
           />
         </div>
 
@@ -992,7 +1051,7 @@
           <button
             class={pressableButtonClasses('w-full rounded-2xl bg-emerald-300 px-5 py-3 text-sm font-black text-slate-950 hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-40')}
             disabled={!hostControls || !startState.ready}
-            onclick={() => socket?.send({ type: 'startGame' })}
+            onclick={() => sendSocketAction('startGame', { type: 'startGame' })}
           >
             Start match
           </button>
@@ -1007,11 +1066,20 @@
                 <div class="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                   <div>
                     <p class="text-sm font-black uppercase tracking-[0.25em] text-emerald-200">Game over</p>
-                    {#if mode === 'unity'}
-                      {@const summary = unityEndGameSummary(unityEndStats, unityProgress)}
-                      <h2 class="mt-2 text-4xl font-black tracking-[-0.04em] text-slate-50">{summary.headline}</h2>
-                      <p class="mt-3 max-w-2xl text-slate-300">{summary.score} · {summary.detail}</p>
-                    {:else}
+	                    {#if mode === 'unity'}
+	                      {@const summary = unityEndGameSummary(unityEndStats, unityProgress)}
+	                      {@const boardRows = unityPlayerBoardRows(players, unityEndStats?.boardStats)}
+	                      <h2 class="mt-2 text-4xl font-black tracking-[-0.04em] text-slate-50">{summary.headline}</h2>
+	                      <p class="mt-3 max-w-2xl text-slate-300">{summary.score} · {summary.detail}</p>
+	                      <div class="mt-5 grid gap-2 sm:grid-cols-2">
+	                        {#each boardRows as row (row.id)}
+	                          <div class="rounded-2xl border border-teal-200/20 bg-slate-950/55 px-3 py-2">
+	                            <p class="truncate text-sm font-black text-slate-100">{row.name}</p>
+	                            <p class={['mt-0.5 truncate text-xs font-bold', row.status === 'board' ? 'text-teal-100/80' : 'text-slate-500'].join(' ')}>{row.detail}</p>
+	                          </div>
+	                        {/each}
+	                      </div>
+	                    {:else}
                       <h2 class="mt-2 text-4xl font-black tracking-[-0.04em] text-slate-50">{displayTeamName(winner, settings)} wins</h2>
                       <p class="mt-3 max-w-2xl text-slate-300">All card colors are revealed. Save the final board, winner, rivals, and team rosters as a keepsake.</p>
                     {/if}
@@ -1056,10 +1124,10 @@
                 </div>
                 <div class="isolate flex min-w-0 max-w-full overflow-hidden rounded-full border border-slate-600/70 bg-slate-950 text-[10px] font-black uppercase tracking-widest shadow-inner shadow-slate-950/60">
                   {#if mode === 'unity'}
-                  <span class="inline-flex min-w-0 flex-[1.35_1_0] items-center justify-center gap-1.5 px-2 py-1.5 text-teal-100 sm:px-3" title={`Unity ${displayedUnityBoard?.remainingCounts.unity ?? 0}`} aria-label={`Unity ${displayedUnityBoard?.remainingCounts.unity ?? 0}`} style={`background: linear-gradient(90deg, ${hexWithAlpha(teamColor('unity', settings), '40')}, transparent);`}><SvgMaskIcon src={customSvg.unityCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Unity</span><span>{displayedUnityBoard?.remainingCounts.unity ?? 0}</span></span>
-                  <span class="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 border-l border-slate-600/70 px-2 py-1.5 text-amber-100 sm:px-3" title={`Civilian ${displayedUnityBoard?.remainingCounts.civilian ?? 0}`} aria-label={`Civilian ${displayedUnityBoard?.remainingCounts.civilian ?? 0}`} style="background: linear-gradient(90deg, rgba(251,191,36,0.18), transparent)"><SvgMaskIcon src={customSvg.civilianCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Civilian</span><span>{displayedUnityBoard?.remainingCounts.civilian ?? 0}</span></span>
-                  <span class="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 border-l border-slate-600/70 px-2 py-1.5 text-zinc-100 sm:px-3" title={`Assassin ${displayedUnityBoard?.remainingCounts.black ?? 0}`} aria-label={`Assassin ${displayedUnityBoard?.remainingCounts.black ?? 0}`} style="background: linear-gradient(90deg, rgba(24,24,27,0.85), rgba(0,0,0,0.55))"><SvgMaskIcon src={customSvg.assassinCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Assassin</span><span>{displayedUnityBoard?.remainingCounts.black ?? 0}</span></span>
-                  <span class="inline-flex min-w-0 flex-[1.2_1_0] items-center justify-center gap-1.5 border-l border-slate-600/70 px-2 py-1.5 text-teal-100 sm:px-3" title="Turns remaining" aria-label="Turns remaining"><SvgMaskIcon src={customSvg.turnBudget} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Turns</span><span>{settings.unityUnlimitedTurns ? '∞' : mode === 'unity' && settings.unityStrictPerBoardTurns ? Math.max(0, (settings.unityTurnLimit ?? 0) - (displayedUnityBoard?.turnsUsed ?? 0)) : unityProgress?.sharedTurnsRemaining ?? 0}</span></span>
+	                  <span class={`${unityCounterSegmentClasses('first')} flex-[1.35_1_0] text-teal-100`} title={`Unity ${displayedUnityBoard?.remainingCounts.unity ?? 0}`} aria-label={`Unity ${displayedUnityBoard?.remainingCounts.unity ?? 0}`} style={`background: linear-gradient(90deg, ${hexWithAlpha(teamColor('unity', settings), '40')}, transparent);`}><SvgMaskIcon src={customSvg.unityCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Unity</span><span>{displayedUnityBoard?.remainingCounts.unity ?? 0}</span></span>
+	                  <span class={`${unityCounterSegmentClasses('middle')} flex-1 border-l border-slate-600/70 text-amber-100`} title={`Civilian ${displayedUnityBoard?.remainingCounts.civilian ?? 0}`} aria-label={`Civilian ${displayedUnityBoard?.remainingCounts.civilian ?? 0}`} style="background: linear-gradient(90deg, rgba(251,191,36,0.18), transparent)"><SvgMaskIcon src={customSvg.civilianCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Civilian</span><span>{displayedUnityBoard?.remainingCounts.civilian ?? 0}</span></span>
+	                  <span class={`${unityCounterSegmentClasses('middle')} flex-1 border-l border-slate-600/70 text-zinc-100`} title={`Assassin ${displayedUnityBoard?.remainingCounts.black ?? 0}`} aria-label={`Assassin ${displayedUnityBoard?.remainingCounts.black ?? 0}`} style="background: linear-gradient(90deg, rgba(24,24,27,0.85), rgba(0,0,0,0.55))"><SvgMaskIcon src={customSvg.assassinCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Assassin</span><span>{displayedUnityBoard?.remainingCounts.black ?? 0}</span></span>
+	                  <span class={`${unityCounterSegmentClasses('last')} flex-[1.2_1_0] border-l border-slate-600/70 text-teal-100`} title="Turns remaining" aria-label="Turns remaining"><SvgMaskIcon src={customSvg.turnBudget} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Turns</span><span>{settings.unityUnlimitedTurns ? '∞' : mode === 'unity' && settings.unityStrictPerBoardTurns ? Math.max(0, (settings.unityTurnLimit ?? 0) - (displayedUnityBoard?.turnsUsed ?? 0)) : unityProgress?.sharedTurnsRemaining ?? 0}</span></span>
                   {:else}
                   <span class="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 px-2 py-1.5 sm:px-3" title={`${displayTeamName('blue', settings)} ${remainingCounts.blue}`} aria-label={`${displayTeamName('blue', settings)} ${remainingCounts.blue}`} style={`color: ${teamColor('blue', settings)}; background: linear-gradient(90deg, ${hexWithAlpha(teamColor('blue', settings), currentTeam === 'blue' ? '40' : '24')}, transparent); ${currentTeam === 'blue' ? `box-shadow: inset 0 0 0 1px ${hexWithAlpha(teamColor('blue', settings), '66')};` : ''}`}><SvgMaskIcon src={customSvg.blueCard} classes="h-3.5 w-3.5" /><span class="hidden min-w-0 truncate sm:inline">{displayTeamName('blue', settings)}</span><span>{remainingCounts.blue}</span></span>
                   <span class="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 border-l border-slate-600/70 px-2 py-1.5 sm:px-3" title={`${displayTeamName('red', settings)} ${remainingCounts.red}`} aria-label={`${displayTeamName('red', settings)} ${remainingCounts.red}`} style={`color: ${teamColor('red', settings)}; background: linear-gradient(90deg, ${hexWithAlpha(teamColor('red', settings), currentTeam === 'red' ? '40' : '24')}, transparent); ${currentTeam === 'red' ? `box-shadow: inset 0 0 0 1px ${hexWithAlpha(teamColor('red', settings), '66')};` : ''}`}><SvgMaskIcon src={customSvg.redCard} classes="h-3.5 w-3.5" /><span class="hidden min-w-0 truncate sm:inline">{displayTeamName('red', settings)}</span><span>{remainingCounts.red}</span></span>
@@ -1095,11 +1163,11 @@
               activeBoardOwner={activeBoardOwner}
               unityBoards={unityBoards}
               unityProgress={unityProgress}
-              onAssignTeam={(id, team) => socket?.send({ type: 'assignTeam', playerId: id, team })}
-              onToggleSpymaster={(id) => socket?.send({ type: 'toggleSpymaster', playerId: id })}
-              onToggleRepresentative={(id) => socket?.send({ type: 'toggleRepresentative', playerId: id })}
-              onToggleMod={(id) => socket?.send({ type: 'toggleMod', playerId: id })}
-              onRejoinTeam={(id) => socket?.send({ type: 'rejoinTeam', playerId: id })}
+              onAssignTeam={(id, team) => sendSocketAction('assignTeam', { type: 'assignTeam', playerId: id, team })}
+              onToggleSpymaster={(id) => sendSocketAction('toggleSpymaster', { type: 'toggleSpymaster', playerId: id })}
+              onToggleRepresentative={(id) => sendSocketAction('toggleRepresentative', { type: 'toggleRepresentative', playerId: id })}
+              onToggleMod={(id) => sendSocketAction('toggleMod', { type: 'toggleMod', playerId: id })}
+              onRejoinTeam={(id) => sendSocketAction('rejoinTeam', { type: 'rejoinTeam', playerId: id })}
             />
 
             <section id="clues" class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5">
@@ -1288,16 +1356,26 @@
         <button class="ml-4 opacity-70 hover:opacity-100" onclick={() => error = ''}>✕</button>
       </p>
     {/if}
-    {#if endGameCue}
-      <div class={['pointer-events-none fixed inset-0 z-40 grid place-items-center overflow-hidden', endGameCue.outcome === 'win' ? 'animate-[endgame-pop_4s_ease-out_forwards]' : 'animate-[endgame-fade_4s_ease-out_forwards]'].join(' ')} aria-hidden="true">
-        <div class="absolute inset-0" style={`background: radial-gradient(circle at 50% 38%, ${hexWithAlpha(teamColor(endGameCue.team, settings), endGameCue.outcome === 'loss' ? '33' : '66')}, transparent 55%);`}></div>
+	    {#if endGameCue}
+	      <div class={['pointer-events-none fixed inset-0 z-40 grid place-items-center overflow-hidden', endGameCue.outcome === 'win' ? 'animate-[endgame-pop_4s_ease-out_forwards]' : 'animate-[endgame-fade_4s_ease-out_forwards]'].join(' ')} aria-hidden="true">
+	        <div class="absolute inset-0" style={`background: radial-gradient(circle at 50% 38%, ${hexWithAlpha(teamColor(endGameCue.team, settings), endGameCue.outcome === 'loss' ? '33' : '66')}, transparent 55%);`}></div>
         <div class={['relative rounded-[2rem] border px-8 py-6 text-center shadow-2xl backdrop-blur-sm', endGameCue.outcome === 'loss' ? 'border-slate-400/30 bg-slate-950/80 text-slate-100' : 'border-emerald-200/60 bg-slate-950/70 text-slate-50'].join(' ')}>
           <p class="text-xs font-black uppercase tracking-[0.28em] text-emerald-200">{endGameCue.outcome === 'win' ? 'Victory' : endGameCue.outcome === 'loss' ? 'Final board' : 'Game over'}</p>
           <p class="mt-2 text-3xl font-black tracking-[-0.04em]">{endGameCue.text}</p>
         </div>
-      </div>
-    {/if}
-    {#if cueNotice}
+	      </div>
+	    {/if}
+	    {#if unifiedBoardCue}
+	      <div class="pointer-events-none fixed inset-0 z-40 grid place-items-center overflow-hidden animate-[unity-unified_3.4s_ease-out_forwards]" aria-hidden="true">
+	        <div class="absolute inset-0" style={`background: radial-gradient(circle at 50% 42%, ${hexWithAlpha(teamColor('unity', settings), '66')}, transparent 52%);`}></div>
+	        <div class="relative overflow-hidden rounded-[2rem] border border-teal-100/60 bg-slate-950/75 px-8 py-6 text-center text-slate-50 shadow-2xl shadow-teal-950/50 backdrop-blur-sm">
+	          <div class="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-teal-100 to-transparent"></div>
+	          <p class="text-xs font-black uppercase tracking-[0.28em] text-teal-100">Board unified</p>
+	          <p class="mt-2 text-3xl font-black tracking-[-0.04em]">{unifiedBoardCue}</p>
+	        </div>
+	      </div>
+	    {/if}
+	    {#if cueNotice}
       <p class="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full border border-emerald-200/60 bg-emerald-300 px-5 py-3 text-sm font-black text-slate-950 shadow-2xl shadow-emerald-950/40">
         {cueNotice}
       </p>
@@ -1314,17 +1392,25 @@
     100% { opacity: 0; transform: scale(1.04); }
   }
 
-  @keyframes endgame-fade {
+	  @keyframes endgame-fade {
     0% { opacity: 0; }
     16% { opacity: 1; }
     78% { opacity: 1; }
     100% { opacity: 0; }
-  }
+	  }
 
-  @media (prefers-reduced-motion: reduce) {
-    :global(.animate-\[endgame-pop_4s_ease-out_forwards\]),
-    :global(.animate-\[endgame-fade_4s_ease-out_forwards\]) {
-      animation-name: endgame-fade;
-    }
+	  @keyframes unity-unified {
+	    0% { opacity: 0; transform: scale(0.95); filter: saturate(0.8); }
+	    14% { opacity: 1; transform: scale(1); filter: saturate(1.2); }
+	    72% { opacity: 1; transform: scale(1.01); }
+	    100% { opacity: 0; transform: scale(1.05); }
+	  }
+
+	  @media (prefers-reduced-motion: reduce) {
+	    :global(.animate-\[endgame-pop_4s_ease-out_forwards\]),
+	    :global(.animate-\[endgame-fade_4s_ease-out_forwards\]),
+	    :global(.animate-\[unity-unified_3\.4s_ease-out_forwards\]) {
+	      animation-name: endgame-fade;
+	    }
   }
 </style>

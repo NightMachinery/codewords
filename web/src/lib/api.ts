@@ -88,6 +88,7 @@ export interface ChatMessage {
   displayName: string;
   body: string;
   createdAt: string;
+  system?: boolean;
 }
 
 export interface Credential {

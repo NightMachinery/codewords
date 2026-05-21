@@ -74,6 +74,22 @@ export interface UnityEndStats {
   assassinCount: number;
   score: number;
   reason: string;
+  boardStats?: UnityBoardEndStats[];
+}
+
+export interface UnityBoardEndStats {
+  ownerId: string;
+  unityCardsFound: number;
+  totalUnityCards: number;
+  turnsUsed: number;
+  unityCardsPerTurn?: number | null;
+}
+
+export interface UnityPlayerBoardRow {
+  id: string;
+  name: string;
+  status: 'board' | 'no-board';
+  detail: string;
 }
 
 export interface GameplayCard {
@@ -804,10 +820,41 @@ export function unityEndGameSummary(stats: UnityEndStats | null | undefined, pro
   const solved = total > 0 && found >= total;
   const mode = progress?.unlimitedTurns ? 'infinite' : progress?.strictPerBoardTurns ? 'per-board limit' : 'shared pool';
   return {
-    headline: solved ? 'Unity solved' : 'Unity failed',
+    headline: solved ? 'Unification successful.' : 'Players were divided.',
     score: `${score.toFixed(2)} Unity cards/turn`,
     detail: `${found}/${total} found · ${turns} turns · ${assassins} assassins · ${mode}`,
   };
+}
+
+export function unityPlayerBoardRows(players: LobbyPlayer[], boardStats: UnityBoardEndStats[] | undefined): UnityPlayerBoardRow[] {
+  const statsByOwner = new Map((boardStats ?? []).map((stats) => [stats.ownerId, stats]));
+  return players
+    .filter((player) => player.team !== 'observers' || statsByOwner.has(player.id))
+    .map((player) => {
+      const stats = statsByOwner.get(player.id);
+      const name = player.displayName.trim() || 'Player';
+      if (!stats) {
+        return { id: player.id, name, status: 'no-board', detail: 'No Unity board' };
+      }
+      const average = stats.turnsUsed > 0 && typeof stats.unityCardsPerTurn === 'number'
+        ? `${stats.unityCardsPerTurn.toFixed(2)}/turn`
+        : 'N/A';
+      return {
+        id: player.id,
+        name,
+        status: 'board',
+        detail: `${stats.unityCardsFound}/${stats.totalUnityCards} Unity · ${average} · ${stats.turnsUsed} ${stats.turnsUsed === 1 ? 'turn' : 'turns'}`,
+      };
+    });
+}
+
+export type UnityCounterSegmentPosition = 'first' | 'middle' | 'last';
+
+export function unityCounterSegmentClasses(position: UnityCounterSegmentPosition): string {
+  const base = 'inline-flex min-w-0 items-center justify-center gap-1.5 py-1.5';
+  if (position === 'first') return `${base} pl-2 pr-3 sm:pl-2.5 sm:pr-4`;
+  if (position === 'last') return `${base} pl-3 pr-2 sm:pl-4 sm:pr-2.5`;
+  return `${base} px-3 sm:px-4`;
 }
 
 export function shouldCueCardReveal(previousCards: GameplayCard[], nextCards: GameplayCard[]): boolean {

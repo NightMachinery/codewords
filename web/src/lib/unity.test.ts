@@ -12,6 +12,7 @@ import {
   teamColor,
   unityBoardViewCards,
   unityEndGameSummary,
+  unityPlayerBoardRows,
   unityGuessDisabledReason,
   unityStartReadiness,
   type GameplayCard,
@@ -99,11 +100,26 @@ describe('unity frontend helpers', () => {
 
   it('formats unity end game stats and shared pool progress', () => {
     const progress: UnityProgress = { unityCardsFound: 17, totalUnityCards: 30, sharedTurnsRemaining: 3, unlimitedTurns: false, strictPerBoardTurns: false, waitingForGuessers: false };
-    const stats = { unityCardsFound: 30, totalUnityCards: 30, totalTurns: 12, assassinCount: 12, score: 2.5, reason: 'all_unity_found' };
+    const stats = { unityCardsFound: 30, totalUnityCards: 30, totalTurns: 12, assassinCount: 12, score: 2.5, reason: 'all_unity_found', boardStats: [] };
     expect(unityEndGameSummary(stats, progress)).toEqual({
-      headline: 'Unity solved',
+      headline: 'Unification successful.',
       score: '2.50 Unity cards/turn',
       detail: '30/30 found · 12 turns · 12 assassins · shared pool',
     });
+
+    expect(unityEndGameSummary({ ...stats, unityCardsFound: 12, reason: 'assassin' }, progress).headline).toBe('Players were divided.');
+  });
+
+  it('formats unity player board rows with N/A averages for unplayed boards', () => {
+    const rows = unityPlayerBoardRows(players, [
+      { ownerId: 'host', unityCardsFound: 4, totalUnityCards: 10, turnsUsed: 2, unityCardsPerTurn: 2 },
+      { ownerId: 'p2', unityCardsFound: 0, totalUnityCards: 10, turnsUsed: 0, unityCardsPerTurn: null },
+    ]);
+
+    expect(rows).toEqual([
+      { id: 'host', name: 'Host', status: 'board', detail: '4/10 Unity · 2.00/turn · 2 turns' },
+      { id: 'p2', name: 'P2', status: 'board', detail: '0/10 Unity · N/A · 0 turns' },
+      { id: 'p3', name: 'P3', status: 'no-board', detail: 'No Unity board' },
+    ]);
   });
 });
