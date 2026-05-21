@@ -28,12 +28,12 @@
 
 ## Milestone 6: Frontend gameplay
 
-- Implement Tailwind-styled responsive board, spymaster/non-spymaster/spectator views, clue submit/update controls, polished clue log, pass/guess controls, last-selected card highlight, remaining counts, game-over state, local preferences, and dynamic WebSocket URL handling.
+- Implement Tailwind-styled responsive board, spymaster/non-spymaster/observer views, clue submit/update controls, polished clue log, pass/guess controls, last-selected card highlight, remaining counts, game-over state, local preferences, and dynamic WebSocket URL handling.
 
 ## Milestone 7: Wordpacks, pictures, and chat
 
 - Copy all old wordpacks into the repo and expose them in UI.
-- Implement chat with anonymous spectator read-only mode.
+- Implement chat with observer chat controls.
 - Implement local picture mode if not already completed.
 
 ## Milestone 8: Self-hosting

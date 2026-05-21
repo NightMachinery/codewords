@@ -163,8 +163,8 @@ func TestUsersRoomsMatchesSnapshotsEventsAndChatPersist(t *testing.T) {
 	if _, err := db.AddChatMessage(ctx, storage.AddChatMessageParams{RoomID: room.ID, MatchID: match.ID, SenderUserID: user.ID, DisplayName: "Alice", Body: "hello"}); err != nil {
 		t.Fatalf("add chat: %v", err)
 	}
-	if _, err := db.AddChatMessage(ctx, storage.AddChatMessageParams{RoomID: room.ID, DisplayName: "Spectator", Body: "read-only soon"}); err != nil {
-		t.Fatalf("add spectator chat: %v", err)
+	if _, err := db.AddChatMessage(ctx, storage.AddChatMessageParams{RoomID: room.ID, DisplayName: "Observer", Body: "read-only soon"}); err != nil {
+		t.Fatalf("add observer chat: %v", err)
 	}
 	messages, err := db.ChatMessages(ctx, room.ID, 10)
 	if err != nil {

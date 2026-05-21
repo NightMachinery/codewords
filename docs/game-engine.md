@@ -24,7 +24,7 @@ When `EnforceClueGuessLimit` is enabled, guessing is rejected until a clue with 
 
 ## Snapshots
 
-`State.SnapshotFor` hides unrevealed card colors from non-spymasters and anonymous spectators during active play. Spymasters see all colors. Finished matches reveal the full board to every viewer. Clue log entries are visible to all viewers.
+`State.SnapshotFor` hides unrevealed card colors from non-spymasters and observers during active play. Spymasters see all colors. Finished matches reveal the full board to every viewer. Clue log entries are visible to all viewers.
 
 ## Observer rejoin and restarts
 

@@ -130,7 +130,7 @@
   let startState = $derived(startReadiness(players));
   let hostControls = $derived(canManageLobby(viewer));
   let currentPlayer = $derived(findViewerPlayer(players, viewer));
-  let needsName = $derived(Boolean(credentialMode === 'auth' && !displayName && roomStatus === 'lobby'));
+  let needsName = $derived(Boolean(credentialMode === 'auth' && !displayName && (roomStatus === 'lobby' || !currentPlayer)));
   let role = $derived(viewerRole(players, viewer, currentTeam as any, phase));
   let activeTeamHasRepresentative = $derived(players.some((player) => player.team === currentTeam && player.representative));
   let cluePermission = $derived(canSubmitClue(players, viewer, currentTeam as any, phase, settings));
@@ -143,7 +143,7 @@
     if (phase === 'game_over') return 'Game over. Review the board.';
     if (phase !== 'active') return '';
     if (role.activeGuesser) return guessProblem || 'Select a card to guess';
-    if (!role.player) return 'Spectators are read-only.';
+    if (!role.player) return 'Observers are read-only.';
     if (role.team !== currentTeam) return 'Their turn. Watch the board.';
     if (role.kind === 'spymaster' && !cluePermission.allowed) return 'Your team is guessing. Watch the board.';
     if (!role.activeGuesser && role.kind !== 'spymaster') return activeTeamHasRepresentative ? 'Your representative will play for you.' : 'Your teammate will guess for you.';
@@ -243,8 +243,15 @@
       if (roomStatus === 'lobby') {
         const joined = await api.joinRoom(roomId, authToken, saved.displayName);
         viewer = joined.viewer;
-      } else {
-        viewer = { userId: saved.userId, isHost: saved.userId === roomHostId };
+      } else if (credential) {
+        const room = await api.getRoom(roomId, credential);
+        roomStatus = room.room.status;
+        roomHostId = room.room.hostUserId;
+        viewer = room.viewer;
+        players = room.players;
+        settings = { ...defaultSettings, ...room.settings };
+        rememberCreatorSettings();
+        chatMessages = room.chatMessages ?? [];
       }
       connectSocket();
     } catch (err) {
@@ -367,7 +374,7 @@
   function guessDisabledReason(card?: GameplayCard): string {
     if (phase === 'game_over') return 'The match is over.';
     if (phase !== 'active') return 'The match has not started.';
-    if (!role.player) return 'Spectators are read-only.';
+    if (!role.player) return 'Observers are read-only.';
     if (!role.activeGuesser) {
       if (role.kind === 'spymaster') return 'Spymasters cannot guess while teammates can.';
       return `Only the ${displayTeamName(currentTeam, settings)} guesser can reveal cards.`;
@@ -380,7 +387,7 @@
   function passDisabledReason(): string {
     if (phase === 'game_over') return 'The match is over.';
     if (phase !== 'active') return 'The match has not started.';
-    if (!role.player) return 'Spectators are read-only.';
+    if (!role.player) return 'Observers are read-only.';
     if (!role.activeGuesser) return role.kind === 'spymaster' ? 'Spymasters cannot pass while teammates can.' : `Only the ${displayTeamName(currentTeam, settings)} guesser can pass.`;
     return '';
   }
@@ -514,7 +521,7 @@
     const body = chatDraft.trim();
     if (!body) return;
     if (!currentPlayer) {
-      error = 'Anonymous spectators can read chat but cannot send messages.';
+      error = 'Observers must join the room before sending messages.';
       return;
     }
     socket?.send({ type: 'sendChat', body });

@@ -184,7 +184,7 @@ export function viewerRole(
   currentTeam: Team,
   phase: GameplayPhase = 'active',
 ): {
-  kind: 'spectator' | 'player' | 'spymaster';
+  kind: 'observer' | 'player' | 'spymaster';
   team?: Team;
   player?: LobbyPlayer;
   canSeeHiddenColors: boolean;
@@ -193,7 +193,7 @@ export function viewerRole(
   const player = findViewerPlayer(players, viewer);
   const gameOver = phase === 'game_over';
   if (!player) {
-    return { kind: 'spectator', canSeeHiddenColors: gameOver, activeGuesser: false };
+    return { kind: 'observer', canSeeHiddenColors: gameOver, activeGuesser: false };
   }
   const activeGuesser = phase === 'active' && isActiveGuesser(players, player.id, currentTeam);
   return {
@@ -215,7 +215,7 @@ export function canSubmitClue(
   if (phase === 'game_over') return { allowed: false, reason: 'The match is over.' };
   if (phase !== 'active') return { allowed: false, reason: 'Clues are available after the match starts.' };
   const player = findViewerPlayer(players, viewer);
-  if (!player) return { allowed: false, reason: 'Spectators are read-only.' };
+  if (!player) return { allowed: false, reason: 'Observers are read-only.' };
   if (!player.spymaster) return { allowed: false, reason: 'Only spymasters can clue.' };
   if (player.team !== currentTeam) return { allowed: false, reason: `Only the ${displayTeamName(currentTeam, settings)} spymaster can clue right now.` };
   return { allowed: true, reason: '' };

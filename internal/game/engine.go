@@ -304,7 +304,7 @@ func (c AddPlayerCommand) apply(state *State, actorID string) (Event, error) {
 	if c.PlayerID == state.HostID {
 		player.Mod = true
 	}
-	if player.Team == "" && state.Settings.RandomizeTeams {
+	if player.Team == "" && state.Phase == PhaseLobby && state.Settings.RandomizeTeams {
 		player.Team = state.nextBalancedTeam(c.PlayerID)
 	}
 	state.Players[c.PlayerID] = player

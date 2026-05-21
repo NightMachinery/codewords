@@ -29,7 +29,7 @@
 - Lobby: room link copy, migrate-device copy, team columns, role badges, host settings, start button, chat.
 - Game board: responsive 5x5 card grid, current team, remaining counts, pass button, role/view controls, clue editor/log, last selected card highlight, chat, game-over summary.
 - Settings: card layout preferences, sounds if implemented, confirmation preference, picture/word mode before start.
-- Spectator: read-only board and chat, no move controls, no spymaster toggle.
+- Observer: read-only board actions, no move controls, no spymaster toggle, and chat only when observer chat is enabled.
 
 ## Clipboard on HTTP
 
@@ -65,7 +65,7 @@ For mixed/custom mode, show an image-card count control from 0 to 25 and explain
 
 ## Clue UI
 
-- Show a polished clue log to all players and spectators near the board, with round order, team color, clue text, clue number, status, and subtle current-round emphasis.
+- Show a polished clue log to all players and observers near the board, with round order, team color, clue text, clue number, status, and subtle current-round emphasis.
 - Current-team spymasters get an inline clue composer while the round is open: clue text input, number control, save/update button, and validation messages.
 - The clue number control supports blank in normal mode, `1..9`, and `∞` only when the room setting allows infinity clues.
 - In enforced clue-limit mode, explain that clue submission is required and that the team may reveal at most the submitted numeric count.

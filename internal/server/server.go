@@ -221,11 +221,6 @@ func (a *app) handleGetRoom(w http.ResponseWriter, r *http.Request) {
 		writeStorageErr(w, err, "room_not_found")
 		return
 	}
-	players, err := a.store.RoomPlayers(r.Context(), roomID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "players_failed", err.Error())
-		return
-	}
 	viewerID := ""
 	if migrateID := r.URL.Query().Get("migrateId"); migrateID != "" {
 		if link, err := a.identity.ResolveMigrate(r.Context(), roomID, migrateID); err == nil {
@@ -235,6 +230,20 @@ func (a *app) handleGetRoom(w http.ResponseWriter, r *http.Request) {
 		if user, err := a.authUser(r.Context(), token); err == nil {
 			viewerID = user.ID
 		}
+	}
+	if viewerID != "" && room.Status != storage.RoomStatusLobby {
+		user, err := a.store.UserByID(r.Context(), viewerID)
+		if err == nil && strings.TrimSpace(user.DisplayName) != "" {
+			if err := a.ensureObserverMember(r.Context(), room, user); err != nil {
+				writeError(w, http.StatusInternalServerError, "observer_join_failed", err.Error())
+				return
+			}
+		}
+	}
+	players, err := a.store.RoomPlayers(r.Context(), roomID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "players_failed", err.Error())
+		return
 	}
 	chats, _ := a.store.ChatMessages(r.Context(), roomID, 50)
 	writeJSON(w, http.StatusOK, map[string]any{"room": roomDTO(room), "players": playerDTOs(players), "settings": mustSettings(room.SettingsJSON), "viewer": viewerDTO(viewerID, viewerID == room.HostUserID, viewerIsMod(players, room.HostUserID, viewerID)), "chatMessages": chatDTOs(chats)})
@@ -823,6 +832,40 @@ func (a *app) loadRuntime(ctx context.Context, roomID string) (*roomRuntime, err
 	return rt, nil
 }
 
+func (a *app) ensureObserverMember(ctx context.Context, room storage.Room, user storage.User) error {
+	rt, err := a.loadRuntime(ctx, room.ID)
+	if err != nil {
+		return err
+	}
+	rt.mu.Lock()
+	defer rt.mu.Unlock()
+	if player, ok := rt.state.Players[user.ID]; ok {
+		if player.DisplayName != user.DisplayName {
+			player.DisplayName = user.DisplayName
+			rt.state.Players[user.ID] = player
+			return a.syncRoomPlayers(ctx, room.ID, rt.state)
+		}
+		return nil
+	}
+	if _, err := game.Apply(&rt.state, game.AddPlayerCommand{PlayerID: user.ID, DisplayName: user.DisplayName}, user.ID); err != nil {
+		return err
+	}
+	event, err := game.Apply(&rt.state, game.AssignTeamCommand{PlayerID: user.ID, Team: game.TeamObservers}, user.ID)
+	if err != nil {
+		return err
+	}
+	if err := a.syncRoomPlayers(ctx, room.ID, rt.state); err != nil {
+		return err
+	}
+	if room.CurrentMatchID != "" {
+		if err := a.persistState(ctx, room.CurrentMatchID, user.ID, string(event.Type), rt.state); err != nil {
+			return err
+		}
+	}
+	rt.broadcastLocked(snapshotMessage(rt.state, ""))
+	return nil
+}
+
 func (a *app) persistState(ctx context.Context, matchID, actorID, eventType string, state game.State) error {
 	payload, _ := json.Marshal(map[string]any{"at": time.Now().UTC().Format(time.RFC3339Nano)})
 	event, err := a.store.AppendGameEvent(ctx, storage.AppendGameEventParams{MatchID: matchID, ActorUserID: actorID, EventType: eventType, PayloadJSON: string(payload)})
@@ -903,9 +946,6 @@ func (a *app) requireMember(w http.ResponseWriter, ctx context.Context, roomID, 
 	return room, user, true
 }
 func (a *app) viewerID(ctx context.Context, roomID string, r *http.Request) (string, error) {
-	if r.URL.Query().Get("spectator") == "1" {
-		return "", nil
-	}
 	if m := r.URL.Query().Get("migrateId"); m != "" {
 		link, err := a.identity.ResolveMigrate(ctx, roomID, m)
 		if err != nil {

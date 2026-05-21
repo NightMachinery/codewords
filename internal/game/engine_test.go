@@ -88,6 +88,18 @@ func TestGenerateBoardRejectsInvalidCountsAndSmallWordpacks(t *testing.T) {
 	}
 }
 
+func TestAddPlayerOnlyRandomizesTeamsInLobby(t *testing.T) {
+	state := NewLobby("host", Settings{RandomizeTeams: true})
+	state.Phase = PhaseActive
+	state.CurrentTeam = TeamBlue
+
+	mustApply(t, &state, AddPlayerCommand{PlayerID: "late", DisplayName: "Late Viewer"}, "late")
+
+	if got := state.Players["late"].Team; got != "" {
+		t.Fatalf("late active-match player should not be randomized onto a team, got %q", got)
+	}
+}
+
 func TestSettingsDefaultsStartingTeamHandicapOnlyWhenOmitted(t *testing.T) {
 	var omitted Settings
 	if err := json.Unmarshal([]byte(`{"autoColorCounts":true,"totalCards":25}`), &omitted); err != nil {
@@ -568,9 +580,9 @@ func TestGameplayGuessesPassesWinsAndSnapshots(t *testing.T) {
 	if spyView.Cards[3].Color == "" {
 		t.Fatalf("spymaster should see unrevealed color")
 	}
-	spectatorView := state.SnapshotFor(Viewer{})
-	if spectatorView.ClueLog[0].Text != "Ocean" {
-		t.Fatalf("spectator should see clue log, got %#v", spectatorView.ClueLog)
+	observerView := state.SnapshotFor(Viewer{})
+	if observerView.ClueLog[0].Text != "Ocean" {
+		t.Fatalf("observer should see clue log, got %#v", observerView.ClueLog)
 	}
 }
 

@@ -17,7 +17,7 @@ This directory is the authoritative handoff for building the greenfield Codeword
 - `tech-stack.md` — exact technology choices and rejected alternatives.
 - `architecture.md` — repo shape, runtime topology, server/static split, and data flow.
 - `game-rules.md` — complete game-state and move semantics.
-- `identity-and-security.md` — auth token, display name, host controls, spectators, and migrate-device links.
+- `identity-and-security.md` — auth token, display name, host controls, observers, and migrate-device links.
 - `api-and-realtime.md` — HTTP and WebSocket contracts.
 - `storage.md` — SQLite schema, migrations, and persistence rules.
 - `frontend-spec.md` — Svelte/Tailwind UI, routes, preferences, clipboard, and WebSocket behavior.

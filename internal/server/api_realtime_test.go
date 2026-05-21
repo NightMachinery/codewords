@@ -819,7 +819,7 @@ func TestLegacyImageIDVector(t *testing.T) {
 	}
 }
 
-func TestSnapshotIncludesChatHistoryAndSpectatorCannotSendChat(t *testing.T) {
+func TestSnapshotIncludesChatHistoryAndAnonymousObserverSocketIsRejected(t *testing.T) {
 	h := newTestHandler(t)
 	postJSON(t, h, "/api/identity/bootstrap", map[string]any{"authToken": "host-chat", "displayName": "Host"}, http.StatusOK)
 	roomResp := postJSON(t, h, "/api/rooms", map[string]any{"authToken": "host-chat", "settings": map[string]any{"wordpackId": "english", "seed": 12}}, http.StatusCreated)
@@ -850,23 +850,38 @@ func TestSnapshotIncludesChatHistoryAndSpectatorCannotSendChat(t *testing.T) {
 		t.Fatalf("expected chat history on room payload, got %#v", snap)
 	}
 
-	spectatorURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws/rooms/" + roomID + "?spectator=1"
-	spectator, _, err := websocket.DefaultDialer.Dial(spectatorURL, nil)
-	if err != nil {
-		t.Fatalf("dial spectator websocket: %v", err)
+	observerURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws/rooms/" + roomID + "?observer=1"
+	observerDialer := websocket.Dialer{HandshakeTimeout: time.Second}
+	if observer, _, err := observerDialer.Dial(observerURL, nil); err == nil {
+		_ = observer.Close()
+		t.Fatalf("anonymous observer websocket should require authentication")
 	}
-	defer spectator.Close()
-	if err := spectator.ReadJSON(&msg); err != nil {
-		t.Fatalf("read spectator snapshot: %v", err)
+}
+
+func TestActiveRoomNonMemberWithDisplayNameBecomesObserver(t *testing.T) {
+	h := newTestHandler(t)
+	postJSON(t, h, "/api/identity/bootstrap", map[string]any{"authToken": "host-observe", "displayName": "Host"}, http.StatusOK)
+	roomResp := postJSON(t, h, "/api/rooms", map[string]any{"authToken": "host-observe", "settings": map[string]any{"wordpackId": "english", "seed": 44, "randomizeTeams": true}}, http.StatusCreated)
+	roomID := roomResp["room"].(map[string]any)["id"].(string)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "red-spy-observe", "displayName": "Red Spy"}, http.StatusOK)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "blue-guess-observe", "displayName": "Blue Guess"}, http.StatusOK)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "red-guess-observe", "displayName": "Red Guess"}, http.StatusOK)
+	makeRoomStartable(t, h, roomID, map[string]string{"host-observe": "blueSpy", "red-spy-observe": "redSpy", "blue-guess-observe": "blueGuess", "red-guess-observe": "redGuess"})
+	postJSON(t, h, "/api/rooms/"+roomID+"/start", map[string]any{"authToken": "host-observe"}, http.StatusOK)
+
+	postJSON(t, h, "/api/identity/bootstrap", map[string]any{"authToken": "observer-active", "displayName": "Observer Active"}, http.StatusOK)
+	room := getJSON(t, h, "/api/rooms/"+roomID+"?authToken=observer-active", http.StatusOK)
+	players := room["players"].([]any)
+	found := false
+	for _, raw := range players {
+		player := raw.(map[string]any)
+		if player["team"] == "observers" && player["id"] == room["viewer"].(map[string]any)["userId"] {
+			found = true
+			break
+		}
 	}
-	if err := spectator.WriteJSON(map[string]any{"type": "sendChat", "body": "anonymous write"}); err != nil {
-		t.Fatalf("write spectator chat: %v", err)
-	}
-	if err := spectator.ReadJSON(&msg); err != nil {
-		t.Fatalf("read spectator error: %v", err)
-	}
-	if msg["type"] != "error" || msg["code"] != "chat_rejected" {
-		t.Fatalf("expected spectator chat rejection, got %#v", msg)
+	if !found {
+		t.Fatalf("active-room non-member with a display name should be added as an observer, got %#v", room)
 	}
 }
 

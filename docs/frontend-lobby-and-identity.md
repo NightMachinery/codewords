@@ -23,7 +23,7 @@ The lobby opens a room WebSocket after the viewer has an identity. Snapshots dri
 
 Clipboard actions first use `navigator.clipboard`, then fall back to a temporary textarea plus `document.execCommand('copy')`, and finally show the raw link for manual copy. Successful copy feedback clears itself after a short delay.
 
-Named browser identities auto-join only while a room is still in `lobby` status. After a match is active, a previously unknown authenticated browser connects over WebSocket as a read-only spectator instead of being seated as a new player.
+Named browser identities auto-join playable teams only while a room is still in `lobby` status. After a match is active, a previously unknown authenticated browser must choose a display name and is added to the room roster as an observer.
 
 ## Active match UI
 
@@ -41,7 +41,7 @@ When a room snapshot is `active` or `game_over`, the room route switches from lo
 - guess-by-card-click and pass controls for the active guesser;
 - game-over winner summary with viewer-specific end-game sound/visual cues and a Capture Memory image download.
 
-Spectators are authenticated browser identities that are not seated in the match, or anonymous `spectator=1` socket viewers. They receive the same safe snapshots as non-spymaster players and cannot submit clues, reveal cards, pass, or write chat.
+Observers are room roster members on the neutral `observers` team. They receive the same safe snapshots as non-spymaster players and cannot submit clues, reveal cards, or pass.
 
 ## Gameplay permissions and local preferences
 
@@ -50,7 +50,7 @@ Frontend helper logic mirrors the backend active-guesser rules:
 - representatives guess/pass when a team has at least one representative;
 - otherwise non-spymasters guess/pass;
 - spymasters never guess/pass or reveal cards;
-- observers, spectators, and off-turn players are read-only.
+- observers and off-turn players are read-only.
 
 Starting a match requires each playable team to have at least one spymaster and at least one non-spymaster guesser. Observer-team members are excluded from start requirements and cannot be made spymaster or representative.
 
@@ -63,7 +63,7 @@ Local-only confirmation preferences are stored in LocalStorage under `codewords.
 
 ## Chat and picture cards
 
-Milestone 7 adds room chat to the lobby and gameplay sidebars. Seated players can send messages; spectators can read the log but see the composer disabled. The room load response includes recent chat history, and live WebSocket `chatMessage` events append new messages.
+Milestone 7 adds room chat to the lobby and gameplay sidebars. Seated players can send messages; observers can send messages only when observer chat is enabled. The room load response includes recent chat history, and live WebSocket `chatMessage` events append new messages.
 
 Picture mode uses the local server catalog only. Hosts can choose words-only (`imageCardCount=0`), images-only (`imageCardCount=totalCards`), or mixed boards (`1..totalCards-1` image cards). Image cards render with `/api/pictures/{imageId}` URLs; clients never receive local filesystem paths.
 
@@ -80,7 +80,7 @@ When a playable-team member becomes an observer, the room remembers that playerâ
 
 ## End-game memories
 
-When a live snapshot transitions into `game_over`, each viewer receives a local-only cue based on their own result: winning-team players get a celebratory cue, losing-team players get a subdued cue, and spectators or observers get a neutral winner cue. The cue only fires on the transition, not when loading a room that already ended, and it respects the browser-local end-game sound and visual cue toggles.
+When a live snapshot transitions into `game_over`, each viewer receives a local-only cue based on their own result: winning-team players get a celebratory cue, losing-team players get a subdued cue, and observers get a neutral winner cue. The cue only fires on the transition, not when loading a room that already ended, and it respects the browser-local end-game sound and visual cue toggles.
 
 The game-over panel includes a **Capture Memory** button. It generates a client-side PNG from an offscreen DOM copy of the in-game board, so the keepsake uses the same centered word text, card chrome, number badges, selected-card styling, custom team colors, desktop column preferences, strict aspect-ratio setting, and image-card footprint settings that the player sees in the room. Memory captures always render at a fixed desktop width, even from mobile browsers, so exports stay wide instead of becoming narrow and tall. Before DOM-to-image rendering starts, the export path waits for fonts, images, and fitted word-card labels so the captured board keeps the same typography and words stay inside their card bounds. Word fitting sizes labels with the live board measurer and allows font glyph ink to overhang its measured line box, which avoids clipping Persian ascenders and descenders while the card itself still clips true card-bound overflow. Memory-capture exports additionally apply the `fitCardWordConservativeShrinkPx` conservative reduction, while the live board keeps the unmodified fitted size. The PNG also includes the game-finished timestamp, winner, losing team, team rosters with spymaster/representative role icons, an aurora-style background, and optional deterministic roast captions loaded from `assets/roast-packs/`; moderators can disable roasts through room settings. The export path keeps PNG as the downloaded format while using DOM-to-image rendering internally, leaving room for future SVG export without maintaining a separate hand-drawn canvas board.
 

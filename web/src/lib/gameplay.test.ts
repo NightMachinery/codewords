@@ -110,11 +110,11 @@ function viewer(userId: string): Viewer {
 }
 
 describe('gameplay permissions', () => {
-  it('mirrors backend active guesser rules for regular, representative, spectator, and all-spymaster teams', () => {
+  it('mirrors backend active guesser rules for regular, representative, observer, and all-spymaster teams', () => {
     expect(isActiveGuesser(players, 'blueGuess', 'blue')).toBe(true);
     expect(isActiveGuesser(players, 'blueSpy', 'blue')).toBe(false);
     expect(isActiveGuesser(players, 'redGuess', 'blue')).toBe(false);
-    expect(isActiveGuesser(players, 'spectator', 'blue')).toBe(false);
+    expect(isActiveGuesser(players, 'observer', 'blue')).toBe(false);
 
     const representativePlayers = players.map((player) =>
       player.id === 'blueGuess' ? { ...player, representative: true } : player,
@@ -130,8 +130,8 @@ describe('gameplay permissions', () => {
     expect(isActiveGuesser(twoSpies, 'spy2', 'blue')).toBe(true);
   });
 
-  it('identifies spectator, player, spymaster, and active guesser view roles', () => {
-    expect(viewerRole(players, viewer('spectator'), 'blue')).toMatchObject({ kind: 'spectator', canSeeHiddenColors: false, activeGuesser: false });
+  it('identifies observer, player, spymaster, and active guesser view roles', () => {
+    expect(viewerRole(players, viewer('observer'), 'blue')).toMatchObject({ kind: 'observer', canSeeHiddenColors: false, activeGuesser: false });
     expect(viewerRole(players, viewer('blueGuess'), 'blue')).toMatchObject({ kind: 'player', team: 'blue', canSeeHiddenColors: false, activeGuesser: true });
     expect(viewerRole(players, viewer('blueSpy'), 'blue')).toMatchObject({ kind: 'spymaster', team: 'blue', canSeeHiddenColors: true, activeGuesser: false });
     expect(viewerRole(players, viewer('blueSpy'), 'blue', 'game_over')).toMatchObject({ canSeeHiddenColors: true });
@@ -142,7 +142,7 @@ describe('gameplay permissions', () => {
     expect(canSubmitClue(players, viewer('blueSpy'), 'blue', 'active').allowed).toBe(true);
     expect(canSubmitClue(players, viewer('redSpy'), 'blue', 'active', settings).reason).toBe('Only the Libertarians spymaster can clue right now.');
     expect(canSubmitClue(players, viewer('blueGuess'), 'blue', 'active').reason).toBe('Only spymasters can clue.');
-    expect(canSubmitClue(players, viewer('spectator'), 'blue', 'active').reason).toBe('Spectators are read-only.');
+    expect(canSubmitClue(players, viewer('observer'), 'blue', 'active').reason).toBe('Observers are read-only.');
     expect(canSubmitClue(players, viewer('blueSpy'), 'blue', 'game_over').reason).toBe('The match is over.');
   });
 });

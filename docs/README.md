@@ -22,6 +22,6 @@ Milestones 1, 2, 3, 4, 5, and 6 are implemented:
 - SQLite migration/storage package plus HMAC-hashed identity and room-scoped migrate-link services.
 - JSON REST endpoints for identity, rooms, settings, match start, migrate links, wordpack listing, and picture catalog placeholders.
 - Room WebSocket endpoint with authenticated initial snapshots, ping/pong, engine command handling, persistence, broadcast, and restart restoration from saved snapshots.
-- Svelte/Tailwind frontend for browser identity bootstrap, display-name prompt, room create/join, lobby team/role controls, host settings, start-game action, room-link copy, migrate-device copy, active board play, clue composer/log, guess/pass controls, spectator read-only views, and game-over summary.
+- Svelte/Tailwind frontend for browser identity bootstrap, display-name prompt, room create/join, lobby team/role controls, host settings, start-game action, room-link copy, migrate-device copy, active board play, clue composer/log, guess/pass controls, observer read-only views, and game-over summary.
 
 See `game-engine.md` for the current engine package boundary and behavior. See `storage-and-identity.md` for persistence and identity details. See `http-and-realtime.md` for the Milestone 4 API and realtime boundary. See `frontend-lobby-and-identity.md` for the Milestone 5/6 frontend behavior. See `frontend-aurora-background.md` for the landing hero background behavior and visual tuning knobs.

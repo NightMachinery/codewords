@@ -9,13 +9,13 @@ Build Codewords: a fast, efficient, standalone, self-hostable SecretCodes-style 
 - Online rooms with shareable room links.
 - Lobby with host controls, team assignment, role assignment, and start-game validation.
 - Two teams: blue and red.
-- Roles: spymaster, representative, regular guesser, spectator.
+- Roles: spymaster, representative, regular guesser, observer.
 - Word-card mode with 25 cards.
 - Picture-card mode using local image sources/cache only.
 - 0–8 assassin/black cards configurable before start.
 - Optional clue-limit settings: require clue submission before guessing, cap accepted guesses to the clue number, and optionally allow infinity clues.
 - Team turn flow, spymaster clue submission/update, visible clue log, optional enforced clue guess limits, guessing, passing, wrong-guess turn switching, action cues, last-card highlighting, and win/loss detection.
-- Chat for room/match participants and read-only chat for anonymous spectators.
+- Chat for room/match participants, with observers controlled by the observer chat setting.
 - Reconnect and page refresh support.
 - Finished-game state with full-board reveal and play-again/new-room affordance.
 

@@ -26,11 +26,11 @@
 - Do not overwrite the browser’s global LocalStorage auth token when consuming a migrate URL.
 - Outside that room, the browser continues to use its original LocalStorage identity.
 
-## Spectators
+## Observers
 
-- Anonymous users may open an already-started or spectator-allowed room as read-only spectators.
-- Spectators receive sanitized non-spymaster snapshots.
-- Anonymous spectators can read chat but cannot send chat, take seats, reveal cards, pass, or toggle views.
+- Authenticated users with display names who open an already-started room are added to the observer roster.
+- Observers receive sanitized non-spymaster snapshots.
+- Observers cannot reveal cards, pass, submit clues, or toggle spymaster views, and can chat only when observer chat is enabled.
 
 ## Security defaults
 

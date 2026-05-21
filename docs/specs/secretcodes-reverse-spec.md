@@ -66,11 +66,11 @@ This document records behaviors observed in the original FreeBoardGames SecretCo
 - If all blue cards are revealed after play begins, the system shall declare blue the winner; if all red cards are revealed, the system shall declare red the winner. Evidence: `game.ts:133-140`.
 - When the match is over, the system shall reveal the full board to all viewers. Evidence: `game.ts:58-61`.
 
-### Hidden information and spectators
+### Hidden information and observers
 
 - While a match is active, the system shall send unrevealed card colors only to spymasters. Evidence: `game.ts:58-75`.
 - While a viewer is not an authorized spymaster, the system shall include color only on revealed cards and may include aggregate remaining counts. Evidence: `game.ts:63-75`, `game.test.ts:410-433`.
-- Anonymous spectators shall be treated as non-spymaster viewers and shall not receive a spymaster toggle or move controls. Evidence: `PlayBoard.test.tsx:225-244`.
+- Observers shall be treated as non-spymaster viewers and shall not receive a spymaster toggle or move controls. Evidence: `PlayBoard.test.tsx:225-244`.
 
 ### Pictures and mixed content
 
@@ -121,7 +121,7 @@ This document records behaviors observed in the original FreeBoardGames SecretCo
 - Starting a match with zero assassins yields 9 cards for the starting team, 8 for the other team, and 8 civilians.
 - A non-host cannot assign teams or toggle roles; a host can assign unassigned players and can move assigned players across teams.
 - Representative presence restricts guessing/passing to representatives only.
-- Non-spymaster snapshots never contain unrevealed `color` values, including anonymous spectator snapshots.
+- Non-spymaster snapshots never contain unrevealed `color` values, including observer snapshots.
 - Mixed mode persists concrete word/image card contents and still uses identical reveal/pass/win rules for both content types.
 - Tailwind-generated CSS is bundled into the static frontend build with no browser requests to external CSS, font, or icon hosts.
 

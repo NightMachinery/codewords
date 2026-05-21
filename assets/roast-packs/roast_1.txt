@@ -29,7 +29,7 @@ Someone check on {RANDOM_LOSING_SPYMASTER}; that clue aged like milk.
 {LOSER_TEAM} took a tactical timeout and came back worse.
 {WINNER_TEAM} solved the board; {LOSER_TEAM} got solved by it.
 {RANDOM_LOSING_PLAYER} played like the assassin was offering loyalty points.
-{RANDOM_WINNING_PLAYER} put {LOSER_TEAM} in spectator mode emotionally.
+{RANDOM_WINNING_PLAYER} put {LOSER_TEAM} in observer mode emotionally.
 {LOSER_TEAM} got checkmated in a game with no kings.
 {RANDOM_LOSING_SPYMASTER} dropped a clue so cold it lowered the lobby MMR.
 {WINNER_TEAM} had chemistry. {LOSER_TEAM} had incident reports.

@@ -7,7 +7,7 @@
 - Picture cache tests for source discovery, extensionless sniffing, exact legacy `imageId` compatibility for known source bytes (`legacy-cache-test` -> `93670c3199ed9a9f911da869573fe47af8ec93bfe02516f1cc9ad67ed5a284fe`), duplicate-byte deduplication, cache-hit reuse from an existing `<imageId>.avif`, optional corrupt-cache rebuild, AVIF/content-type metadata, progress counters, and warmup retry after failure.
 - Auth tests for token hashing, display-name persistence, host-only actions, and migrate-link room scoping.
 - Storage tests for migrations, WAL setup, restart restore, chat persistence, and event/snapshot consistency.
-- WebSocket tests for connect, snapshot, command validation, broadcast, reconnect, and spectator sanitization.
+- WebSocket tests for connect, snapshot, command validation, broadcast, reconnect, and observer sanitization.
 
 ## Frontend tests
 
@@ -15,7 +15,7 @@
 - Playwright flows:
   - create room, set display name, refresh without reprompt.
   - join second player, assign teams/roles, start game.
-  - spymaster sees colors; guesser/spectator does not.
+  - spymaster sees colors; guesser/observer does not.
   - guess/pass/win flow works.
   - spymaster can submit/update a clue, all viewers see the clue log, missing clues finalize as `NA`, and enforced clue-limit mode blocks over-guessing.
   - migrate-device link opens same room identity without changing global auth token.
