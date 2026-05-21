@@ -56,12 +56,18 @@ export function isViewerPlayer(player: Pick<LobbyPlayer, 'id'>, viewer: Pick<Vie
 
 export function canShowTeamAssignmentButton(input: {
   phase: PlayerPanelPhase;
+  mode?: 'polarity' | 'unity';
   hostControls: boolean;
   player: LobbyPlayer;
   viewer: Pick<ViewerContext, 'userId' | 'playerId'> | null | undefined;
   team: Team;
 }): boolean {
   if (input.phase === 'game_over') return false;
+  const mode = input.mode ?? 'polarity';
+  if (mode === 'unity') {
+    return input.hostControls && (input.team === 'unity' || input.team === 'observers') && input.player.team !== input.team;
+  }
+  if (input.team === 'unity') return false;
   if (input.hostControls) return true;
   if (!isViewerPlayer(input.player, input.viewer)) return false;
   if (input.phase === 'lobby') return true;
@@ -70,13 +76,15 @@ export function canShowTeamAssignmentButton(input: {
 
 export function canShowRejoinTeamButton(input: {
   phase: PlayerPanelPhase;
+  mode?: 'polarity' | 'unity';
   hostControls: boolean;
   player: LobbyPlayer;
   viewer: Pick<ViewerContext, 'userId' | 'playerId'> | null | undefined;
 }): boolean {
+  const mode = input.mode ?? 'polarity';
   return input.phase !== 'game_over'
     && input.player.team === 'observers'
-    && (input.player.previousTeam === 'blue' || input.player.previousTeam === 'red')
+    && (mode === 'unity' ? (input.player.previousTeam === 'blue' || input.player.previousTeam === 'red' || input.player.previousTeam === 'unity') : (input.player.previousTeam === 'blue' || input.player.previousTeam === 'red'))
     && (input.hostControls || isViewerPlayer(input.player, input.viewer));
 }
 

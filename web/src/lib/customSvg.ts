@@ -2,16 +2,20 @@ import spy from '../../../assets/SVG/spy.svg?raw';
 import representative from '../../../assets/SVG/representative.svg?raw';
 import blueCard from '../../../assets/SVG/blue-card.svg?raw';
 import redCard from '../../../assets/SVG/red-card.svg?raw';
+import unityCard from '../../../assets/SVG/unity-card.svg?raw';
 import civilianCard from '../../../assets/SVG/civilian-card.svg?raw';
 import assassinCard from '../../../assets/SVG/assassin-card.svg?raw';
+import turnBudget from '../../../assets/SVG/turn-budget.svg?raw';
 
 export const customSvg = {
   spy,
   representative,
   blueCard,
   redCard,
+  unityCard,
   civilianCard,
   assassinCard,
+  turnBudget,
 } as const;
 
 

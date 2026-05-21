@@ -188,7 +188,7 @@ export const defaultSettings: Settings = {
   teamNameRed: 'Monarchists',
   teamNameUnity: 'Unity',
   customColorUnity: '#20b2aa',
-  unityTurnLimit: 9,
+  unityTurnLimit: 6,
   unityUnlimitedTurns: false,
   unityStrictPerBoardTurns: false,
 };

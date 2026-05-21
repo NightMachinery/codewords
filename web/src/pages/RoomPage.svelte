@@ -43,6 +43,7 @@
     teamColor,
     unityBoardViewCards,
     unityEndGameSummary,
+    unityGuessDisabledReason,
     unityStartReadiness,
     type ClueEntry,
     type GameplayCard,
@@ -144,6 +145,7 @@
   let activeBoardOwner = $derived(activeBoard?.ownerId ?? '');
   let displayedUnityBoard = $derived(unityBoardView === 'own' && ownBoard ? ownBoard : activeBoard);
   let displayedCardsRaw = $derived(mode === 'unity' ? unityBoardViewCards(unityBoardView, activeBoard, ownBoard) : cards);
+  let displayedLastSelected = $derived(mode === 'unity' ? (displayedUnityBoard?.lastSelected ?? null) : lastSelected);
   let displayedClueLog = $derived(mode === 'unity' ? (displayedUnityBoard?.clueLog ?? []) : clueLog);
   let activeClueLog = $derived(mode === 'unity' ? (activeBoard?.clueLog ?? []) : clueLog);
   let cardMode = $derived(cardModeFromImageCount(settings.imageCardCount ?? 0, settings.totalCards ?? 25));
@@ -219,11 +221,6 @@
       localProfiles = readSavedProfiles(localStorage);
       credential = resolveSessionCredential(new URL(window.location.href), localStorage);
       credentialMode = credential.mode;
-      const packs = await api.wordpacks();
-      wordpacks = packs.wordpacks;
-      const pictureCatalog = await api.pictureCatalog();
-      pictureCatalogAvailable = pictureCatalog.available;
-      pictures = pictureCatalog.images;
 
       if (credential.mode === 'migrate') {
         const migrated = await api.migrateBootstrap(roomId, credential.migrateId);
@@ -248,6 +245,10 @@
       if (!needsName) {
         connectSocket();
       }
+      const [packs, pictureCatalog] = await Promise.all([api.wordpacks(), api.pictureCatalog()]);
+      wordpacks = packs.wordpacks;
+      pictureCatalogAvailable = pictureCatalog.available;
+      pictures = pictureCatalog.images;
     } catch (err) {
       error = err instanceof Error ? err.message : 'Could not load this room.';
     } finally {
@@ -412,6 +413,22 @@
   }
 
   function guessDisabledReason(card?: GameplayCard): string {
+    if (mode === 'unity') {
+      return unityGuessDisabledReason({
+        phase,
+        hasPlayer: Boolean(role.player),
+        waitingForGuessers: Boolean(unityProgress?.waitingForGuessers),
+        activeGuesser: role.activeGuesser,
+        playerId: role.player?.id,
+        activeBoardOwner,
+        boardView: unityBoardView,
+        activeBoardId: activeBoard?.ownerId,
+        displayedBoardId: displayedUnityBoard?.ownerId,
+        enforceClueGuessLimit: settings.enforceClueGuessLimit,
+        currentClue,
+        cardRevealed: card?.revealed,
+      });
+    }
     if (phase === 'game_over') return 'The match is over.';
     if (phase !== 'active') return 'The match has not started.';
     if (!role.player) return 'Observers are read-only.';
@@ -419,7 +436,7 @@
     if (!role.activeGuesser) {
       if (mode === 'unity' && role.player?.id === activeBoardOwner) return 'You cannot guess on your own board.';
       if (role.kind === 'spymaster') return 'Spymasters cannot guess while teammates can.';
-      return mode === 'unity' ? 'Only eligible Unity guessers can reveal cards.' : `Only the ${displayTeamName(currentTeam, settings)} guesser can reveal cards.`;
+      return `Only the ${displayTeamName(currentTeam, settings)} guesser can reveal cards.`;
     }
     if (settings.enforceClueGuessLimit && (!currentClue || currentClue.number.kind === 'blank')) return 'Wait for a numbered clue first.';
     if (card?.revealed) return 'That card is already revealed.';
@@ -480,7 +497,9 @@
         ? 'loss'
         : endGameOutcome(winningTeam, snapshotViewer, snapshotPlayers);
     const teamName = displayTeamName(winningTeam, settings);
-    const text = outcome === 'win' ? `${teamName} takes the board.` : outcome === 'loss' ? `${teamName} wins this round.` : `${teamName} wins.`;
+    const text = settings.mode === 'unity' && outcome === 'loss'
+      ? 'Players lose.'
+      : outcome === 'win' ? `${teamName} takes the board.` : outcome === 'loss' ? `${teamName} wins this round.` : `${teamName} wins.`;
     if (preferences.endGameVisualCue) {
       endGameCue = { outcome, team: winningTeam, text };
       window.setTimeout(() => {
@@ -1037,10 +1056,10 @@
                 </div>
                 <div class="isolate flex min-w-0 max-w-full overflow-hidden rounded-full border border-slate-600/70 bg-slate-950 text-[10px] font-black uppercase tracking-widest shadow-inner shadow-slate-950/60">
                   {#if mode === 'unity'}
-                  <span class="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 px-2 py-1.5 text-teal-100 sm:px-3" title={`Unity ${displayedUnityBoard?.remainingCounts.unity ?? 0}`} aria-label={`Unity ${displayedUnityBoard?.remainingCounts.unity ?? 0}`} style={`background: linear-gradient(90deg, ${hexWithAlpha(teamColor('unity', settings), '40')}, transparent);`}><span>Unity</span><span>{displayedUnityBoard?.remainingCounts.unity ?? 0}</span></span>
-                  <span class="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 border-l border-slate-600/70 px-2 py-1.5 text-amber-100 sm:px-3" title={`Civilian ${displayedUnityBoard?.remainingCounts.civilian ?? 0}`} aria-label={`Civilian ${displayedUnityBoard?.remainingCounts.civilian ?? 0}`} style="background: linear-gradient(90deg, rgba(251,191,36,0.18), transparent)"><SvgMaskIcon src={customSvg.civilianCard} classes="h-3.5 w-3.5" /><span>{displayedUnityBoard?.remainingCounts.civilian ?? 0}</span></span>
-                  <span class="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 border-l border-slate-600/70 px-2 py-1.5 text-zinc-100 sm:px-3" title={`Assassin ${displayedUnityBoard?.remainingCounts.black ?? 0}`} aria-label={`Assassin ${displayedUnityBoard?.remainingCounts.black ?? 0}`} style="background: linear-gradient(90deg, rgba(24,24,27,0.85), rgba(0,0,0,0.55))"><SvgMaskIcon src={customSvg.assassinCard} classes="h-3.5 w-3.5" /><span>{displayedUnityBoard?.remainingCounts.black ?? 0}</span></span>
-                  <span class="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 border-l border-slate-600/70 px-2 py-1.5 text-teal-100 sm:px-3">{settings.unityUnlimitedTurns ? '∞' : mode === 'unity' && settings.unityStrictPerBoardTurns ? Math.max(0, (settings.unityTurnLimit ?? 0) - (displayedUnityBoard?.turnsUsed ?? 0)) : unityProgress?.sharedTurnsRemaining ?? 0}</span>
+                  <span class="inline-flex min-w-0 flex-[1.35_1_0] items-center justify-center gap-1.5 px-2 py-1.5 text-teal-100 sm:px-3" title={`Unity ${displayedUnityBoard?.remainingCounts.unity ?? 0}`} aria-label={`Unity ${displayedUnityBoard?.remainingCounts.unity ?? 0}`} style={`background: linear-gradient(90deg, ${hexWithAlpha(teamColor('unity', settings), '40')}, transparent);`}><SvgMaskIcon src={customSvg.unityCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Unity</span><span>{displayedUnityBoard?.remainingCounts.unity ?? 0}</span></span>
+                  <span class="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 border-l border-slate-600/70 px-2 py-1.5 text-amber-100 sm:px-3" title={`Civilian ${displayedUnityBoard?.remainingCounts.civilian ?? 0}`} aria-label={`Civilian ${displayedUnityBoard?.remainingCounts.civilian ?? 0}`} style="background: linear-gradient(90deg, rgba(251,191,36,0.18), transparent)"><SvgMaskIcon src={customSvg.civilianCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Civilian</span><span>{displayedUnityBoard?.remainingCounts.civilian ?? 0}</span></span>
+                  <span class="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 border-l border-slate-600/70 px-2 py-1.5 text-zinc-100 sm:px-3" title={`Assassin ${displayedUnityBoard?.remainingCounts.black ?? 0}`} aria-label={`Assassin ${displayedUnityBoard?.remainingCounts.black ?? 0}`} style="background: linear-gradient(90deg, rgba(24,24,27,0.85), rgba(0,0,0,0.55))"><SvgMaskIcon src={customSvg.assassinCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Assassin</span><span>{displayedUnityBoard?.remainingCounts.black ?? 0}</span></span>
+                  <span class="inline-flex min-w-0 flex-[1.2_1_0] items-center justify-center gap-1.5 border-l border-slate-600/70 px-2 py-1.5 text-teal-100 sm:px-3" title="Turns remaining" aria-label="Turns remaining"><SvgMaskIcon src={customSvg.turnBudget} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Turns</span><span>{settings.unityUnlimitedTurns ? '∞' : mode === 'unity' && settings.unityStrictPerBoardTurns ? Math.max(0, (settings.unityTurnLimit ?? 0) - (displayedUnityBoard?.turnsUsed ?? 0)) : unityProgress?.sharedTurnsRemaining ?? 0}</span></span>
                   {:else}
                   <span class="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 px-2 py-1.5 sm:px-3" title={`${displayTeamName('blue', settings)} ${remainingCounts.blue}`} aria-label={`${displayTeamName('blue', settings)} ${remainingCounts.blue}`} style={`color: ${teamColor('blue', settings)}; background: linear-gradient(90deg, ${hexWithAlpha(teamColor('blue', settings), currentTeam === 'blue' ? '40' : '24')}, transparent); ${currentTeam === 'blue' ? `box-shadow: inset 0 0 0 1px ${hexWithAlpha(teamColor('blue', settings), '66')};` : ''}`}><SvgMaskIcon src={customSvg.blueCard} classes="h-3.5 w-3.5" /><span class="hidden min-w-0 truncate sm:inline">{displayTeamName('blue', settings)}</span><span>{remainingCounts.blue}</span></span>
                   <span class="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 border-l border-slate-600/70 px-2 py-1.5 sm:px-3" title={`${displayTeamName('red', settings)} ${remainingCounts.red}`} aria-label={`${displayTeamName('red', settings)} ${remainingCounts.red}`} style={`color: ${teamColor('red', settings)}; background: linear-gradient(90deg, ${hexWithAlpha(teamColor('red', settings), currentTeam === 'red' ? '40' : '24')}, transparent); ${currentTeam === 'red' ? `box-shadow: inset 0 0 0 1px ${hexWithAlpha(teamColor('red', settings), '66')};` : ''}`}><SvgMaskIcon src={customSvg.redCard} classes="h-3.5 w-3.5" /><span class="hidden min-w-0 truncate sm:inline">{displayTeamName('red', settings)}</span><span>{remainingCounts.red}</span></span>
@@ -1056,7 +1075,7 @@
                 {preferences}
                 role={boardRole}
                 {spymasterViewActive}
-                {lastSelected}
+                lastSelected={displayedLastSelected}
                 {phase}
                 {guessDisabledReason}
                 onGuess={guessCard}

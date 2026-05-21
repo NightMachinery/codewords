@@ -86,6 +86,7 @@
     : sortedTurnPlayers(players, currentTeam));
   let canActNow = $derived(Boolean(phase === 'active' && isYourTeam && (role.activeGuesser || (role.kind === 'spymaster' && cluePermission.allowed))));
   let shortcutItems = $derived(filteredBottomShortcutItems(hostControls));
+  let showUnityBoardSwitch = $derived(mode === 'unity' && role.player?.id !== activeBoardOwner);
   let turnColor = $derived(teamColor(currentTeam, settings));
   let turnGlowStyle = $derived(currentTeam === 'blue' || currentTeam === 'red'
     ? `background-color: ${turnColor}; box-shadow: 0 0 0 1px ${hexWithAlpha(turnColor, '88')}, 0 0 ${canActNow ? '34px' : '18px'} ${hexWithAlpha(turnColor, canActNow ? 'AA' : '66')};`
@@ -274,7 +275,7 @@
           </button>
         {/each}
       </div>
-      {#if mode === 'unity'}
+      {#if showUnityBoardSwitch}
         <div class="grid grid-cols-2 gap-1 rounded-2xl border border-teal-300/30 bg-slate-950/70 p-1" aria-label="Unity board view">
           {#each ['active', 'own'] as view (view)}
             <button

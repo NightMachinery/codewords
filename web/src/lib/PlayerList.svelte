@@ -90,21 +90,21 @@
       <div class="flex flex-wrap justify-end gap-2">{@render roleBadges(player)}</div>
     </div>
     <div class="mt-3 flex flex-wrap gap-2">
-      {#if canShowTeamAssignmentButton({ phase, hostControls, player, viewer, team: 'unity' })}
+      {#if canShowTeamAssignmentButton({ phase, mode, hostControls, player, viewer, team: 'unity' })}
         <button class={['rounded-full border px-3 py-1.5 text-xs font-bold transition', player.team === 'unity' ? 'text-white' : 'text-slate-100/70']} style={`border-color: ${hexWithAlpha(teamColor('unity', settings), player.team === 'unity' ? 'cc' : '80')}; background-color: ${player.team === 'unity' ? hexWithAlpha(teamColor('unity', settings), '40') : 'transparent'};`} onclick={() => onAssignTeam(player.id, 'unity')}>{displayTeamName('unity', settings)}</button>
       {/if}
-      {#if canShowTeamAssignmentButton({ phase, hostControls, player, viewer, team: 'blue' })}
+      {#if canShowTeamAssignmentButton({ phase, mode, hostControls, player, viewer, team: 'blue' })}
         <button class={['rounded-full border px-3 py-1.5 text-xs font-bold transition', player.team === 'blue' ? 'text-white' : 'text-slate-100/70']} style={`border-color: ${hexWithAlpha(teamColor('blue', settings), player.team === 'blue' ? 'cc' : '80')}; background-color: ${player.team === 'blue' ? hexWithAlpha(teamColor('blue', settings), '40') : 'transparent'};`} onclick={() => onAssignTeam(player.id, 'blue')}>{displayTeamName('blue', settings)}</button>
       {/if}
-      {#if canShowTeamAssignmentButton({ phase, hostControls, player, viewer, team: 'red' })}
+      {#if canShowTeamAssignmentButton({ phase, mode, hostControls, player, viewer, team: 'red' })}
         <button class={['rounded-full border px-3 py-1.5 text-xs font-bold transition', player.team === 'red' ? 'text-white' : 'text-slate-100/70']} style={`border-color: ${hexWithAlpha(teamColor('red', settings), player.team === 'red' ? 'cc' : '80')}; background-color: ${player.team === 'red' ? hexWithAlpha(teamColor('red', settings), '40') : 'transparent'};`} onclick={() => onAssignTeam(player.id, 'red')}>{displayTeamName('red', settings)}</button>
       {/if}
-      {#if canShowTeamAssignmentButton({ phase, hostControls, player, viewer, team: 'observers' })}
+      {#if canShowTeamAssignmentButton({ phase, mode, hostControls, player, viewer, team: 'observers' })}
         <button class={['rounded-full border px-3 py-1.5 text-xs font-bold transition', player.team === 'observers' ? 'border-slate-300 bg-slate-400/20 text-slate-100' : 'border-slate-300/50 text-slate-100/60 hover:bg-slate-400/20']} onclick={() => onAssignTeam(player.id, 'observers')}>Observer</button>
       {/if}
-      {#if canShowRejoinTeamButton({ phase, hostControls, player, viewer })}
+      {#if canShowRejoinTeamButton({ phase, mode, hostControls, player, viewer })}
         <button class="rounded-full border border-emerald-300/70 px-3 py-1.5 text-xs font-black text-emerald-100 hover:bg-emerald-300/10" onclick={() => onRejoinTeam(player.id)}>
-          Rejoin {displayTeamName(player.previousTeam === 'unity' ? 'unity' : player.previousTeam === 'red' ? 'red' : 'blue', settings)}
+          Rejoin {mode === 'unity' ? displayTeamName('unity', settings) : displayTeamName(player.previousTeam === 'red' ? 'red' : 'blue', settings)}
         </button>
       {/if}
       {#if canShowRoleControls({ phase, hostControls, player })}
@@ -140,7 +140,7 @@
     <div class="mt-3 grid gap-2">
       {#each members as player (player.id)}
         {@render PlayerCard(player)}
-        {#if mode === 'unity' && tone === 'unity'}
+        {#if mode === 'unity' && phase !== 'lobby' && tone === 'unity'}
           {@const summary = unityBoardByOwner.get(player.id)}
           <div class="rounded-xl border border-teal-200/20 bg-slate-950/70 px-3 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-teal-100">
             {player.id === activeBoardOwner ? 'Active board' : 'Board'} · {summary?.unityRemaining ?? '—'} Unity left · {summary?.turnsUsed ?? 0} turns
@@ -154,14 +154,13 @@
 {/snippet}
 
 <div id="players" class="space-y-4">
-  {#if mode === 'unity' && unityProgress}
+  {#if mode === 'unity' && phase !== 'lobby' && unityProgress}
     <section class="relative overflow-hidden rounded-2xl border border-teal-200/30 bg-slate-950/85 p-4 shadow-2xl shadow-teal-950/20">
       <div class="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-teal-200/80 to-transparent"></div>
-      <div class="grid gap-3 text-xs font-black uppercase tracking-[0.16em] text-slate-300 sm:grid-cols-4">
+      <div class="grid gap-3 text-xs font-black uppercase tracking-[0.16em] text-slate-300 sm:grid-cols-3">
         <div><span class="block text-[10px] text-slate-500">Progress</span><span class="text-teal-100">{unityProgress.unityCardsFound}/{unityProgress.totalUnityCards}</span></div>
         <div><span class="block text-[10px] text-slate-500">Turns</span><span class="text-teal-100">{unityProgress.unlimitedTurns ? '∞' : unityProgress.sharedTurnsRemaining}</span></div>
         <div><span class="block text-[10px] text-slate-500">Budget</span><span class="text-teal-100">{unityProgress.unlimitedTurns ? 'Infinite' : unityProgress.strictPerBoardTurns ? 'Per board' : 'Shared pool'}</span></div>
-        <div><span class="block text-[10px] text-slate-500">Status</span><span class="text-teal-100">{unityProgress.waitingForGuessers ? 'Waiting' : 'Online'}</span></div>
       </div>
     </section>
   {/if}

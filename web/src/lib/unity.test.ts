@@ -12,6 +12,7 @@ import {
   teamColor,
   unityBoardViewCards,
   unityEndGameSummary,
+  unityGuessDisabledReason,
   unityStartReadiness,
   type GameplayCard,
   type UnityBoardSnapshot,
@@ -38,7 +39,7 @@ describe('unity frontend helpers', () => {
 
     expect(settings.mode).toBe('unity');
     expect(settings.blackCards).toBe(4);
-    expect(settings.unityTurnLimit).toBe(9);
+    expect(settings.unityTurnLimit).toBe(6);
     expect(settings.neutralCards).toBe(15);
     expect(settings.blueCards).toBe(0);
     expect(settings.redCards).toBe(0);
@@ -77,6 +78,23 @@ describe('unity frontend helpers', () => {
     expect(unityBoardViewCards('active', active, own)[0].word).toBe('Active');
     expect(unityBoardViewCards('own', active, own)[0].word).toBe('Own');
     expect(unityBoardViewCards('own', active, null)[0].word).toBe('Active');
+  });
+
+  it('blocks active guessing while viewing a different own board', () => {
+    expect(unityGuessDisabledReason({
+      phase: 'active',
+      hasPlayer: true,
+      waitingForGuessers: false,
+      activeGuesser: true,
+      playerId: 'p2',
+      activeBoardOwner: 'host',
+      boardView: 'own',
+      activeBoardId: 'host',
+      displayedBoardId: 'p2',
+      enforceClueGuessLimit: false,
+      currentClue: null,
+      cardRevealed: false,
+    })).toBe('Switch to the active board to reveal cards.');
   });
 
   it('formats unity end game stats and shared pool progress', () => {

@@ -47,6 +47,19 @@ describe('lobby helpers', () => {
     expect(canShowRejoinTeamButton({ phase: 'active', hostControls: false, player: observer, viewer })).toBe(true);
   });
 
+  it('keeps Unity and Polarity team controls separate', () => {
+    const viewer = { userId: 'guest', isHost: false, isMod: false };
+    const modViewer = { userId: 'host', isHost: true, isMod: true };
+    const unityPlayer: LobbyPlayer = { id: 'guest', displayName: 'Guest', team: 'unity', spymaster: false, representative: false, mod: false };
+    const observerWithPolarityMemory: LobbyPlayer = { ...unityPlayer, team: 'observers', previousTeam: 'red' };
+
+    expect(canShowTeamAssignmentButton({ phase: 'lobby', mode: 'unity', hostControls: false, player: unityPlayer, viewer, team: 'observers' })).toBe(false);
+    expect(canShowTeamAssignmentButton({ phase: 'lobby', mode: 'unity', hostControls: true, player: unityPlayer, viewer: modViewer, team: 'blue' })).toBe(false);
+    expect(canShowTeamAssignmentButton({ phase: 'lobby', mode: 'unity', hostControls: true, player: unityPlayer, viewer: modViewer, team: 'observers' })).toBe(true);
+    expect(canShowTeamAssignmentButton({ phase: 'lobby', mode: 'polarity', hostControls: true, player: players[0], viewer: modViewer, team: 'unity' })).toBe(false);
+    expect(canShowRejoinTeamButton({ phase: 'lobby', mode: 'unity', hostControls: true, player: observerWithPolarityMemory, viewer: modViewer })).toBe(true);
+  });
+
   it('explains what prevents the host from starting', () => {
     expect(startReadiness(players)).toEqual({ ready: false, reason: 'Assign every player to a team or observer mode first.' });
     const startable = [players[0], { ...players[0], id: 'blue-guess', spymaster: false }, players[1], { ...players[1], id: 'red-guess', spymaster: false }];

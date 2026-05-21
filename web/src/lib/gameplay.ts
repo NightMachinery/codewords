@@ -46,6 +46,7 @@ export interface UnityBoardSnapshot {
   cards: GameplayCard[];
   clueLog: ClueEntry[];
   turnsUsed: number;
+  lastSelected?: LastSelected | null;
   remainingCounts: UnityBoardRemainingCounts;
 }
 
@@ -677,7 +678,7 @@ export function normalizeLobbySettingsForSave(settings: Settings): Settings {
       startingTeamHandicap: 0,
       blackCards,
       imageCardCount,
-      unityTurnLimit: Math.max(0, Math.round(settings.unityTurnLimit || 9)),
+      unityTurnLimit: Math.max(0, Math.round(settings.unityTurnLimit || 6)),
       unityUnlimitedTurns: Boolean(settings.unityUnlimitedTurns),
       unityStrictPerBoardTurns: Boolean(settings.unityStrictPerBoardTurns),
       customColorUnity: normalizedHexColor(settings.customColorUnity, '#20b2aa'),
@@ -762,6 +763,36 @@ export function unityStartReadiness(players: LobbyPlayer[]): { ready: boolean; r
 export function unityBoardViewCards(view: UnityBoardView, activeBoard: UnityBoardSnapshot | null | undefined, ownBoard: UnityBoardSnapshot | null | undefined): GameplayCard[] {
   if (view === 'own' && ownBoard) return ownBoard.cards;
   return activeBoard?.cards ?? [];
+}
+
+export function unityGuessDisabledReason(input: {
+  phase: GameplayPhase;
+  hasPlayer: boolean;
+  waitingForGuessers: boolean;
+  activeGuesser: boolean;
+  playerId?: string;
+  activeBoardOwner: string;
+  boardView: UnityBoardView;
+  activeBoardId?: string;
+  displayedBoardId?: string;
+  enforceClueGuessLimit: boolean;
+  currentClue: ClueEntry | null | undefined;
+  cardRevealed?: boolean;
+}): string {
+  if (input.phase === 'game_over') return 'The match is over.';
+  if (input.phase !== 'active') return 'The match has not started.';
+  if (!input.hasPlayer) return 'Observers are read-only.';
+  if (input.waitingForGuessers) return 'Waiting for eligible Unity guessers.';
+  if (input.activeGuesser && input.boardView === 'own' && input.displayedBoardId && input.displayedBoardId !== input.activeBoardId) {
+    return 'Switch to the active board to reveal cards.';
+  }
+  if (!input.activeGuesser) {
+    if (input.playerId === input.activeBoardOwner) return 'You cannot guess on your own board.';
+    return 'Only eligible Unity guessers can reveal cards.';
+  }
+  if (input.enforceClueGuessLimit && (!input.currentClue || input.currentClue.number.kind === 'blank')) return 'Wait for a numbered clue first.';
+  if (input.cardRevealed) return 'That card is already revealed.';
+  return '';
 }
 
 export function unityEndGameSummary(stats: UnityEndStats | null | undefined, progress: UnityProgress | null | undefined): { headline: string; score: string; detail: string } {
