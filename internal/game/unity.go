@@ -353,6 +353,10 @@ func (c GuessCommand) guessUnity(state *State, actorID string) (Event, error) {
 		state.finalizeUnityRound(&board)
 		state.UnityBoards[board.OwnerID] = board
 		state.endUnityTurn(board.OwnerID)
+	} else if state.unityRemainingFor(board.OwnerID) == 0 {
+		state.finalizeUnityRound(&board)
+		state.UnityBoards[board.OwnerID] = board
+		state.endCompletedUnityBoardTurn(board.OwnerID)
 	} else if state.Settings.EnforceClueGuessLimit {
 		clue := currentUnityClue(board)
 		if clue != nil && clue.Number.Kind == ClueNumberNumeric && clue.Guesses >= clue.Number.Value {
@@ -396,6 +400,33 @@ func (s *State) endUnityTurn(ownerID string) {
 		return
 	}
 	s.advanceUnityTurnFrom(s.unityBoardIndex(ownerID))
+}
+
+func (s *State) endCompletedUnityBoardTurn(ownerID string) {
+	if s.Phase == PhaseGameOver {
+		return
+	}
+	active := s.activeUnityBoardIDs()
+	if len(active) == 0 {
+		s.unityWin("all_unity_found")
+		return
+	}
+	startIndex := s.unityBoardIndex(ownerID)
+	for offset := 1; offset <= len(s.UnityBoardOrder); offset++ {
+		idx := (startIndex + offset) % len(s.UnityBoardOrder)
+		nextOwnerID := s.UnityBoardOrder[idx]
+		if s.Players[nextOwnerID].Team != TeamUnity || s.unityRemainingFor(nextOwnerID) == 0 {
+			continue
+		}
+		s.ActiveBoardOwner = nextOwnerID
+		s.UnityWaitingForGuessers = !s.hasEligibleUnityGuessers()
+		if !s.UnityWaitingForGuessers {
+			s.Round = s.startRound(TeamUnity)
+			s.RoundGuesses = 0
+		}
+		return
+	}
+	s.UnityWaitingForGuessers = true
 }
 
 func (c SubmitClueCommand) submitUnityClue(state *State, actorID string) (Event, error) {
@@ -593,25 +624,47 @@ func (s *State) unityLose(reason string) {
 
 func (s State) buildUnityEndStats(reason string) *UnityEndStats {
 	found, total, assassins, turns := 0, 0, 0, 0
-	for _, board := range s.UnityBoards {
+	boardStats := make([]UnityBoardEndStats, 0, len(s.UnityBoardOrder))
+	seen := map[string]bool{}
+	addBoard := func(board UnityBoardState) {
+		boardFound, boardTotal := 0, 0
 		turns += board.TurnsUsed
 		for _, card := range board.Cards {
 			if card.Color == ColorUnity {
 				total++
+				boardTotal++
 				if card.Revealed {
 					found++
+					boardFound++
 				}
 			}
 			if card.Color == ColorBlack {
 				assassins++
 			}
 		}
+		var average *float64
+		if board.TurnsUsed > 0 {
+			value := float64(boardFound) / float64(board.TurnsUsed)
+			average = &value
+		}
+		boardStats = append(boardStats, UnityBoardEndStats{OwnerID: board.OwnerID, UnityCardsFound: boardFound, TotalUnityCards: boardTotal, TurnsUsed: board.TurnsUsed, UnityCardsPerTurn: average})
+		seen[board.OwnerID] = true
+	}
+	for _, ownerID := range s.UnityBoardOrder {
+		if board, ok := s.UnityBoards[ownerID]; ok {
+			addBoard(board)
+		}
+	}
+	for ownerID, board := range s.UnityBoards {
+		if !seen[ownerID] {
+			addBoard(board)
+		}
 	}
 	score := 0.0
 	if turns > 0 {
 		score = float64(found) / float64(turns)
 	}
-	return &UnityEndStats{UnityCardsFound: found, TotalUnityCards: total, TotalTurns: turns, AssassinCount: assassins, Score: score, Reason: reason}
+	return &UnityEndStats{UnityCardsFound: found, TotalUnityCards: total, TotalTurns: turns, AssassinCount: assassins, Score: score, Reason: reason, BoardStats: boardStats}
 }
 
 func (s State) unitySnapshotFor(viewer Viewer) Snapshot {

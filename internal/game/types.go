@@ -237,12 +237,22 @@ type UnityBoardState struct {
 
 // UnityEndStats summarizes a finished Unity match.
 type UnityEndStats struct {
-	UnityCardsFound int     `json:"unityCardsFound"`
-	TotalUnityCards int     `json:"totalUnityCards"`
-	TotalTurns      int     `json:"totalTurns"`
-	AssassinCount   int     `json:"assassinCount"`
-	Score           float64 `json:"score"`
-	Reason          string  `json:"reason"`
+	UnityCardsFound int                  `json:"unityCardsFound"`
+	TotalUnityCards int                  `json:"totalUnityCards"`
+	TotalTurns      int                  `json:"totalTurns"`
+	AssassinCount   int                  `json:"assassinCount"`
+	Score           float64              `json:"score"`
+	Reason          string               `json:"reason"`
+	BoardStats      []UnityBoardEndStats `json:"boardStats,omitempty"`
+}
+
+// UnityBoardEndStats summarizes one personal Unity board at match end.
+type UnityBoardEndStats struct {
+	OwnerID           string   `json:"ownerId"`
+	UnityCardsFound   int      `json:"unityCardsFound"`
+	TotalUnityCards   int      `json:"totalUnityCards"`
+	TurnsUsed         int      `json:"turnsUsed"`
+	UnityCardsPerTurn *float64 `json:"unityCardsPerTurn,omitempty"`
 }
 
 // State is the authoritative game engine state.

@@ -223,7 +223,7 @@ func TestUnityGuessPassRotateWinAndAssassinLoss(t *testing.T) {
 	state := unityLobby(t, Settings{Mode: ModeUnity, Seed: 55, UnityTurnLimit: 10})
 	mustApply(t, &state, StartCommand{GameID: "game-5", Words: makeWords(80)}, "host")
 	state.ActiveBoardOwner = "host"
-	setUnityBoardColors(&state, "host", []Color{ColorUnity, ColorCivilian, ColorBlack})
+	setUnityBoardColors(&state, "host", []Color{ColorUnity, ColorCivilian, ColorBlack, ColorUnity})
 
 	mustApply(t, &state, GuessCommand{Index: 0}, "p2")
 	if state.ActiveBoardOwner != "host" || state.UnityBoards["host"].Cards[0].Revealed != true {
@@ -257,6 +257,35 @@ func TestUnityGuessPassRotateWinAndAssassinLoss(t *testing.T) {
 	}
 }
 
+func TestUnitySolvingOneBoardAutoRotatesWithoutExtraSharedTurn(t *testing.T) {
+	state := unityLobby(t, Settings{Mode: ModeUnity, Seed: 560, UnityTurnLimit: 4})
+	mustApply(t, &state, StartCommand{GameID: "game-auto-rotate", Words: makeWords(80)}, "host")
+	state.ActiveBoardOwner = "host"
+	state.UnitySharedTurnsRemaining = 6
+	setUnityBoardColors(&state, "host", []Color{ColorUnity})
+	setUnityBoardColors(&state, "p2", []Color{ColorUnity})
+	setUnityBoardColors(&state, "p3", []Color{})
+	hostTurns := state.UnityBoards["host"].TurnsUsed
+
+	mustApply(t, &state, GuessCommand{Index: 0}, "p2")
+
+	if state.Phase != PhaseActive {
+		t.Fatalf("expected match to stay active after solving only host board, phase=%s winner=%s", state.Phase, state.Winner)
+	}
+	if state.ActiveBoardOwner == "host" {
+		t.Fatalf("expected solved host board to auto-rotate away")
+	}
+	if state.ActiveBoardOwner != "p2" {
+		t.Fatalf("expected next unfinished board p2, got %s", state.ActiveBoardOwner)
+	}
+	if state.UnityBoards["host"].TurnsUsed != hostTurns {
+		t.Fatalf("solved board should not be charged again, before=%d after=%d", hostTurns, state.UnityBoards["host"].TurnsUsed)
+	}
+	if state.UnitySharedTurnsRemaining != 6 {
+		t.Fatalf("auto-rotation should not spend another shared turn, got %d", state.UnitySharedTurnsRemaining)
+	}
+}
+
 func TestUnityStrictPerBoardLimitLosesAfterKthTurnEnds(t *testing.T) {
 	state := unityLobby(t, Settings{Mode: ModeUnity, Seed: 57, UnityTurnLimit: 1, UnityStrictPerBoardTurns: true})
 	mustApply(t, &state, StartCommand{GameID: "game-7", Words: makeWords(80)}, "host")
@@ -285,6 +314,49 @@ func TestUnityActiveOwnerCannotProceedWithoutEligibleGuessers(t *testing.T) {
 	}
 	if state.UnityWaitingForGuessers != true {
 		t.Fatalf("expected unity waiting state")
+	}
+}
+
+func TestUnityEndStatsIncludesPerBoardAverages(t *testing.T) {
+	state := unityLobby(t, Settings{Mode: ModeUnity, Seed: 590, UnityTurnLimit: 10})
+	mustApply(t, &state, StartCommand{GameID: "game-end-stats", Words: makeWords(80)}, "host")
+	setUnityBoardColors(&state, "host", []Color{ColorUnity, ColorUnity, ColorCivilian})
+	setUnityBoardColors(&state, "p2", []Color{ColorUnity, ColorUnity, ColorUnity})
+	setUnityBoardColors(&state, "p3", []Color{ColorUnity})
+	hostBoard := state.UnityBoards["host"]
+	hostBoard.Cards[0].Revealed = true
+	hostBoard.TurnsUsed = 2
+	state.UnityBoards["host"] = hostBoard
+	p2Board := state.UnityBoards["p2"]
+	p2Board.Cards[0].Revealed = true
+	p2Board.Cards[1].Revealed = true
+	p2Board.Cards[2].Revealed = true
+	p2Board.TurnsUsed = 3
+	state.UnityBoards["p2"] = p2Board
+	p3Board := state.UnityBoards["p3"]
+	p3Board.TurnsUsed = 0
+	state.UnityBoards["p3"] = p3Board
+
+	stats := state.buildUnityEndStats("test")
+
+	if len(stats.BoardStats) != 3 {
+		t.Fatalf("expected one stat row per board, got %#v", stats.BoardStats)
+	}
+	byOwner := map[string]UnityBoardEndStats{}
+	for _, board := range stats.BoardStats {
+		byOwner[board.OwnerID] = board
+	}
+	if byOwner["host"].UnityCardsFound != 1 || byOwner["host"].TotalUnityCards != 2 || byOwner["host"].TurnsUsed != 2 {
+		t.Fatalf("unexpected host stats: %#v", byOwner["host"])
+	}
+	if byOwner["host"].UnityCardsPerTurn == nil || *byOwner["host"].UnityCardsPerTurn != 0.5 {
+		t.Fatalf("expected host average 0.5, got %#v", byOwner["host"].UnityCardsPerTurn)
+	}
+	if byOwner["p2"].UnityCardsPerTurn == nil || *byOwner["p2"].UnityCardsPerTurn != 1 {
+		t.Fatalf("expected p2 average 1, got %#v", byOwner["p2"].UnityCardsPerTurn)
+	}
+	if byOwner["p3"].UnityCardsPerTurn != nil {
+		t.Fatalf("expected unplayed board average to be nil, got %#v", byOwner["p3"].UnityCardsPerTurn)
 	}
 }
 

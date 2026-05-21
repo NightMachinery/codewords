@@ -1258,6 +1258,17 @@ func snapshotDTO(state game.State, viewerID string) map[string]any {
 			"waitingForGuessers":   s.UnityProgress.WaitingForGuessers,
 		}
 		if s.UnityEndStats != nil {
+			boardStats := make([]map[string]any, len(s.UnityEndStats.BoardStats))
+			for i, board := range s.UnityEndStats.BoardStats {
+				row := map[string]any{
+					"ownerId":           board.OwnerID,
+					"unityCardsFound":   board.UnityCardsFound,
+					"totalUnityCards":   board.TotalUnityCards,
+					"turnsUsed":         board.TurnsUsed,
+					"unityCardsPerTurn": board.UnityCardsPerTurn,
+				}
+				boardStats[i] = row
+			}
 			out["unityEndStats"] = map[string]any{
 				"unityCardsFound": s.UnityEndStats.UnityCardsFound,
 				"totalUnityCards": s.UnityEndStats.TotalUnityCards,
@@ -1265,6 +1276,7 @@ func snapshotDTO(state game.State, viewerID string) map[string]any {
 				"assassinCount":   s.UnityEndStats.AssassinCount,
 				"score":           s.UnityEndStats.Score,
 				"reason":          s.UnityEndStats.Reason,
+				"boardStats":      boardStats,
 			}
 		}
 	}

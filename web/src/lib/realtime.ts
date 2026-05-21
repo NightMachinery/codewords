@@ -52,10 +52,12 @@ export class RoomSocket {
     };
   }
 
-  send(message: Record<string, unknown>): void {
+  send(message: Record<string, unknown>): boolean {
     if (this.socket?.readyState === WebSocket.OPEN) {
       this.socket.send(JSON.stringify(message));
+      return true;
     }
+    return false;
   }
 
   close(): void {
