@@ -44,6 +44,7 @@ type Team string
 const (
 	TeamBlue      Team = "blue"
 	TeamRed       Team = "red"
+	TeamUnity     Team = "unity"
 	TeamObservers Team = "observers"
 )
 
@@ -66,6 +67,9 @@ func (t Team) Color() Color {
 	if t == TeamRed {
 		return ColorRed
 	}
+	if t == TeamUnity {
+		return ColorUnity
+	}
 	return ""
 }
 
@@ -73,10 +77,19 @@ func (t Team) Color() Color {
 type Color string
 
 const (
+	ColorUnity    Color = "unity"
 	ColorBlue     Color = "blue"
 	ColorRed      Color = "red"
 	ColorBlack    Color = "black"
 	ColorCivilian Color = "civilian"
+)
+
+// Mode identifies the rule set for a room.
+type Mode string
+
+const (
+	ModePolarity Mode = "polarity"
+	ModeUnity    Mode = "unity"
 )
 
 // Phase identifies the lifecycle phase of a game state.
@@ -112,27 +125,33 @@ type Card struct {
 
 // Settings are match/lobby options owned by the engine.
 type Settings struct {
-	Seed                    int64  `json:"seed"`
-	BlackCards              int    `json:"blackCards"`
-	TotalCards              int    `json:"totalCards"`
-	AutoColorCounts         bool   `json:"autoColorCounts"`
-	BlueCards               int    `json:"blueCards"`
-	RedCards                int    `json:"redCards"`
-	NeutralCards            int    `json:"neutralCards"`
-	StartingTeamHandicap    int    `json:"startingTeamHandicap"`
-	StartingTeamHandicapSet bool   `json:"-"`
-	WordpackID              string `json:"wordpackId"`
-	EnforceClueGuessLimit   bool   `json:"enforceClueGuessLimit"`
-	AllowInfinityClue       bool   `json:"allowInfinityClue"`
-	ImageCardCount          int    `json:"imageCardCount"`
-	RandomizeTeams          bool   `json:"randomizeTeams"`
-	CustomColorBlue         string `json:"customColorBlue,omitempty"`
-	CustomColorRed          string `json:"customColorRed,omitempty"`
-	ObserverChatEnabled     bool   `json:"observerChatEnabled"`
-	MixedImageOrderFirst    bool   `json:"mixedImageOrderFirst"`
-	MemoryRoastsDisabled    bool   `json:"memoryRoastsDisabled,omitempty"`
-	TeamNameBlue            string `json:"teamNameBlue,omitempty"`
-	TeamNameRed             string `json:"teamNameRed,omitempty"`
+	Mode                     Mode   `json:"mode,omitempty"`
+	Seed                     int64  `json:"seed"`
+	BlackCards               int    `json:"blackCards"`
+	TotalCards               int    `json:"totalCards"`
+	AutoColorCounts          bool   `json:"autoColorCounts"`
+	BlueCards                int    `json:"blueCards"`
+	RedCards                 int    `json:"redCards"`
+	NeutralCards             int    `json:"neutralCards"`
+	StartingTeamHandicap     int    `json:"startingTeamHandicap"`
+	StartingTeamHandicapSet  bool   `json:"-"`
+	WordpackID               string `json:"wordpackId"`
+	EnforceClueGuessLimit    bool   `json:"enforceClueGuessLimit"`
+	AllowInfinityClue        bool   `json:"allowInfinityClue"`
+	ImageCardCount           int    `json:"imageCardCount"`
+	RandomizeTeams           bool   `json:"randomizeTeams"`
+	CustomColorBlue          string `json:"customColorBlue,omitempty"`
+	CustomColorRed           string `json:"customColorRed,omitempty"`
+	ObserverChatEnabled      bool   `json:"observerChatEnabled"`
+	MixedImageOrderFirst     bool   `json:"mixedImageOrderFirst"`
+	MemoryRoastsDisabled     bool   `json:"memoryRoastsDisabled,omitempty"`
+	TeamNameBlue             string `json:"teamNameBlue,omitempty"`
+	TeamNameRed              string `json:"teamNameRed,omitempty"`
+	TeamNameUnity            string `json:"teamNameUnity,omitempty"`
+	CustomColorUnity         string `json:"customColorUnity,omitempty"`
+	UnityTurnLimit           int    `json:"unityTurnLimit,omitempty"`
+	UnityUnlimitedTurns      bool   `json:"unityUnlimitedTurns,omitempty"`
+	UnityStrictPerBoardTurns bool   `json:"unityStrictPerBoardTurns,omitempty"`
 }
 
 // UnmarshalJSON gives API/DB payloads the product default for randomized team
@@ -206,21 +225,50 @@ type ClueEntry struct {
 	Guesses     int        `json:"guesses"`
 }
 
+// UnityBoardState is the authoritative hidden state for one player's Unity board.
+type UnityBoardState struct {
+	OwnerID              string      `json:"ownerId"`
+	Cards                []Card      `json:"cards"`
+	ClueLog              []ClueEntry `json:"clueLog,omitempty"`
+	TurnsUsed            int         `json:"turnsUsed"`
+	WithdrawnSharedTurns int         `json:"withdrawnSharedTurns,omitempty"`
+}
+
+// UnityEndStats summarizes a finished Unity match.
+type UnityEndStats struct {
+	UnityCardsFound int     `json:"unityCardsFound"`
+	TotalUnityCards int     `json:"totalUnityCards"`
+	TotalTurns      int     `json:"totalTurns"`
+	AssassinCount   int     `json:"assassinCount"`
+	Score           float64 `json:"score"`
+	Reason          string  `json:"reason"`
+}
+
 // State is the authoritative game engine state.
 type State struct {
-	HostID       string            `json:"hostId"`
-	Settings     Settings          `json:"settings"`
-	Phase        Phase             `json:"phase"`
-	Players      map[string]Player `json:"players"`
-	Cards        []Card            `json:"cards"`
-	CurrentTeam  Team              `json:"currentTeam"`
-	Winner       Team              `json:"winner"`
-	FinishedAt   string            `json:"finishedAt,omitempty"`
-	ActionID     int               `json:"actionId"`
-	LastSelected *LastSelected     `json:"lastSelected"`
-	ClueLog      []ClueEntry       `json:"clueLog"`
-	Round        int               `json:"round"`
-	RoundGuesses int               `json:"roundGuesses,omitempty"`
+	HostID                    string                     `json:"hostId"`
+	Mode                      Mode                       `json:"mode,omitempty"`
+	GameID                    string                     `json:"gameId,omitempty"`
+	Settings                  Settings                   `json:"settings"`
+	Phase                     Phase                      `json:"phase"`
+	Players                   map[string]Player          `json:"players"`
+	Cards                     []Card                     `json:"cards"`
+	CurrentTeam               Team                       `json:"currentTeam"`
+	Winner                    Team                       `json:"winner"`
+	FinishedAt                string                     `json:"finishedAt,omitempty"`
+	ActionID                  int                        `json:"actionId"`
+	LastSelected              *LastSelected              `json:"lastSelected"`
+	ClueLog                   []ClueEntry                `json:"clueLog"`
+	Round                     int                        `json:"round"`
+	RoundGuesses              int                        `json:"roundGuesses,omitempty"`
+	ActiveBoardOwner          string                     `json:"activeBoardOwner,omitempty"`
+	UnityBoards               map[string]UnityBoardState `json:"unityBoards,omitempty"`
+	UnityBoardOrder           []string                   `json:"unityBoardOrder,omitempty"`
+	UnitySharedTurnsRemaining int                        `json:"unitySharedTurnsRemaining,omitempty"`
+	UnityWaitingForGuessers   bool                       `json:"unityWaitingForGuessers,omitempty"`
+	UnityWords                []string                   `json:"unityWords,omitempty"`
+	UnityImageIDs             []string                   `json:"unityImageIds,omitempty"`
+	UnityEndStats             *UnityEndStats             `json:"unityEndStats,omitempty"`
 }
 
 // Board is a generated board plus starting team.
@@ -266,14 +314,47 @@ type SnapshotCard struct {
 	Revealed bool
 }
 
+// SnapshotBoard is a viewer-safe board snapshot.
+type SnapshotBoard struct {
+	OwnerID         string
+	Cards           []SnapshotCard
+	ClueLog         []ClueEntry
+	TurnsUsed       int
+	RemainingCounts CardCounts
+}
+
+// UnityBoardSummary is public progress for one Unity board.
+type UnityBoardSummary struct {
+	OwnerID        string
+	UnityRemaining int
+	TurnsUsed      int
+	Active         bool
+	Observer       bool
+}
+
+// UnityProgress is public cooperative progress.
+type UnityProgress struct {
+	UnityCardsFound      int
+	TotalUnityCards      int
+	SharedTurnsRemaining int
+	UnlimitedTurns       bool
+	StrictPerBoardTurns  bool
+	WaitingForGuessers   bool
+}
+
 // Snapshot is a viewer-safe game state.
 type Snapshot struct {
-	Phase        Phase
-	CurrentTeam  Team
-	Winner       Team
-	FinishedAt   string
-	ActionID     int
-	Cards        []SnapshotCard
-	LastSelected *LastSelected
-	ClueLog      []ClueEntry
+	Phase         Phase
+	CurrentTeam   Team
+	Winner        Team
+	FinishedAt    string
+	ActionID      int
+	Cards         []SnapshotCard
+	LastSelected  *LastSelected
+	ClueLog       []ClueEntry
+	ActiveBoard   SnapshotBoard
+	OwnBoard      *SnapshotBoard
+	UnityBoards   []UnityBoardSummary
+	UnityProgress UnityProgress
+	UnityEndStats *UnityEndStats
 }

@@ -56,6 +56,7 @@ type UpdateSettingsCommand struct {
 
 // StartCommand starts a match using supplied parsed wordpack words and local image ids.
 type StartCommand struct {
+	GameID   string
 	Words    []string
 	ImageIDs []string
 }
@@ -86,7 +87,7 @@ type RestartMatchCommand struct{}
 // NewLobby creates a lobby state.
 func NewLobby(hostID string, settings Settings) State {
 	settings = SettingsWithDefaults(settings)
-	return State{HostID: hostID, Settings: settings, Phase: PhaseLobby, Players: map[string]Player{}}
+	return State{HostID: hostID, Mode: settings.Mode, Settings: settings, Phase: PhaseLobby, Players: map[string]Player{}}
 }
 
 // NewTwoPlayerLobby creates a legacy-compatible two-player lobby.
@@ -116,8 +117,25 @@ type CardCounts struct {
 
 // SettingsWithDefaults returns settings with backwards-compatible board defaults.
 func SettingsWithDefaults(settings Settings) Settings {
+	if settings.Mode == "" {
+		settings.Mode = ModePolarity
+	}
 	if settings.TotalCards == 0 {
 		settings.TotalCards = DefaultTotalCards
+	}
+	if settings.Mode == ModeUnity {
+		if settings.BlackCards == 0 {
+			settings.BlackCards = 4
+		}
+		if settings.UnityTurnLimit == 0 && !settings.UnityUnlimitedTurns {
+			settings.UnityTurnLimit = 9
+		}
+		settings.AutoColorCounts = true
+		settings.BlueCards = 0
+		settings.RedCards = 0
+		settings.NeutralCards = settings.TotalCards - UnityCardCount(settings.TotalCards)
+		settings.StartingTeamHandicap = 0
+		return settings
 	}
 	if !settings.AutoColorCounts && settings.BlueCards == 0 && settings.RedCards == 0 && settings.NeutralCards == 0 {
 		settings.AutoColorCounts = true
@@ -199,6 +217,15 @@ func ValidateSettings(settings Settings) error {
 	}
 	if settings.BlackCards < 0 {
 		return fmt.Errorf("%w: blackCards cannot be negative", ErrInvalidSettings)
+	}
+	if settings.Mode == ModeUnity {
+		if settings.UnityTurnLimit < 0 {
+			return fmt.Errorf("%w: unityTurnLimit cannot be negative", ErrInvalidSettings)
+		}
+		if settings.BlackCards+UnityCardCount(settings.TotalCards) > settings.TotalCards {
+			return fmt.Errorf("%w: unity and assassin cards cannot exceed totalCards", ErrInvalidSettings)
+		}
+		return nil
 	}
 	if settings.StartingTeamHandicap < 0 {
 		return fmt.Errorf("%w: startingTeamHandicap cannot be negative", ErrInvalidSettings)
@@ -315,7 +342,7 @@ func (c AssignTeamCommand) apply(state *State, actorID string) (Event, error) {
 	if !state.CanManage(actorID) && actorID != c.PlayerID {
 		return Event{}, ErrForbidden
 	}
-	if c.Team != TeamBlue && c.Team != TeamRed && c.Team != TeamObservers && c.Team != "" {
+	if c.Team != TeamBlue && c.Team != TeamRed && c.Team != TeamUnity && c.Team != TeamObservers && c.Team != "" {
 		return Event{}, fmt.Errorf("%w: invalid team", ErrInvalidCommand)
 	}
 	player, ok := state.Players[c.PlayerID]
@@ -323,7 +350,7 @@ func (c AssignTeamCommand) apply(state *State, actorID string) (Event, error) {
 		return Event{}, fmt.Errorf("%w: unknown player", ErrInvalidCommand)
 	}
 	if player.Team != c.Team {
-		if c.Team == TeamObservers && (player.Team == TeamBlue || player.Team == TeamRed) {
+		if c.Team == TeamObservers && (player.Team == TeamBlue || player.Team == TeamRed || player.Team == TeamUnity) {
 			player.PreviousTeam = player.Team
 			player.PreviousSpymaster = player.Spymaster
 			player.PreviousRepresentative = player.Representative
@@ -333,6 +360,9 @@ func (c AssignTeamCommand) apply(state *State, actorID string) (Event, error) {
 	}
 	player.Team = c.Team
 	state.Players[c.PlayerID] = player
+	if state.Phase == PhaseActive && state.Mode == ModeUnity {
+		state.reconcileUnityRoster(c.PlayerID, c.Team)
+	}
 	return Event{Type: EventTeamAssigned}, nil
 }
 
@@ -347,13 +377,16 @@ func (c RejoinTeamCommand) apply(state *State, actorID string) (Event, error) {
 	if player.Team != TeamObservers {
 		return Event{}, fmt.Errorf("%w: player is not an observer", ErrInvalidCommand)
 	}
-	if player.PreviousTeam != TeamBlue && player.PreviousTeam != TeamRed {
+	if player.PreviousTeam != TeamBlue && player.PreviousTeam != TeamRed && player.PreviousTeam != TeamUnity {
 		return Event{}, fmt.Errorf("%w: no previous playable team", ErrInvalidCommand)
 	}
 	player.Team = player.PreviousTeam
 	player.Spymaster = player.PreviousSpymaster
 	player.Representative = player.PreviousRepresentative && !player.Spymaster
 	state.Players[c.PlayerID] = player
+	if state.Phase == PhaseActive && state.Mode == ModeUnity {
+		state.reconcileUnityRoster(c.PlayerID, player.Team)
+	}
 	return Event{Type: EventTeamAssigned}, nil
 }
 
@@ -367,6 +400,9 @@ func (c ToggleSpymasterCommand) apply(state *State, actorID string) (Event, erro
 	}
 	if player.Team == TeamObservers {
 		return Event{}, fmt.Errorf("%w: observers cannot be spymasters", ErrInvalidCommand)
+	}
+	if state.Settings.Mode == ModeUnity {
+		return Event{}, fmt.Errorf("%w: unity spymasters are board owners", ErrInvalidCommand)
 	}
 	player.Spymaster = !player.Spymaster
 	if player.Spymaster {
@@ -479,7 +515,12 @@ func (c UpdateSettingsCommand) apply(state *State, actorID string) (Event, error
 		return Event{}, err
 	}
 	c.Settings = SettingsWithDefaults(c.Settings)
+	oldMode := state.Settings.Mode
 	state.Settings = c.Settings
+	state.Mode = c.Settings.Mode
+	if state.Phase == PhaseLobby && oldMode != c.Settings.Mode {
+		state.applyLobbyModeSwitch(oldMode, c.Settings.Mode)
+	}
 	if state.Settings.RandomizeTeams {
 		for id, player := range state.Players {
 			if player.Team == "" {
@@ -497,6 +538,11 @@ func (c StartCommand) apply(state *State, actorID string) (Event, error) {
 	}
 	if !state.canStart() {
 		return Event{}, ErrCannotStart
+	}
+	state.Settings = SettingsWithDefaults(state.Settings)
+	state.Mode = state.Settings.Mode
+	if state.Mode == ModeUnity {
+		return c.startUnity(state, actorID)
 	}
 	board, err := GenerateBoard(state.Settings, c.Words, c.ImageIDs)
 	if err != nil {
@@ -530,6 +576,9 @@ func (c SubmitClueCommand) apply(state *State, actorID string) (Event, error) {
 	if state.Phase != PhaseActive {
 		return Event{}, fmt.Errorf("%w: clue outside active phase", ErrInvalidCommand)
 	}
+	if state.Mode == ModeUnity {
+		return c.submitUnityClue(state, actorID)
+	}
 	player, ok := state.Players[actorID]
 	if !ok || player.Team != state.CurrentTeam || !player.Spymaster {
 		return Event{}, ErrForbidden
@@ -558,6 +607,9 @@ func (c SubmitClueCommand) apply(state *State, actorID string) (Event, error) {
 func (c GuessCommand) apply(state *State, actorID string) (Event, error) {
 	if state.Phase != PhaseActive {
 		return Event{}, fmt.Errorf("%w: guess outside active phase", ErrInvalidCommand)
+	}
+	if state.Mode == ModeUnity {
+		return c.guessUnity(state, actorID)
 	}
 	if c.Index < 0 || c.Index >= len(state.Cards) {
 		return Event{}, fmt.Errorf("%w: card index", ErrInvalidCommand)
@@ -595,6 +647,9 @@ func (c GuessCommand) apply(state *State, actorID string) (Event, error) {
 func (c PassCommand) apply(state *State, actorID string) (Event, error) {
 	if state.Phase != PhaseActive {
 		return Event{}, fmt.Errorf("%w: pass outside active phase", ErrInvalidCommand)
+	}
+	if state.Mode == ModeUnity {
+		return c.passUnity(state, actorID)
 	}
 	if !state.IsActiveGuesser(actorID, state.CurrentTeam) {
 		return Event{}, ErrForbidden
@@ -677,6 +732,9 @@ func (c RestartMatchCommand) apply(state *State, actorID string) (Event, error) 
 
 // IsActiveGuesser reports whether playerID may guess/pass for team.
 func (s State) IsActiveGuesser(playerID string, team Team) bool {
+	if s.Mode == ModeUnity || s.Settings.Mode == ModeUnity || team == TeamUnity {
+		return s.isUnityActiveGuesser(playerID)
+	}
 	player, ok := s.Players[playerID]
 	if !ok || player.Team != team {
 		return false
@@ -722,6 +780,9 @@ func (s State) CurrentClue() *ClueEntry {
 
 // SnapshotFor returns a viewer-safe snapshot.
 func (s State) SnapshotFor(viewer Viewer) Snapshot {
+	if s.Mode == ModeUnity || s.Settings.Mode == ModeUnity {
+		return s.unitySnapshotFor(viewer)
+	}
 	showAll := s.Phase == PhaseGameOver
 	if player, ok := s.Players[viewer.PlayerID]; ok && player.Spymaster {
 		showAll = true
@@ -739,6 +800,17 @@ func (s State) SnapshotFor(viewer Viewer) Snapshot {
 }
 
 func (s State) canStart() bool {
+	if s.Settings.Mode == ModeUnity || s.Mode == ModeUnity {
+		active := 0
+		for _, player := range s.Players {
+			if player.Team == TeamUnity {
+				active++
+			} else if player.Team != TeamObservers && player.Team != "" {
+				return false
+			}
+		}
+		return active >= 2
+	}
 	blueSpy := false
 	redSpy := false
 	blueGuesser := false
