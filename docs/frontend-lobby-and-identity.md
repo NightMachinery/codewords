@@ -21,7 +21,7 @@ Room migrate links call `/api/rooms/{roomId}/migrate-bootstrap` and connect with
 
 The lobby opens a room WebSocket after the viewer has an identity. Snapshots drive team columns, role badges, settings, host permissions, and start readiness. Moderators can update wordpack, card content mode (words only, images only, or mixed image count), mixed image ordering, black-card count, enforced clue mode, infinity clues, observer chat, custom team names/colors, roles, and team assignments. Non-host players can assign their own team in the lobby, move themselves to observer mode during a match, and rejoin their remembered team from observer mode.
 
-The moderator settings panel is tabbed by game mode. `Polarity` shows the original two-team setup. `Unity` switches the room into one-team co-op setup, shows the Unity team color/name, assassin count, turn limit, infinite-mode checkbox, and strict per-board budget checkbox. Switching to Unity preserves the Polarity team/spy/representative metadata server-side so switching back can restore it.
+The moderator settings panel is tabbed by game mode. `Polarity` shows the original two-team setup. `Unity` switches the room into one-team co-op setup, shows the Unity team color/name, assassin count, turn limit, infinite-mode checkbox, and strict per-board budget checkbox. The finite Unity turn default is six turns per board. Switching to Unity preserves the Polarity team/spy/representative metadata server-side so switching back can restore it.
 
 Clipboard actions first use `navigator.clipboard`, then fall back to a temporary textarea plus `document.execCommand('copy')`, and finally show the raw link for manual copy. Successful copy feedback clears itself after a short delay.
 
@@ -45,9 +45,9 @@ When a room snapshot is `active` or `game_over`, the room route switches from lo
 
 Observers are room roster members on the neutral `observers` team. They receive the same safe snapshots as non-spymaster players and cannot submit clues, reveal cards, or pass.
 
-Unity active matches show the current active board plus an own-board view toggle in the bottom sticky panel. The active board is the public guessing board. The own-board view lets a Unity player inspect their personal hidden board while another board is active; only that board owner receives hidden color data. The board header shows whose board is displayed, remaining Unity/civilian/assassin counts, and remaining shared or per-board turns.
+Unity active matches show the current active board plus an own-board view toggle in the bottom sticky panel. The active board is the public guessing board. The own-board view lets a Unity player inspect their personal hidden board while another board is active; only that board owner receives hidden color data. The toggle is hidden for the active board owner because their own board is already active. Own-board viewing is read-only for guessing, and the UI asks eligible guessers to switch back to the active board before revealing. The board header shows whose board is displayed, remaining Unity/civilian/assassin counts, and remaining shared or per-board turns with card-type and turn-budget icons.
 
-The Unity player panel uses a compact progress dashboard with global Unity progress, budget mode, turn pool state, active board owner, per-board Unity remaining count, and observer status. The bottom controls replace the full team strip with the active board owner and representatives because all playable users are on the same Unity team.
+The Unity player panel uses a compact progress dashboard with global Unity progress, budget mode, turn pool state, active board owner, per-board Unity remaining count, and observer status during active matches. Lobby mode hides active-match progress rows. Unity team controls are mode-aware: regular players do not see team-switch buttons, moderators can move players only between Unity and Observer, and Polarity rooms never expose Unity as a team button. The bottom controls replace the full team strip with the active board owner and representatives because all playable users are on the same Unity team.
 
 ## Gameplay permissions and local preferences
 

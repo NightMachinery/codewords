@@ -18,7 +18,7 @@ Engine commands cover player seating, team assignment, observer rejoin, moderato
 
 Automatic color-count mode applies the configured starting-team handicap to whichever team randomly starts. It sets neutral cards to `round(totalCards / 3)`, adjusts neutral when needed so team cards minus that handicap can split evenly, splits the base team cards evenly, and treats assassins as a subset of neutral cards. Manual mode accepts blue/red base counts, neutral cards, and a starting-team handicap whose sum equals `TotalCards`; the handicap is applied to whichever team randomly starts. Assassins must be between zero and the neutral-card count.
 
-Unity starts one deterministic board per active Unity player. Each board seed derives from the room seed, match id, and board owner id. Unity board colors are Unity, assassin, and civilian. The Unity target count is `round(totalCards / 2.5)`, and Unity defaults to four assassins when the lobby does not set an assassin count.
+Unity starts one deterministic board per active Unity player. Each board seed derives from the room seed, match id, and board owner id. Unity board colors are Unity, assassin, and civilian. The Unity target count is `round(totalCards / 2.5)`, and Unity defaults to four assassins and six finite turns per board when the lobby does not set those values.
 
 ## Clues
 
@@ -32,7 +32,7 @@ When `EnforceClueGuessLimit` is enabled, guessing is rejected until a clue with 
 
 `State.SnapshotFor` hides unrevealed card colors from non-spymasters and observers during active play. Spymasters see all colors. Finished matches reveal the full board to every viewer. Clue log entries are visible to all viewers.
 
-Unity snapshots expose the active board to everyone, but hidden colors are present only for revealed cards unless the viewer owns that board or the match is over. Unity players also receive an `ownBoard` snapshot with their own hidden colors for clue composition. Each Unity board carries a separate clue log.
+Unity snapshots expose the active board to everyone, but hidden colors are present only for revealed cards unless the viewer owns that board or the match is over. Unity players also receive an `ownBoard` snapshot with their own hidden colors for clue composition. Each Unity board carries a separate clue log and last-selected card marker, so board changes do not carry a selection highlight onto unrelated boards.
 
 ## Unity turn and budget rules
 
@@ -49,5 +49,7 @@ Strict per-board mode gives each board its own `unityTurnLimit`; solved boards l
 Assigning a player from a playable team to observers clears their active spy/representative flags but records the previous team and role. `RejoinTeamCommand` restores that remembered playable assignment for the player or a moderator.
 
 In active Unity matches, new link-openers are added as observers. If a moderator assigns a new observer to Unity, the engine creates a fresh personal board and adjusts the shared pool by the configured turn limit when shared-pool mode is active. Returning observers keep their board state.
+
+Unity lobby joins assign new players directly to Unity instead of applying Polarity team balancing. Unity image-card boards use a deterministic match-wide image pool: images are not duplicated across boards when enough unique assets exist, and reuse starts only when the available pool is exhausted.
 
 `RestartMatchCommand` returns the room to lobby state and increments the seed so the next start generates a fresh board instead of reusing the prior word/image order.
