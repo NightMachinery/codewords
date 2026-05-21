@@ -13,6 +13,7 @@ describe('lobby helpers', () => {
     expect(playerBuckets(players)).toEqual({
       blue: [players[0]],
       red: [players[1]],
+      unity: [],
       observers: [],
       unassigned: [players[2]],
     });

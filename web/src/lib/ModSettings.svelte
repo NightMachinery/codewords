@@ -51,7 +51,7 @@
   }: Props = $props();
 
   let cardMode = $derived(cardModeFromImageCount(settings.imageCardCount ?? 0, settings.totalCards ?? 25));
-  let openColorPicker = $state<'blue' | 'red' | null>(null);
+  let openColorPicker = $state<'blue' | 'red' | 'unity' | null>(null);
   let selectedProfileId = $state('');
   let profileNameDraft = $state('');
   let profileFileInput = $state<HTMLInputElement | null>(null);
@@ -81,6 +81,18 @@
     onSave();
   }
 
+  function setMode(mode: 'polarity' | 'unity') {
+    settings.mode = mode;
+    if (mode === 'unity') {
+      settings.customColorUnity = settings.customColorUnity || '#20b2aa';
+      settings.teamNameUnity = settings.teamNameUnity || 'Unity';
+      settings.blackCards = settings.blackCards || 4;
+      settings.unityTurnLimit = settings.unityTurnLimit || 9;
+    }
+    settings = normalizeLobbySettingsForSave(settings);
+    onSave();
+  }
+
   function setAutoColorCounts(enabled: boolean) {
     if (!enabled && settings.autoColorCounts !== false) {
       const neutral = settings.neutralCards ?? 8;
@@ -103,13 +115,14 @@
     onSave();
   }
 
-  function colorInputLabel(team: 'blue' | 'red', color: string | undefined, fallback: string) {
+  function colorInputLabel(team: 'blue' | 'red' | 'unity', color: string | undefined, fallback: string) {
     return `${displayTeamName(team, settings)} color ${color || fallback}`;
   }
 
-  function setTeamColor(team: 'blue' | 'red', color: string) {
+  function setTeamColor(team: 'blue' | 'red' | 'unity', color: string) {
     if (team === 'blue') settings.customColorBlue = isValidHexColor(color) ? color : '';
-    else settings.customColorRed = isValidHexColor(color) ? color : '';
+    else if (team === 'red') settings.customColorRed = isValidHexColor(color) ? color : '';
+    else settings.customColorUnity = isValidHexColor(color) ? color : '';
     onSave();
   }
 
@@ -117,19 +130,21 @@
     openColorPicker = null;
   }
 
-  function colorInputValue(team: 'blue' | 'red') {
-    return team === 'blue' ? settings.customColorBlue || '' : settings.customColorRed || '';
+  function colorInputValue(team: 'blue' | 'red' | 'unity') {
+    return team === 'blue' ? settings.customColorBlue || '' : team === 'red' ? settings.customColorRed || '' : settings.customColorUnity || '';
   }
 
-  function setColorInputValue(team: 'blue' | 'red', color: string) {
+  function setColorInputValue(team: 'blue' | 'red' | 'unity', color: string) {
     if (team === 'blue') settings.customColorBlue = color;
-    else settings.customColorRed = color;
+    else if (team === 'red') settings.customColorRed = color;
+    else settings.customColorUnity = color;
     onSave();
   }
 
-  function resetTeamColor(team: 'blue' | 'red') {
+  function resetTeamColor(team: 'blue' | 'red' | 'unity') {
     if (team === 'blue') settings.customColorBlue = '';
-    else settings.customColorRed = '';
+    else if (team === 'red') settings.customColorRed = '';
+    else settings.customColorUnity = '#20b2aa';
     onSave();
   }
 
@@ -173,12 +188,21 @@
   {#if open}
   <fieldset class="space-y-6 disabled:opacity-60" disabled={!hostControls}>
     {#if phase === 'lobby'}
+      <div class="grid grid-cols-2 gap-2 rounded-2xl border border-slate-700 bg-slate-950/60 p-1">
+        <button type="button" class={['rounded-xl px-4 py-2 text-sm font-black transition', settings.mode !== 'unity' ? 'bg-blue-400/20 text-blue-100' : 'text-slate-400 hover:text-slate-100'].join(' ')} onclick={() => setMode('polarity')}>Polarity</button>
+        <button type="button" class={['rounded-xl px-4 py-2 text-sm font-black transition', settings.mode === 'unity' ? 'bg-teal-400/20 text-teal-100' : 'text-slate-400 hover:text-slate-100'].join(' ')} onclick={() => setMode('unity')}>Unity</button>
+      </div>
+    {/if}
+
+    {#if phase === 'lobby'}
+      {#if settings.mode !== 'unity'}
       <!-- Lobby Tools -->
       <div class="space-y-3 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4">
         <span class="text-xs font-black uppercase tracking-widest text-emerald-200">Randomize teams</span>
         <button class="w-full rounded-xl border border-emerald-400/60 bg-emerald-400/10 px-4 py-3 text-sm font-black text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50" disabled={!canRandomizeTeams} onclick={onRandomizeTeams}>Randomize Teams</button>
         <p class="text-xs leading-5 text-emerald-100/70">Balances non-observer and unassigned players, clears rep roles, and picks one spy for each team.</p>
       </div>
+      {/if}
     {/if}
 
     {#if phase === 'lobby'}
@@ -224,6 +248,25 @@
       </label>
     </div>
 
+    {#if settings.mode === 'unity'}
+      <div class="rounded-2xl border border-teal-300/30 bg-teal-400/10 p-5">
+        <div class="grid gap-4 sm:grid-cols-3">
+          <label class="block">
+            <span class="text-xs font-bold text-teal-100">Turns per board</span>
+            <input class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" type="number" min="0" bind:value={settings.unityTurnLimit} onchange={saveNormalizedSettings} disabled={settings.unityUnlimitedTurns} />
+          </label>
+          <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-sm text-slate-200">
+            <input type="checkbox" bind:checked={settings.unityUnlimitedTurns} onchange={saveNormalizedSettings} />
+            Infinite turns
+          </label>
+          <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-sm text-slate-200">
+            <input type="checkbox" bind:checked={settings.unityStrictPerBoardTurns} onchange={saveNormalizedSettings} />
+            Allowed turns are per board. I.e., if a board is solved sooner, its remaining unused turns are lost.
+          </label>
+        </div>
+        <p class="mt-3 text-xs leading-5 text-teal-100/70">Default Unity uses a shared pool. Players who become observers withdraw only their unspent contribution, clamped at zero.</p>
+      </div>
+    {:else}
     <div class="rounded-2xl border border-slate-700 bg-slate-950/50 p-5">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -263,6 +306,7 @@
         <p class="mt-3 text-xs leading-5 text-slate-500">Manual counts use base team counts plus a handicap applied to whichever team randomly starts; blue base + red base + neutral + starting-team handicap must equal total cards.</p>
       {/if}
     </div>
+    {/if}
 
     <!-- Card Content -->
     <div class="rounded-2xl border border-slate-700 bg-slate-950/50 p-5">
@@ -316,6 +360,12 @@
 
     <!-- Custom Colors -->
     <div class="grid gap-4 sm:grid-cols-2">
+      {#if settings.mode === 'unity'}
+      <label class="block">
+        <span class="text-xs font-bold text-slate-400">Team name</span>
+        <input class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" maxlength="30" bind:value={settings.teamNameUnity} onchange={onSave} placeholder="Unity" />
+      </label>
+      {:else}
       <label class="block">
         <span class="text-xs font-bold text-slate-400">Team name</span>
         <input class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" maxlength="30" bind:value={settings.teamNameBlue} onchange={onSave} placeholder="Libertarians" />
@@ -324,9 +374,13 @@
         <span class="text-xs font-bold text-slate-400">Team name</span>
         <input class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" maxlength="30" bind:value={settings.teamNameRed} onchange={onSave} placeholder="Monarchists" />
       </label>
+      {/if}
       {#each [
+        ...(settings.mode === 'unity' ? [{ team: 'unity' as const, fallback: '#20b2aa' }] : []),
+        ...(settings.mode === 'unity' ? [] : [
         { team: 'blue' as const, fallback: '#3b82f6' },
         { team: 'red' as const, fallback: '#ef4444' }
+        ])
       ] as picker (picker.team)}
         {@const currentColor = teamColor(picker.team, settings)}
         {@const teamName = displayTeamName(picker.team, settings)}

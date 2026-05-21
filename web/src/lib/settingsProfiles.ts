@@ -16,6 +16,7 @@ export interface SettingsProfile {
 
 const settingKeys = new Set<keyof Settings>([
   'seed',
+  'mode',
   'blackCards',
   'totalCards',
   'autoColorCounts',
@@ -30,8 +31,13 @@ const settingKeys = new Set<keyof Settings>([
   'randomizeTeams',
   'customColorBlue',
   'customColorRed',
+  'customColorUnity',
   'teamNameBlue',
   'teamNameRed',
+  'teamNameUnity',
+  'unityTurnLimit',
+  'unityUnlimitedTurns',
+  'unityStrictPerBoardTurns',
   'observerChatEnabled',
   'mixedImageOrderFirst',
   'memoryRoastsDisabled',

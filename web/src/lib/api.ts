@@ -6,6 +6,7 @@ export interface ApiErrorBody {
 }
 
 export interface Settings {
+  mode?: 'polarity' | 'unity';
   seed: number;
   blackCards: number;
   totalCards: number;
@@ -23,6 +24,11 @@ export interface Settings {
   customColorRed?: string;
   teamNameBlue?: string;
   teamNameRed?: string;
+  teamNameUnity?: string;
+  customColorUnity?: string;
+  unityTurnLimit?: number;
+  unityUnlimitedTurns?: boolean;
+  unityStrictPerBoardTurns?: boolean;
   observerChatEnabled: boolean;
   mixedImageOrderFirst: boolean;
   memoryRoastsDisabled?: boolean;
@@ -44,16 +50,22 @@ export interface RoomSummary {
 
 export interface RoomSnapshot {
   phase: 'lobby' | 'active' | 'game_over';
+  mode?: 'polarity' | 'unity';
   players: LobbyPlayer[];
   settings: Settings;
-  currentTeam: 'blue' | 'red' | '';
-  winner: 'blue' | 'red' | '';
+  currentTeam: 'blue' | 'red' | 'unity' | '';
+  winner: 'blue' | 'red' | 'unity' | 'observers' | '';
   finishedAt?: string;
   actionId: number;
   cards: GameplayCard[];
   lastSelected?: LastSelected | null;
   remainingCounts: RemainingCounts;
   clueLog: ClueEntry[];
+  activeBoard?: import('./gameplay').UnityBoardSnapshot;
+  ownBoard?: import('./gameplay').UnityBoardSnapshot | null;
+  unityBoards?: import('./gameplay').UnityBoardSummary[];
+  unityProgress?: import('./gameplay').UnityProgress;
+  unityEndStats?: import('./gameplay').UnityEndStats | null;
   viewer: Viewer;
 }
 
@@ -155,6 +167,7 @@ export class ApiClient {
 }
 
 export const defaultSettings: Settings = {
+  mode: 'polarity',
   seed: Date.now(),
   blackCards: 1,
   totalCards: 25,
@@ -173,6 +186,11 @@ export const defaultSettings: Settings = {
   memoryRoastsDisabled: false,
   teamNameBlue: 'Libertarians',
   teamNameRed: 'Monarchists',
+  teamNameUnity: 'Unity',
+  customColorUnity: '#20b2aa',
+  unityTurnLimit: 9,
+  unityUnlimitedTurns: false,
+  unityStrictPerBoardTurns: false,
 };
 
 export const api = new ApiClient();

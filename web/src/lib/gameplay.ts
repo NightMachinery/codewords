@@ -2,7 +2,8 @@ import type { RoomSummary, Settings, Viewer } from './api';
 import type { LobbyPlayer, Team } from './lobby';
 
 export type GameplayPhase = 'lobby' | 'active' | 'game_over';
-export type CardColor = 'blue' | 'red' | 'black' | 'civilian';
+export type GameMode = 'polarity' | 'unity';
+export type CardColor = 'blue' | 'red' | 'unity' | 'black' | 'civilian';
 export type VisibleCardColor = CardColor | 'hidden';
 
 export interface ClueNumber {
@@ -12,7 +13,7 @@ export interface ClueNumber {
 
 export interface ClueEntry {
   round: number;
-  team: 'blue' | 'red';
+  team: 'blue' | 'red' | 'unity';
   text: string;
   number: ClueNumber;
   status: 'active' | 'final' | 'na';
@@ -23,14 +24,55 @@ export interface ClueEntry {
 
 export interface LastSelected {
   index: number;
-  team: 'blue' | 'red';
+  team: 'blue' | 'red' | 'unity';
 }
 
 export interface RemainingCounts {
+  unity?: number;
   blue: number;
   red: number;
   civilian: number;
   black: number;
+}
+
+export interface UnityBoardRemainingCounts {
+  unity: number;
+  civilian: number;
+  black: number;
+}
+
+export interface UnityBoardSnapshot {
+  ownerId: string;
+  cards: GameplayCard[];
+  clueLog: ClueEntry[];
+  turnsUsed: number;
+  remainingCounts: UnityBoardRemainingCounts;
+}
+
+export interface UnityBoardSummary {
+  ownerId: string;
+  unityRemaining: number;
+  turnsUsed: number;
+  active: boolean;
+  observer: boolean;
+}
+
+export interface UnityProgress {
+  unityCardsFound: number;
+  totalUnityCards: number;
+  sharedTurnsRemaining: number;
+  unlimitedTurns: boolean;
+  strictPerBoardTurns: boolean;
+  waitingForGuessers: boolean;
+}
+
+export interface UnityEndStats {
+  unityCardsFound: number;
+  totalUnityCards: number;
+  totalTurns: number;
+  assassinCount: number;
+  score: number;
+  reason: string;
 }
 
 export interface GameplayCard {
@@ -103,14 +145,14 @@ export function filteredBottomShortcutItems(canUseModSettings: boolean): BottomS
 }
 
 export function ownTeamPlayerNames(players: LobbyPlayer[], team: Team | undefined): string[] {
-  if (team !== 'blue' && team !== 'red') return [];
+  if (team !== 'blue' && team !== 'red' && team !== 'unity') return [];
   return players
     .filter((player) => player.team === team)
     .map((player) => player.displayName.trim() || 'Player');
 }
 
 export function sortedTurnPlayers(players: LobbyPlayer[], team: Team | undefined): LobbyPlayer[] {
-  if (team !== 'blue' && team !== 'red') return [];
+  if (team !== 'blue' && team !== 'red' && team !== 'unity') return [];
   const roleRank = (player: LobbyPlayer): number => {
     if (player.spymaster) return 0;
     if (player.representative) return 1;
@@ -148,6 +190,7 @@ export const defaultGameplayPreferences: GameplayPreferences = {
 export const defaultTeamNames = {
   blue: 'Libertarians',
   red: 'Monarchists',
+  unity: 'Unity',
 } as const;
 
 export const defaultPanelPreferences: PanelPreferences = {
@@ -164,10 +207,18 @@ export function findViewerPlayer(players: LobbyPlayer[], viewer: Viewer | null |
   return players.find((player) => player.id === id);
 }
 
-export function isActiveGuesser(players: LobbyPlayer[], playerId: string | undefined, currentTeam: Team): boolean {
-  if (!playerId || (currentTeam !== 'blue' && currentTeam !== 'red')) return false;
+export function isActiveGuesser(players: LobbyPlayer[], playerId: string | undefined, currentTeam: Team, activeBoardOwner = ''): boolean {
+  if (!playerId || (currentTeam !== 'blue' && currentTeam !== 'red' && currentTeam !== 'unity')) return false;
   const player = players.find((candidate) => candidate.id === playerId);
   if (!player || player.team !== currentTeam) return false;
+
+  if (currentTeam === 'unity') {
+    if (player.id === activeBoardOwner) return false;
+    const representatives = players.filter((candidate) => candidate.team === 'unity' && candidate.representative);
+    if (representatives.length === 0) return true;
+    if (representatives.length === 1 && representatives[0].id === activeBoardOwner) return true;
+    return player.representative;
+  }
 
   const teammates = players.filter((candidate) => candidate.team === currentTeam);
   if (teammates.length === 0) return false;
@@ -183,6 +234,7 @@ export function viewerRole(
   viewer: Viewer | null | undefined,
   currentTeam: Team,
   phase: GameplayPhase = 'active',
+  activeBoardOwner = '',
 ): {
   kind: 'observer' | 'player' | 'spymaster';
   team?: Team;
@@ -195,12 +247,12 @@ export function viewerRole(
   if (!player) {
     return { kind: 'observer', canSeeHiddenColors: gameOver, activeGuesser: false };
   }
-  const activeGuesser = phase === 'active' && isActiveGuesser(players, player.id, currentTeam);
+  const activeGuesser = phase === 'active' && isActiveGuesser(players, player.id, currentTeam, activeBoardOwner);
   return {
-    kind: player.spymaster ? 'spymaster' : 'player',
+    kind: currentTeam === 'unity' && player.id === activeBoardOwner ? 'spymaster' : player.spymaster ? 'spymaster' : 'player',
     team: player.team,
     player,
-    canSeeHiddenColors: gameOver || player.spymaster,
+    canSeeHiddenColors: gameOver || player.spymaster || (currentTeam === 'unity' && player.id === activeBoardOwner),
     activeGuesser,
   };
 }
@@ -211,11 +263,16 @@ export function canSubmitClue(
   currentTeam: Team,
   phase: GameplayPhase,
   settings?: Settings,
+  activeBoardOwner = '',
 ): { allowed: boolean; reason: string } {
   if (phase === 'game_over') return { allowed: false, reason: 'The match is over.' };
   if (phase !== 'active') return { allowed: false, reason: 'Clues are available after the match starts.' };
   const player = findViewerPlayer(players, viewer);
   if (!player) return { allowed: false, reason: 'Observers are read-only.' };
+  if (currentTeam === 'unity') {
+    if (player.id !== activeBoardOwner) return { allowed: false, reason: 'Only the active board owner can clue right now.' };
+    return { allowed: true, reason: '' };
+  }
   if (!player.spymaster) return { allowed: false, reason: 'Only spymasters can clue.' };
   if (player.team !== currentTeam) return { allowed: false, reason: `Only the ${displayTeamName(currentTeam, settings)} spymaster can clue right now.` };
   return { allowed: true, reason: '' };
@@ -409,16 +466,18 @@ export function pressableButtonClasses(classes = ''): string {
   ].filter(Boolean).join(' ');
 }
 
-export function displayTeamName(team: Team | 'blue' | 'red' | '', settings: Settings | undefined): string {
+export function displayTeamName(team: Team | 'blue' | 'red' | 'unity' | '', settings: Settings | undefined): string {
   if (team === 'blue') return (settings?.teamNameBlue?.trim() || defaultTeamNames.blue).slice(0, 30);
   if (team === 'red') return (settings?.teamNameRed?.trim() || defaultTeamNames.red).slice(0, 30);
+  if (team === 'unity') return (settings?.teamNameUnity?.trim() || defaultTeamNames.unity).slice(0, 30);
   if (team === 'observers') return 'Observers';
   return 'Waiting';
 }
 
-export function teamColor(team: Team | 'blue' | 'red' | '', settings: Settings | undefined): string {
+export function teamColor(team: Team | 'blue' | 'red' | 'unity' | '', settings: Settings | undefined): string {
   if (team === 'blue') return normalizedHexColor(settings?.customColorBlue, '#3b82f6');
   if (team === 'red') return normalizedHexColor(settings?.customColorRed, '#ef4444');
+  if (team === 'unity') return normalizedHexColor(settings?.customColorUnity, '#20b2aa');
   return '';
 }
 
@@ -604,6 +663,27 @@ export function autoNeutralCards(totalCards: number, startingTeamHandicap = 1): 
 export function normalizeLobbySettingsForSave(settings: Settings): Settings {
   const totalCards = clampTotalCards(settings.totalCards ?? defaultTotalCards);
   const imageCardCount = Math.min(totalCards, Math.max(0, Math.round(settings.imageCardCount ?? 0)));
+  if (settings.mode === 'unity') {
+    const unityCards = Math.round(totalCards / 2.5);
+    const blackCards = Math.min(totalCards - unityCards, Math.max(0, Math.round(settings.blackCards || 4)));
+    return {
+      ...settings,
+      mode: 'unity',
+      totalCards,
+      autoColorCounts: true,
+      blueCards: 0,
+      redCards: 0,
+      neutralCards: totalCards - unityCards,
+      startingTeamHandicap: 0,
+      blackCards,
+      imageCardCount,
+      unityTurnLimit: Math.max(0, Math.round(settings.unityTurnLimit || 9)),
+      unityUnlimitedTurns: Boolean(settings.unityUnlimitedTurns),
+      unityStrictPerBoardTurns: Boolean(settings.unityStrictPerBoardTurns),
+      customColorUnity: normalizedHexColor(settings.customColorUnity, '#20b2aa'),
+      teamNameUnity: settings.teamNameUnity?.trim() || defaultTeamNames.unity,
+    };
+  }
   const startingTeamHandicap = Math.min(totalCards, Math.max(0, Math.round(settings.startingTeamHandicap ?? 1)));
   if (settings.autoColorCounts !== false) {
     const neutralCards = autoNeutralCards(totalCards, startingTeamHandicap);
@@ -666,6 +746,39 @@ export function displayCards(cards: GameplayCard[], cardMode: CardMode, imageOrd
   return ordered.map((card, index) => ({ ...card, badgeNumber: index + 1 }));
 }
 
+export type UnityBoardView = 'active' | 'own';
+
+export function unityStartReadiness(players: LobbyPlayer[]): { ready: boolean; reason: string } {
+  if (players.some((player) => player.team === '')) {
+    return { ready: false, reason: 'Assign every player to Unity or observer mode first.' };
+  }
+  const active = players.filter((player) => player.team === 'unity');
+  if (active.length < 2) {
+    return { ready: false, reason: 'Unity needs at least two active players.' };
+  }
+  return { ready: true, reason: '' };
+}
+
+export function unityBoardViewCards(view: UnityBoardView, activeBoard: UnityBoardSnapshot | null | undefined, ownBoard: UnityBoardSnapshot | null | undefined): GameplayCard[] {
+  if (view === 'own' && ownBoard) return ownBoard.cards;
+  return activeBoard?.cards ?? [];
+}
+
+export function unityEndGameSummary(stats: UnityEndStats | null | undefined, progress: UnityProgress | null | undefined): { headline: string; score: string; detail: string } {
+  const found = stats?.unityCardsFound ?? progress?.unityCardsFound ?? 0;
+  const total = stats?.totalUnityCards ?? progress?.totalUnityCards ?? 0;
+  const turns = stats?.totalTurns ?? 0;
+  const assassins = stats?.assassinCount ?? 0;
+  const score = stats?.score ?? (turns > 0 ? found / turns : 0);
+  const solved = total > 0 && found >= total;
+  const mode = progress?.unlimitedTurns ? 'infinite' : progress?.strictPerBoardTurns ? 'per-board limit' : 'shared pool';
+  return {
+    headline: solved ? 'Unity solved' : 'Unity failed',
+    score: `${score.toFixed(2)} Unity cards/turn`,
+    detail: `${found}/${total} found · ${turns} turns · ${assassins} assassins · ${mode}`,
+  };
+}
+
 export function shouldCueCardReveal(previousCards: GameplayCard[], nextCards: GameplayCard[]): boolean {
   return nextCards.some((card, index) => card.revealed && !previousCards[index]?.revealed);
 }
@@ -716,6 +829,7 @@ export function cardViewState(
   const isLastSelected = lastSelected?.index === index;
   const colorClass = {
     hidden: 'border-slate-700 bg-slate-900 text-slate-100 hover:border-emerald-200',
+    unity: 'border-teal-200/70 bg-teal-500/25 text-teal-50',
     blue: 'border-blue-300/70 bg-blue-500/25 text-blue-50',
     red: 'border-red-300/70 bg-red-500/25 text-red-50',
     black: 'border-zinc-300/60 bg-zinc-950 text-zinc-50',

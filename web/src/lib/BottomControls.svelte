@@ -10,6 +10,9 @@
   interface Props {
     phase: GameplayPhase;
     currentTeam: Team;
+    mode?: 'polarity' | 'unity';
+    activeBoardOwner?: string;
+    boardView?: 'active' | 'own';
     currentClue: ClueEntry | null;
     role: { kind: string; activeGuesser: boolean; team?: Team; player?: LobbyPlayer };
     cluePermission: { allowed: boolean; reason: string };
@@ -22,6 +25,7 @@
     hostControls: boolean;
     spymasterViewActive: boolean;
     onToggleView: () => void;
+    onSetBoardView?: (view: 'active' | 'own') => void;
     onNavigate: (target: string) => void;
     onSubmitClue: () => void;
     onPassTurn: () => void;
@@ -30,6 +34,9 @@
   let {
     phase,
     currentTeam,
+    mode = 'polarity',
+    activeBoardOwner = '',
+    boardView = 'active',
     currentClue,
     role,
     cluePermission,
@@ -42,6 +49,7 @@
     hostControls,
     spymasterViewActive,
     onToggleView,
+    onSetBoardView = () => {},
     onNavigate,
     onSubmitClue,
     onPassTurn
@@ -73,7 +81,9 @@
 
   let isYourTeam = $derived(role.team === currentTeam);
   let teamLabel = $derived(displayTeamName(currentTeam, settings));
-  let currentTeamPlayers = $derived(sortedTurnPlayers(players, currentTeam));
+  let currentTeamPlayers = $derived(mode === 'unity'
+    ? sortedTurnPlayers(players, currentTeam).filter((player) => player.id === activeBoardOwner || player.representative)
+    : sortedTurnPlayers(players, currentTeam));
   let canActNow = $derived(Boolean(phase === 'active' && isYourTeam && (role.activeGuesser || (role.kind === 'spymaster' && cluePermission.allowed))));
   let shortcutItems = $derived(filteredBottomShortcutItems(hostControls));
   let turnColor = $derived(teamColor(currentTeam, settings));
@@ -125,6 +135,20 @@
     <SlidersHorizontal class="h-3.5 w-3.5" />
   {:else}
     <MessageSquare class="h-3.5 w-3.5" />
+  {/if}
+{/snippet}
+
+{#snippet BoardViewIcon(kind: 'active' | 'own')}
+  {#if kind === 'active'}
+    <svg class="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 6.5 12 3l8 3.5v11L12 21l-8-3.5v-11Z" fill="none" stroke="currentColor" stroke-width="1.8" />
+      <path d="M8 9h8M8 12h8M8 15h5" stroke="currentColor" stroke-linecap="round" stroke-width="1.8" />
+    </svg>
+  {:else}
+    <svg class="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 4.5c-3.2 0-5.8 2.6-5.8 5.8v1.8c0 3.2 2.6 5.8 5.8 5.8s5.8-2.6 5.8-5.8v-1.8c0-3.2-2.6-5.8-5.8-5.8Z" fill="none" stroke="currentColor" stroke-width="1.8" />
+      <path d="M9.2 11.2h5.6M12 8.4v5.6M7 19.5h10" stroke="currentColor" stroke-linecap="round" stroke-width="1.8" />
+    </svg>
   {/if}
 {/snippet}
 
@@ -250,6 +274,22 @@
           </button>
         {/each}
       </div>
+      {#if mode === 'unity'}
+        <div class="grid grid-cols-2 gap-1 rounded-2xl border border-teal-300/30 bg-slate-950/70 p-1" aria-label="Unity board view">
+          {#each ['active', 'own'] as view (view)}
+            <button
+              class={pressableButtonClasses(['grid h-8 w-8 place-items-center rounded-xl', boardView === view ? 'bg-teal-300 text-slate-950' : 'text-teal-100 hover:bg-teal-300/10'].join(' '))}
+              type="button"
+              aria-label={view === 'active' ? 'Show active board' : 'Show own board'}
+              aria-pressed={boardView === view}
+              title={view === 'active' ? 'Active board' : 'Own board'}
+              onclick={() => onSetBoardView(view as 'active' | 'own')}
+            >
+              {@render BoardViewIcon(view as 'active' | 'own')}
+            </button>
+          {/each}
+        </div>
+      {/if}
       {#if role.kind === 'spymaster'}
         <button
           class={pressableButtonClasses(['inline-flex h-10 w-10 items-center justify-center gap-1 rounded-xl border', spymasterViewActive ? 'border-emerald-300/60 bg-emerald-300/15 text-emerald-100' : 'border-slate-600 bg-slate-800 text-slate-300 hover:border-emerald-300/50'].join(' '))}

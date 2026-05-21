@@ -1,4 +1,4 @@
-export type Team = '' | 'blue' | 'red' | 'observers';
+export type Team = '' | 'blue' | 'red' | 'unity' | 'observers';
 
 export interface LobbyPlayer {
   id: string;
@@ -24,24 +24,27 @@ export type PlayerPanelPhase = 'lobby' | 'active' | 'game_over';
 export function playerBuckets(players: LobbyPlayer[]): {
   blue: LobbyPlayer[];
   red: LobbyPlayer[];
+  unity: LobbyPlayer[];
   observers: LobbyPlayer[];
   unassigned: LobbyPlayer[];
 } {
   return {
     blue: players.filter((player) => player.team === 'blue'),
     red: players.filter((player) => player.team === 'red'),
+    unity: players.filter((player) => player.team === 'unity'),
     observers: players.filter((player) => player.team === 'observers'),
     unassigned: players.filter((player) => player.team === ''),
   };
 }
 
-export type VisiblePlayerBucket = { tone: 'blue' | 'red' | 'observers' | 'unassigned'; members: LobbyPlayer[] };
+export type VisiblePlayerBucket = { tone: 'blue' | 'red' | 'unity' | 'observers' | 'unassigned'; members: LobbyPlayer[] };
 
 export function visiblePlayerBuckets(players: LobbyPlayer[]): VisiblePlayerBucket[] {
   const buckets = playerBuckets(players);
   return [
     { tone: 'blue' as const, members: buckets.blue },
     { tone: 'red' as const, members: buckets.red },
+    { tone: 'unity' as const, members: buckets.unity },
     { tone: 'observers' as const, members: buckets.observers },
     { tone: 'unassigned' as const, members: buckets.unassigned },
   ].filter((bucket) => bucket.tone === 'blue' || bucket.tone === 'red' || bucket.members.length > 0);
@@ -78,7 +81,7 @@ export function canShowRejoinTeamButton(input: {
 }
 
 export function canShowRoleControls(input: { phase: PlayerPanelPhase; hostControls: boolean; player: LobbyPlayer }): boolean {
-  return input.phase !== 'game_over' && input.hostControls && (input.player.team === 'blue' || input.player.team === 'red');
+  return input.phase !== 'game_over' && input.hostControls && (input.player.team === 'blue' || input.player.team === 'red' || input.player.team === 'unity');
 }
 
 export function canShowModControl(input: { phase: PlayerPanelPhase; hostControls: boolean; player: LobbyPlayer; roomHostId: string }): boolean {

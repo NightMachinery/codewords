@@ -549,7 +549,7 @@ describe('active-room boot behavior', () => {
 
 describe('regression helpers', () => {
   it('formats configurable team names and validates custom colors', () => {
-    expect(defaultTeamNames).toEqual({ blue: 'Libertarians', red: 'Monarchists' });
+    expect(defaultTeamNames).toEqual({ blue: 'Libertarians', red: 'Monarchists', unity: 'Unity' });
     expect(displayTeamName('blue', { ...settings, teamNameBlue: 'River Guild' })).toBe('River Guild');
     expect(displayTeamName('red', { ...settings, teamNameRed: '' })).toBe('Monarchists');
     expect(isValidHexColor('#123abc')).toBe(true);
