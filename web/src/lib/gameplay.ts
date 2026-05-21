@@ -1,4 +1,5 @@
 import type { RoomSummary, Settings, Viewer } from './api';
+import { imageCardColorBorderWidthPx } from './constants';
 import type { LobbyPlayer, Team } from './lobby';
 
 export type GameplayPhase = 'lobby' | 'active' | 'game_over';
@@ -536,8 +537,13 @@ export function boardFitHeightStyle(input: {
 }
 
 export function cardChromeClasses(card: Pick<DisplayCard, 'contentType'>, _isLastSelected: boolean): string {
-  if (card.contentType === 'image') return 'overflow-hidden border-0 p-2';
+  if (card.contentType === 'image') return 'overflow-hidden border-0';
   return 'overflow-hidden p-1';
+}
+
+export function cardChromePaddingStyle(card: Pick<DisplayCard, 'contentType'>): string {
+  if (card.contentType !== 'image') return '';
+  return `padding: ${imageCardColorBorderWidthPx}px;`;
 }
 
 export function cardChromeStyle(card: Pick<DisplayCard, 'contentType'>, visibleColor: VisibleCardColor, customColor: string, isLastSelected: boolean): string {

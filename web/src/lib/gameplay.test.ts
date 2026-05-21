@@ -28,6 +28,7 @@ import {
   boardFitHeightStyle,
   boardFitAvailableHeight,
   cardChromeClasses,
+  cardChromePaddingStyle,
   cardChromeStyle,
   cardDisabledStateClasses,
   imageColorFrameClasses,
@@ -73,6 +74,7 @@ import {
   type GameplayCard,
   type GameplayPreferences,
 } from './gameplay';
+import { imageCardColorBorderWidthPx } from './constants';
 import type { RoomSummary, Settings, Viewer } from './api';
 import type { LobbyPlayer } from './lobby';
 
@@ -413,7 +415,10 @@ describe('board card state', () => {
 
 
   it('separates selected-card chrome from card color chrome', () => {
-    expect(cardChromeClasses({ contentType: 'image' }, false)).toContain('p-2');
+    expect(imageCardColorBorderWidthPx).toBe(10);
+    expect(cardChromeClasses({ contentType: 'image' }, false)).not.toContain('p-2');
+    expect(cardChromePaddingStyle({ contentType: 'image' })).toBe(`padding: ${imageCardColorBorderWidthPx}px;`);
+    expect(cardChromePaddingStyle({ contentType: 'word' })).toBe('');
     expect(cardChromeClasses({ contentType: 'word' }, true)).toContain('p-1');
     expect(imageColorFrameClasses(false)).toBe('');
     expect(imageColorFrameClasses(true)).toContain('inset-[4px]');

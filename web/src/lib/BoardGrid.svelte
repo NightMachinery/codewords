@@ -6,6 +6,7 @@
     boardCardSpanClasses,
     cardAspectRatioClasses,
     cardChromeClasses,
+    cardChromePaddingStyle,
     cardChromeStyle,
     cardContentLabel,
     cardDisabledStateClasses,
@@ -74,7 +75,7 @@
       {@const disabledReason = guessDisabledReason(card)}
       <button
         class={pressableButtonClasses(['group relative', boardCardSpanClasses(captureMode), 'rounded-xl border text-left duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', cardAspectRatioClasses(card, preferences.strictCardAspectRatios), cardChromeClasses(card, view.isLastSelected), view.classes, cardDisabledStateClasses({ disabled: !role.activeGuesser || card.revealed || phase !== 'active', revealed: card.revealed, revealedStyle })].join(' '))}
-        style={`${imageCardGridStyle(card, activeColumns, preferences.imageCardScale, mobileColumns)} ${cardChromeStyle(card, view.visibleColor, customColor, view.isLastSelected)}`}
+        style={`${imageCardGridStyle(card, activeColumns, preferences.imageCardScale, mobileColumns)} ${cardChromePaddingStyle(card)} ${cardChromeStyle(card, view.visibleColor, customColor, view.isLastSelected)}`}
         disabled={Boolean(disabledReason)}
         title={disabledReason || `Reveal ${cardContentLabel(card)}`}
         onclick={() => onGuess?.(card.originalIndex, card)}
