@@ -18,13 +18,15 @@ import (
 	"github.com/NightMachinery/codewords/internal/game"
 	"github.com/NightMachinery/codewords/internal/identity"
 	"github.com/NightMachinery/codewords/internal/storage"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
 const (
-	defaultBlueTeamName = "Libertarians"
-	defaultRedTeamName  = "Monarchists"
-	maxTeamNameRunes    = 30
+	defaultBlueTeamName  = "Libertarians"
+	defaultRedTeamName   = "Monarchists"
+	defaultUnityTeamName = "Unity"
+	maxTeamNameRunes     = 30
 )
 
 // Options wires the HTTP/API handler to persistence, identity, and local assets.
@@ -633,11 +635,12 @@ func (a *app) startMatchLocked(ctx context.Context, room storage.Room, rt *roomR
 	if err != nil {
 		return storage.Match{}, err
 	}
-	event, err := game.Apply(&rt.state, game.StartCommand{Words: pack.Words, ImageIDs: imageIDs}, actorID)
+	matchID := uuid.NewString()
+	event, err := game.Apply(&rt.state, game.StartCommand{GameID: matchID, Words: pack.Words, ImageIDs: imageIDs}, actorID)
 	if err != nil {
 		return storage.Match{}, err
 	}
-	match, err := a.store.CreateMatch(ctx, storage.CreateMatchParams{RoomID: room.ID, Seed: rt.state.Settings.Seed, SettingsJSON: room.SettingsJSON})
+	match, err := a.store.CreateMatch(ctx, storage.CreateMatchParams{ID: matchID, RoomID: room.ID, Seed: rt.state.Settings.Seed, SettingsJSON: room.SettingsJSON})
 	if err != nil {
 		return storage.Match{}, err
 	}
@@ -974,8 +977,10 @@ func normalizeSettings(s game.Settings) (game.Settings, error) {
 	}
 	s.CustomColorBlue = normalizeHexColor(s.CustomColorBlue)
 	s.CustomColorRed = normalizeHexColor(s.CustomColorRed)
+	s.CustomColorUnity = normalizeHexColor(s.CustomColorUnity)
 	s.TeamNameBlue = normalizeTeamName(s.TeamNameBlue, defaultBlueTeamName)
 	s.TeamNameRed = normalizeTeamName(s.TeamNameRed, defaultRedTeamName)
+	s.TeamNameUnity = normalizeTeamName(s.TeamNameUnity, defaultUnityTeamName)
 	if err := game.ValidateSettings(s); err != nil {
 		return game.Settings{}, err
 	}
@@ -1224,7 +1229,59 @@ func snapshotDTO(state game.State, viewerID string) map[string]any {
 			remaining[string(c.Color)]++
 		}
 	}
-	return map[string]any{"phase": s.Phase, "players": players, "settings": state.Settings, "currentTeam": s.CurrentTeam, "winner": s.Winner, "finishedAt": s.FinishedAt, "actionId": s.ActionID, "cards": cards, "lastSelected": s.LastSelected, "remainingCounts": remaining, "clueLog": s.ClueLog, "viewer": map[string]any{"playerId": viewerID, "userId": viewerID, "isHost": viewerID != "" && viewerID == state.HostID, "isMod": state.CanManage(viewerID)}}
+	out := map[string]any{"phase": s.Phase, "mode": state.Mode, "players": players, "settings": state.Settings, "currentTeam": s.CurrentTeam, "winner": s.Winner, "finishedAt": s.FinishedAt, "actionId": s.ActionID, "cards": cards, "lastSelected": s.LastSelected, "remainingCounts": remaining, "clueLog": s.ClueLog, "viewer": map[string]any{"playerId": viewerID, "userId": viewerID, "isHost": viewerID != "" && viewerID == state.HostID, "isMod": state.CanManage(viewerID)}}
+	if state.Mode == game.ModeUnity || state.Settings.Mode == game.ModeUnity {
+		out["activeBoard"] = snapshotBoardDTO(s.ActiveBoard)
+		if s.OwnBoard != nil {
+			out["ownBoard"] = snapshotBoardDTO(*s.OwnBoard)
+		}
+		out["unityBoards"] = unityBoardSummaryDTOs(s.UnityBoards)
+		out["unityProgress"] = map[string]any{
+			"unityCardsFound":      s.UnityProgress.UnityCardsFound,
+			"totalUnityCards":      s.UnityProgress.TotalUnityCards,
+			"sharedTurnsRemaining": s.UnityProgress.SharedTurnsRemaining,
+			"unlimitedTurns":       s.UnityProgress.UnlimitedTurns,
+			"strictPerBoardTurns":  s.UnityProgress.StrictPerBoardTurns,
+			"waitingForGuessers":   s.UnityProgress.WaitingForGuessers,
+		}
+		if s.UnityEndStats != nil {
+			out["unityEndStats"] = map[string]any{
+				"unityCardsFound": s.UnityEndStats.UnityCardsFound,
+				"totalUnityCards": s.UnityEndStats.TotalUnityCards,
+				"totalTurns":      s.UnityEndStats.TotalTurns,
+				"assassinCount":   s.UnityEndStats.AssassinCount,
+				"score":           s.UnityEndStats.Score,
+				"reason":          s.UnityEndStats.Reason,
+			}
+		}
+	}
+	return out
+}
+
+func snapshotBoardDTO(board game.SnapshotBoard) map[string]any {
+	cards := make([]map[string]any, len(board.Cards))
+	remaining := map[string]int{"unity": board.RemainingCounts.Blue, "civilian": board.RemainingCounts.Civilian, "black": board.RemainingCounts.Black}
+	for i, c := range board.Cards {
+		card := map[string]any{"contentType": c.Content.Type, "revealed": c.Revealed}
+		if c.Content.Type == game.ContentWord {
+			card["word"] = c.Content.Text
+		} else {
+			card["imageId"] = c.Content.ImageID
+		}
+		if c.Color != "" {
+			card["color"] = c.Color
+		}
+		cards[i] = card
+	}
+	return map[string]any{"ownerId": board.OwnerID, "cards": cards, "clueLog": board.ClueLog, "turnsUsed": board.TurnsUsed, "remainingCounts": remaining}
+}
+
+func unityBoardSummaryDTOs(summaries []game.UnityBoardSummary) []map[string]any {
+	out := make([]map[string]any, len(summaries))
+	for i, summary := range summaries {
+		out[i] = map[string]any{"ownerId": summary.OwnerID, "unityRemaining": summary.UnityRemaining, "turnsUsed": summary.TurnsUsed, "active": summary.Active, "observer": summary.Observer}
+	}
+	return out
 }
 
 func clueNumber(v any) game.ClueNumber {

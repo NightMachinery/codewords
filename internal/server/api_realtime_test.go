@@ -197,6 +197,84 @@ func TestRoomStartPersistsSnapshotAndRestoresOverWebSocket(t *testing.T) {
 	}
 }
 
+func TestUnityStartSnapshotIncludesSafeActiveAndOwnBoards(t *testing.T) {
+	h := newTestHandler(t)
+	postJSON(t, h, "/api/identity/bootstrap", map[string]any{"authToken": "unity-host", "displayName": "Host"}, http.StatusOK)
+	roomResp := postJSON(t, h, "/api/rooms", map[string]any{"authToken": "unity-host", "settings": map[string]any{"mode": "unity", "wordpackId": "english", "seed": 301, "totalCards": 25, "unityTurnLimit": 3}}, http.StatusCreated)
+	roomID := roomResp["room"].(map[string]any)["id"].(string)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "unity-p2", "displayName": "P2"}, http.StatusOK)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "unity-p3", "displayName": "P3"}, http.StatusOK)
+	makeUnityRoomStartable(t, h, roomID, []string{"unity-host", "unity-p2", "unity-p3"})
+
+	start := postJSON(t, h, "/api/rooms/"+roomID+"/start", map[string]any{"authToken": "unity-host"}, http.StatusOK)
+	snapshot := start["snapshot"].(map[string]any)
+	if snapshot["currentTeam"] != "unity" {
+		t.Fatalf("expected unity current team, got %#v", snapshot)
+	}
+	if snapshot["winner"] != "" {
+		t.Fatalf("expected active unity match, got winner %#v", snapshot["winner"])
+	}
+	progress := snapshot["unityProgress"].(map[string]any)
+	if progress["totalUnityCards"].(float64) != 30 || progress["sharedTurnsRemaining"].(float64) != 8 {
+		t.Fatalf("unexpected unity progress: %#v", progress)
+	}
+	activeBoard := snapshot["activeBoard"].(map[string]any)
+	activeCards := activeBoard["cards"].([]any)
+	if len(activeCards) != 25 {
+		t.Fatalf("expected active board cards, got %#v", activeBoard)
+	}
+	activeOwner := activeBoard["ownerId"].(string)
+	viewer := snapshot["viewer"].(map[string]any)["userId"].(string)
+	firstCard := activeCards[0].(map[string]any)
+	if activeOwner != viewer {
+		if _, ok := firstCard["color"]; ok {
+			t.Fatalf("non-owner start response should not leak active hidden color: %#v", firstCard)
+		}
+	}
+	ownBoard := snapshot["ownBoard"].(map[string]any)
+	ownCards := ownBoard["cards"].([]any)
+	if _, ok := ownCards[0].(map[string]any)["color"]; !ok {
+		t.Fatalf("own board should include hidden color for owner: %#v", ownCards[0])
+	}
+}
+
+func TestUnityActiveRoomLinkOpenAddsObserverAndModCanAssignUnityBoard(t *testing.T) {
+	h := newTestHandler(t)
+	postJSON(t, h, "/api/identity/bootstrap", map[string]any{"authToken": "unity-host-observer", "displayName": "Host"}, http.StatusOK)
+	roomResp := postJSON(t, h, "/api/rooms", map[string]any{"authToken": "unity-host-observer", "settings": map[string]any{"mode": "unity", "wordpackId": "english", "seed": 302, "unityTurnLimit": 3}}, http.StatusCreated)
+	roomID := roomResp["room"].(map[string]any)["id"].(string)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "unity-o-p2", "displayName": "P2"}, http.StatusOK)
+	makeUnityRoomStartable(t, h, roomID, []string{"unity-host-observer", "unity-o-p2"})
+	postJSON(t, h, "/api/rooms/"+roomID+"/start", map[string]any{"authToken": "unity-host-observer"}, http.StatusOK)
+
+	late := postJSON(t, h, "/api/identity/bootstrap", map[string]any{"authToken": "unity-late", "displayName": "Late"}, http.StatusOK)
+	lateID := late["userId"].(string)
+	getJSON(t, h, "/api/rooms/"+roomID+"?authToken=unity-late", http.StatusOK)
+
+	handler := h.(*Handler)
+	rt, err := handler.app.loadRuntime(context.Background(), roomID)
+	if err != nil {
+		t.Fatalf("load runtime: %v", err)
+	}
+	rt.mu.Lock()
+	if got := rt.state.Players[lateID].Team; got != game.TeamObservers {
+		t.Fatalf("late active-room opener should become observer, got %q", got)
+	}
+	if _, ok := rt.state.UnityBoards[lateID]; ok {
+		t.Fatalf("observer should not get unity board until assigned")
+	}
+	_, err = game.Apply(&rt.state, game.AssignTeamCommand{PlayerID: lateID, Team: game.TeamUnity}, rt.state.HostID)
+	rt.mu.Unlock()
+	if err != nil {
+		t.Fatalf("assign late player to unity: %v", err)
+	}
+	rt.mu.Lock()
+	defer rt.mu.Unlock()
+	if _, ok := rt.state.UnityBoards[lateID]; !ok {
+		t.Fatalf("assigned late unity player should receive board")
+	}
+}
+
 func newTestHandler(t *testing.T) http.Handler {
 	t.Helper()
 	db, err := storage.Open(context.Background(), filepath.Join(t.TempDir(), "codewords.sqlite"))
@@ -593,6 +671,29 @@ func makeRoomStartable(t *testing.T, h http.Handler, roomID string, tokenRoles m
 			if _, err := game.Apply(&rt.state, game.ToggleSpymasterCommand{PlayerID: user.ID}, rt.state.HostID); err != nil {
 				t.Fatalf("spy %s: %v", role, err)
 			}
+		}
+	}
+	if err := handler.app.syncRoomPlayers(context.Background(), roomID, rt.state); err != nil {
+		t.Fatalf("sync room players: %v", err)
+	}
+}
+
+func makeUnityRoomStartable(t *testing.T, h http.Handler, roomID string, tokens []string) {
+	t.Helper()
+	handler := h.(*Handler)
+	rt, err := handler.app.loadRuntime(context.Background(), roomID)
+	if err != nil {
+		t.Fatalf("load runtime: %v", err)
+	}
+	rt.mu.Lock()
+	defer rt.mu.Unlock()
+	for _, token := range tokens {
+		user, err := handler.app.authUser(context.Background(), token)
+		if err != nil {
+			t.Fatalf("auth %s: %v", token, err)
+		}
+		if _, err := game.Apply(&rt.state, game.AssignTeamCommand{PlayerID: user.ID, Team: game.TeamUnity}, rt.state.HostID); err != nil {
+			t.Fatalf("assign unity %s: %v", token, err)
 		}
 	}
 	if err := handler.app.syncRoomPlayers(context.Background(), roomID, rt.state); err != nil {
