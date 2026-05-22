@@ -469,6 +469,14 @@ export function teamColorControlClasses(): string {
   return 'mt-2 grid min-w-0 grid-cols-1 items-stretch gap-2 overflow-hidden rounded-2xl border bg-slate-950/60 p-2 shadow-inner shadow-slate-950/30';
 }
 
+export function unityTurnBudgetGridClasses(): string {
+  return 'grid min-w-0 gap-3 min-[1120px]:grid-cols-[minmax(10rem,14rem)_minmax(0,1fr)]';
+}
+
+export function unityTurnBudgetOptionsClasses(): string {
+  return 'grid min-w-0 gap-3 min-[1120px]:grid-cols-2';
+}
+
 export function roomMainClasses(): string {
   return 'min-h-screen w-full overflow-x-hidden bg-[oklch(14%_0.018_255)] pb-32 font-sans text-slate-100';
 }

@@ -5,7 +5,7 @@
   import Save from 'lucide-svelte/icons/save';
   import Upload from 'lucide-svelte/icons/upload';
   import type { SettingsProfile } from './settingsProfiles';
-  import { cardModeFromImageCount, colorPickerCtaLabel, colorSettingsGridClasses, displayTeamName, imageCountForMode, isValidHexColor, modSettingsShellClasses, normalizeLobbySettingsForSave, teamColor, teamColorControlClasses } from './gameplay';
+  import { cardModeFromImageCount, colorPickerCtaLabel, colorSettingsGridClasses, displayTeamName, imageCountForMode, isValidHexColor, modSettingsShellClasses, normalizeLobbySettingsForSave, teamColor, teamColorControlClasses, unityTurnBudgetGridClasses, unityTurnBudgetOptionsClasses } from './gameplay';
 
   interface Props {
     settings: Settings;
@@ -253,19 +253,19 @@
 
     {#if settings.mode === 'unity'}
       <div class="rounded-2xl border border-teal-300/30 bg-teal-400/10 p-5">
-        <div class="grid gap-3 lg:grid-cols-[minmax(10rem,14rem)_minmax(0,1fr)]">
+        <div class={unityTurnBudgetGridClasses()}>
           <label class="block rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3">
             <span class="text-xs font-bold text-teal-100">Turns per board</span>
             <input class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" type="number" min="0" bind:value={settings.unityTurnLimit} onchange={saveNormalizedSettings} disabled={settings.unityUnlimitedTurns} />
           </label>
-          <div class="grid gap-3 md:grid-cols-2">
+          <div class={unityTurnBudgetOptionsClasses()}>
             <label class="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-sm text-slate-200">
               <input class="shrink-0" type="checkbox" bind:checked={settings.unityUnlimitedTurns} onchange={saveNormalizedSettings} />
-              <span class="min-w-0">Infinite turns</span>
+              <span class="min-w-0 break-words">Infinite turns</span>
             </label>
             <label class="flex min-w-0 items-start gap-3 rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-sm leading-5 text-slate-200">
               <input class="mt-1 shrink-0" type="checkbox" bind:checked={settings.unityStrictPerBoardTurns} onchange={saveNormalizedSettings} />
-              <span class="min-w-0">Per-board budget. Unused turns on solved boards are lost.</span>
+              <span class="min-w-0 break-words">Per-board budget. Unused turns on solved boards are lost.</span>
             </label>
           </div>
         </div>

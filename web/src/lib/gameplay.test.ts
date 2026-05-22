@@ -60,6 +60,8 @@ import {
   colorSettingsGridClasses,
   teamColorControlClasses,
   modSettingsShellClasses,
+  unityTurnBudgetGridClasses,
+  unityTurnBudgetOptionsClasses,
   viewerRole,
   bottomShortcutItems,
   ownTeamPlayerNames,
@@ -580,6 +582,13 @@ describe('regression helpers', () => {
     expect(teamColorControlClasses()).toContain('grid-cols-1');
     expect(teamColorControlClasses()).not.toContain('sm:flex-row');
     expect(teamColorControlClasses()).toContain('min-w-0');
+  });
+
+  it('keeps unity turn-budget settings stacked until wide layouts have enough room', () => {
+    expect(unityTurnBudgetGridClasses()).toBe('grid min-w-0 gap-3 min-[1120px]:grid-cols-[minmax(10rem,14rem)_minmax(0,1fr)]');
+    expect(unityTurnBudgetGridClasses()).not.toContain('lg:grid-cols');
+    expect(unityTurnBudgetOptionsClasses()).toBe('grid min-w-0 gap-3 min-[1120px]:grid-cols-2');
+    expect(unityTurnBudgetOptionsClasses()).not.toContain('md:grid-cols-2');
   });
 
   it('uses a minimal fixed bottom start panel in the lobby', () => {
