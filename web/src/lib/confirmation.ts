@@ -1,6 +1,16 @@
 export type ConfirmationKind = 'reveal' | 'pass' | 'restart';
 export type ConfirmationTone = 'reveal' | 'pass' | 'danger';
 
+export interface ConfirmationCardPreview {
+  label: string;
+  imageUrl: string;
+}
+
+export interface RevealConfirmationCard {
+  label: string;
+  imageUrl?: string;
+}
+
 export interface ConfirmationRequest {
   kind: ConfirmationKind;
   title: string;
@@ -8,16 +18,18 @@ export interface ConfirmationRequest {
   confirmLabel: string;
   cancelLabel: string;
   tone: ConfirmationTone;
+  cardPreview?: ConfirmationCardPreview;
 }
 
-export function buildRevealConfirmation(cardLabel: string): ConfirmationRequest {
+export function buildRevealConfirmation(card: RevealConfirmationCard): ConfirmationRequest {
   return {
     kind: 'reveal',
     title: 'Reveal card?',
-    message: `Reveal ${cardLabel} to the room.`,
+    message: `Reveal ${card.label} to the room.`,
     confirmLabel: 'Reveal',
     cancelLabel: 'Keep Hidden',
     tone: 'reveal',
+    cardPreview: card.imageUrl ? { label: card.label, imageUrl: card.imageUrl } : undefined,
   };
 }
 

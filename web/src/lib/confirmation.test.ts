@@ -8,7 +8,7 @@ import {
 
 describe('confirmation request builders', () => {
   it('builds an action-specific reveal confirmation with the card label', () => {
-    const request = buildRevealConfirmation('Moon Base');
+    const request = buildRevealConfirmation({ label: 'Moon Base' });
 
     expect(request).toMatchObject({
       kind: 'reveal',
@@ -17,6 +17,18 @@ describe('confirmation request builders', () => {
       confirmLabel: 'Reveal',
       cancelLabel: 'Keep Hidden',
       tone: 'reveal',
+    });
+  });
+
+  it('includes an image-card preview for picture reveal confirmations', () => {
+    const request = buildRevealConfirmation({
+      label: 'Picture card',
+      imageUrl: '/api/pictures/card-1',
+    });
+
+    expect(request.cardPreview).toEqual({
+      label: 'Picture card',
+      imageUrl: '/api/pictures/card-1',
     });
   });
 

@@ -81,6 +81,21 @@
       </div>
     </div>
 
+    {#if request.cardPreview}
+      <figure class="relative mt-5 overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/80 p-2">
+        <div class="mx-auto aspect-[2/3] max-h-72 w-full max-w-48 overflow-hidden rounded-xl">
+          <img
+            class="h-full w-full object-cover"
+            src={request.cardPreview.imageUrl}
+            alt={request.cardPreview.label}
+          />
+        </div>
+        <figcaption class="mt-2 text-center text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+          {request.cardPreview.label}
+        </figcaption>
+      </figure>
+    {/if}
+
     <div class="relative mt-6 grid gap-2 min-[420px]:grid-cols-[1fr_auto]">
       <button
         class="rounded-2xl border border-slate-600 bg-slate-900/80 px-4 py-3 text-sm font-black text-slate-200 transition hover:border-slate-400 hover:text-slate-50 active:translate-y-px"

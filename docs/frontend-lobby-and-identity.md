@@ -69,7 +69,7 @@ Local-only confirmation preferences are stored in LocalStorage under `codewords.
 - `confirmGuesses` defaults to `true`;
 - `confirmPasses` defaults to `false`.
 
-Reveal, pass, and restart confirmations use a shared styled in-app popup instead of the browser-native confirmation dialog. Each action has tailored copy and visual emphasis, and restart remains a mandatory destructive confirmation while reveal/pass still respect the local preference toggles.
+Reveal, pass, and restart confirmations use a shared styled in-app popup instead of the browser-native confirmation dialog. Each action has tailored copy and visual emphasis; picture-card reveal confirmations include the selected card image so the guesser can verify the exact target before confirming. Restart remains a mandatory destructive confirmation while reveal/pass still respect the local preference toggles.
 
 ## Chat and picture cards
 

@@ -11,6 +11,7 @@
     canSubmitClue,
     boardFitHeightStyle,
     cardContentLabel,
+    cardImageUrl,
     cardModeFromImageCount,
     clueCueSignature,
     currentSubmittedClue,
@@ -462,7 +463,10 @@
       appendSystemMessage(reason, 'guessCard');
       return;
     }
-    if (preferences.confirmGuesses && !await askForConfirmation(buildRevealConfirmation(cardContentLabel(card)))) {
+    if (preferences.confirmGuesses && !await askForConfirmation(buildRevealConfirmation({
+      label: cardContentLabel(card),
+      imageUrl: card.contentType === 'image' ? cardImageUrl(card) : undefined,
+    }))) {
       return;
     }
     const confirmedReason = guessDisabledReason(card);

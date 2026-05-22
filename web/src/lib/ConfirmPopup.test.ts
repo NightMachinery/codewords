@@ -10,6 +10,8 @@ describe('ConfirmPopup component contract', () => {
     expect(source).toContain('onkeydown');
     expect(source).toContain("event.key === 'Escape'");
     expect(source).toContain('request.tone');
+    expect(source).toContain('request.cardPreview');
+    expect(source).toContain('src={request.cardPreview.imageUrl}');
     expect(source).toContain('onclick={onConfirm}');
     expect(source).toContain('onclick={onCancel}');
   });
