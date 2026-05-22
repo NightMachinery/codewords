@@ -76,12 +76,19 @@
  import roastPackText from '../../../assets/roast-packs/roast_adult_gem_3.txt?raw';
  ///
   import { roomIdFromPath, roomPath, websocketRoomUrl } from '../lib/routes';
+  import {
+    buildPassConfirmation,
+    buildRestartConfirmation,
+    buildRevealConfirmation,
+    type ConfirmationRequest,
+  } from '../lib/confirmation';
 
   import PlayerList from '../lib/PlayerList.svelte';
   import ChatSidebar from '../lib/ChatSidebar.svelte';
   import BottomControls from '../lib/BottomControls.svelte';
   import BoardGrid from '../lib/BoardGrid.svelte';
   import ModSettings from '../lib/ModSettings.svelte';
+  import ConfirmPopup from '../lib/ConfirmPopup.svelte';
   import { customSvg } from '../lib/customSvg';
   import SvgMaskIcon from '../lib/SvgMaskIcon.svelte';
 
@@ -145,7 +152,9 @@
   let pendingCaptureModel = $state<MemoryCaptureModel | null>(null);
   let captureViewportWidth = $state(1400);
   let boardFitStyle = $state('');
+  let pendingConfirmation = $state<ConfirmationRequest | null>(null);
   let bottomPanelObserver: ResizeObserver | null = null;
+  let confirmationResolver: ((confirmed: boolean) => void) | null = null;
 
   let mode = $derived.by((): 'unity' | 'polarity' => settings.mode === 'unity' ? 'unity' : 'polarity');
   let activeBoardOwner = $derived(activeBoard?.ownerId ?? '');
@@ -430,7 +439,22 @@
     sendSocketAction('submitClue', { type: 'submitClue', text: clueText, number: clueNumber });
   }
 
-  function guessCard(index: number, card: GameplayCard) {
+  function askForConfirmation(request: ConfirmationRequest): Promise<boolean> {
+    confirmationResolver?.(false);
+    pendingConfirmation = request;
+    return new Promise((resolve) => {
+      confirmationResolver = resolve;
+    });
+  }
+
+  function finishConfirmation(confirmed: boolean): void {
+    const resolve = confirmationResolver;
+    confirmationResolver = null;
+    pendingConfirmation = null;
+    resolve?.(confirmed);
+  }
+
+  async function guessCard(index: number, card: GameplayCard) {
     error = '';
     const reason = guessDisabledReason(card);
     if (reason) {
@@ -438,13 +462,19 @@
       appendSystemMessage(reason, 'guessCard');
       return;
     }
-    if (preferences.confirmGuesses && !window.confirm(`Reveal ${cardContentLabel(card)}?`)) {
+    if (preferences.confirmGuesses && !await askForConfirmation(buildRevealConfirmation(cardContentLabel(card)))) {
+      return;
+    }
+    const confirmedReason = guessDisabledReason(card);
+    if (confirmedReason) {
+      error = confirmedReason;
+      appendSystemMessage(confirmedReason, 'guessCard');
       return;
     }
     sendSocketAction('guessCard', { type: 'guessCard', index });
   }
 
-  function passTurn() {
+  async function passTurn() {
     error = '';
     const reason = passDisabledReason();
     if (reason) {
@@ -452,7 +482,13 @@
       appendSystemMessage(reason, 'passTurn');
       return;
     }
-    if (preferences.confirmPasses && !window.confirm('Pass this turn?')) {
+    if (preferences.confirmPasses && !await askForConfirmation(buildPassConfirmation())) {
+      return;
+    }
+    const confirmedReason = passDisabledReason();
+    if (confirmedReason) {
+      error = confirmedReason;
+      appendSystemMessage(confirmedReason, 'passTurn');
       return;
     }
     sendSocketAction('passTurn', { type: 'passTurn' });
@@ -723,10 +759,9 @@
     sendSocketAction('resetClue', { type: 'resetClue' });
   }
 
-  function restartMatch() {
-    if (window.confirm('Restart this match and return everyone to the lobby?')) {
-      sendSocketAction('restartMatch', { type: 'restartMatch' });
-    }
+  async function restartMatch() {
+    if (!await askForConfirmation(buildRestartConfirmation())) return;
+    sendSocketAction('restartMatch', { type: 'restartMatch' });
   }
 
   function updateBoardFitSoon() {
@@ -1324,6 +1359,12 @@
       bind:draft={chatDraft} 
       canChat={Boolean(currentPlayer && (currentPlayer.team !== 'observers' || settings.observerChatEnabled))}
       onSend={sendChat}
+    />
+
+    <ConfirmPopup
+      request={pendingConfirmation}
+      onConfirm={() => finishConfirmation(true)}
+      onCancel={() => finishConfirmation(false)}
     />
 
     {#if phase !== 'lobby'}

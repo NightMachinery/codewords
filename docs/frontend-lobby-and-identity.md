@@ -69,6 +69,8 @@ Local-only confirmation preferences are stored in LocalStorage under `codewords.
 - `confirmGuesses` defaults to `true`;
 - `confirmPasses` defaults to `false`.
 
+Reveal, pass, and restart confirmations use a shared styled in-app popup instead of the browser-native confirmation dialog. Each action has tailored copy and visual emphasis, and restart remains a mandatory destructive confirmation while reveal/pass still respect the local preference toggles.
+
 ## Chat and picture cards
 
 Milestone 7 adds room chat to the lobby and gameplay sidebars. Seated players can send messages; observers can send messages only when observer chat is enabled. The room load response includes recent chat history, and live WebSocket `chatMessage` events append new messages.
