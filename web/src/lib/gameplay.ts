@@ -787,6 +787,19 @@ export function unityBoardViewCards(view: UnityBoardView, activeBoard: UnityBoar
   return activeBoard?.cards ?? [];
 }
 
+export function shouldCueUnitySpymaster(input: {
+  mode: GameMode;
+  phase: GameplayPhase;
+  viewerId: string;
+  previousActiveBoardOwner: string;
+  nextActiveBoard: UnityBoardSnapshot | null | undefined;
+}): boolean {
+  if (input.mode !== 'unity' || input.phase !== 'active') return false;
+  if (!input.viewerId || !input.nextActiveBoard?.ownerId) return false;
+  if (input.nextActiveBoard.cards.length === 0) return false;
+  return input.nextActiveBoard.ownerId === input.viewerId && input.previousActiveBoardOwner !== input.nextActiveBoard.ownerId;
+}
+
 export function unityGuessDisabledReason(input: {
   phase: GameplayPhase;
   hasPlayer: boolean;

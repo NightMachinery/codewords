@@ -10,6 +10,7 @@ import {
   isActiveGuesser,
   normalizeLobbySettingsForSave,
   teamColor,
+  shouldCueUnitySpymaster,
   unityBoardViewCards,
   unityEndGameSummary,
   unityPlayerBoardRows,
@@ -79,6 +80,42 @@ describe('unity frontend helpers', () => {
     expect(unityBoardViewCards('active', active, own)[0].word).toBe('Active');
     expect(unityBoardViewCards('own', active, own)[0].word).toBe('Own');
     expect(unityBoardViewCards('own', active, null)[0].word).toBe('Active');
+  });
+
+  it('cues unity spymasters only for active live board handoffs', () => {
+    const board: UnityBoardSnapshot = { ownerId: 'host', cards: [{ contentType: 'word', word: 'Active', revealed: false }], clueLog: [], turnsUsed: 0, remainingCounts: { unity: 10, civilian: 11, black: 4 } };
+
+    expect(shouldCueUnitySpymaster({
+      mode: 'unity',
+      phase: 'lobby',
+      viewerId: 'host',
+      previousActiveBoardOwner: '',
+      nextActiveBoard: board,
+    })).toBe(false);
+
+    expect(shouldCueUnitySpymaster({
+      mode: 'unity',
+      phase: 'active',
+      viewerId: 'host',
+      previousActiveBoardOwner: '',
+      nextActiveBoard: { ...board, cards: [] },
+    })).toBe(false);
+
+    expect(shouldCueUnitySpymaster({
+      mode: 'unity',
+      phase: 'active',
+      viewerId: 'host',
+      previousActiveBoardOwner: 'p2',
+      nextActiveBoard: board,
+    })).toBe(true);
+
+    expect(shouldCueUnitySpymaster({
+      mode: 'unity',
+      phase: 'active',
+      viewerId: 'host',
+      previousActiveBoardOwner: 'host',
+      nextActiveBoard: board,
+    })).toBe(false);
   });
 
   it('blocks active guessing while viewing a different own board', () => {

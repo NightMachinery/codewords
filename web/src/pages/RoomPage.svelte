@@ -37,6 +37,7 @@
     shouldAutoJoinRoom,
     shouldCueChatMessage,
     shouldCueCardReveal,
+    shouldCueUnitySpymaster,
     shouldResetClueDraft,
     visibleClueLogEntries,
     viewerRole,
@@ -334,7 +335,13 @@
       if (sawSnapshot && nextClueSignature && nextClueSignature !== lastClueSignature) {
         emitCue('clue', 'New clue received.');
       }
-      if (sawSnapshot && nextMode === 'unity' && nextActiveBoard?.ownerId === message.snapshot.viewer?.userId && activeBoard?.ownerId !== nextActiveBoard.ownerId) {
+      if (sawSnapshot && shouldCueUnitySpymaster({
+        mode: nextMode,
+        phase: message.snapshot.phase,
+        viewerId: message.snapshot.viewer?.userId ?? '',
+        previousActiveBoardOwner: activeBoard?.ownerId ?? '',
+        nextActiveBoard,
+      })) {
         emitUnitySpymasterCue();
       }
       if (sawSnapshot && nextMode === 'unity' && message.snapshot.phase === 'active') {

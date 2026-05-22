@@ -67,6 +67,36 @@ func TestUnityDefaultsToSixTurnsPerBoard(t *testing.T) {
 	}
 }
 
+func TestUnityRestartClearsRuntimeBoardState(t *testing.T) {
+	state := unityLobby(t, Settings{Mode: ModeUnity, Seed: 515, UnityTurnLimit: 4})
+
+	mustApply(t, &state, StartCommand{GameID: "game-515", Words: makeWords(80)}, "host")
+	if state.ActiveBoardOwner == "" || len(state.UnityBoards) == 0 {
+		t.Fatalf("expected active unity runtime state before restart")
+	}
+
+	mustApply(t, &state, RestartMatchCommand{}, "host")
+
+	if state.Phase != PhaseLobby {
+		t.Fatalf("expected restart to return to lobby, got %s", state.Phase)
+	}
+	if state.Mode != ModeUnity || state.Settings.Mode != ModeUnity {
+		t.Fatalf("restart should preserve selected unity mode, got mode=%s settings=%s", state.Mode, state.Settings.Mode)
+	}
+	if state.ActiveBoardOwner != "" {
+		t.Fatalf("expected restart to clear active board owner, got %q", state.ActiveBoardOwner)
+	}
+	if len(state.UnityBoards) != 0 || len(state.UnityBoardOrder) != 0 {
+		t.Fatalf("expected restart to clear unity boards, got boards=%d order=%d", len(state.UnityBoards), len(state.UnityBoardOrder))
+	}
+	if state.UnitySharedTurnsRemaining != 0 || state.UnityWaitingForGuessers {
+		t.Fatalf("expected restart to clear unity progress, remaining=%d waiting=%v", state.UnitySharedTurnsRemaining, state.UnityWaitingForGuessers)
+	}
+	if len(state.UnityWords) != 0 || len(state.UnityImageIDs) != 0 || state.UnityEndStats != nil || state.GameID != "" {
+		t.Fatalf("expected restart to clear unity match payloads, gameID=%q words=%d images=%d stats=%#v", state.GameID, len(state.UnityWords), len(state.UnityImageIDs), state.UnityEndStats)
+	}
+}
+
 func TestUnityLobbyRejoinReturnsObserverToUnityWithoutLosingPolarityMetadata(t *testing.T) {
 	state := NewLobby("host", Settings{Mode: ModeUnity, Seed: 511})
 	mustApply(t, &state, AddPlayerCommand{PlayerID: "host", DisplayName: "Host"}, "host")

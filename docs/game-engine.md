@@ -54,4 +54,4 @@ Unity lobby joins assign new players directly to Unity instead of applying Polar
 
 Unity end stats include global found/total/turn/assassin totals plus one row per personal board with owner id, Unity cards found, total Unity cards, turns used, and Unity cards found per board turn. Unplayed boards expose no per-turn average.
 
-`RestartMatchCommand` returns the room to lobby state and increments the seed so the next start generates a fresh board instead of reusing the prior word/image order.
+`RestartMatchCommand` returns the room to lobby state, clears active board state including Unity personal boards and progress, and increments the seed so the next start generates a fresh board instead of reusing the prior word/image order.

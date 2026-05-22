@@ -734,6 +734,15 @@ func (c RestartMatchCommand) apply(state *State, actorID string) (Event, error) 
 	state.LastSelected = nil
 	state.Round = 0
 	state.RoundGuesses = 0
+	state.GameID = ""
+	state.ActiveBoardOwner = ""
+	state.UnityBoards = nil
+	state.UnityBoardOrder = nil
+	state.UnitySharedTurnsRemaining = 0
+	state.UnityWaitingForGuessers = false
+	state.UnityWords = nil
+	state.UnityImageIDs = nil
+	state.UnityEndStats = nil
 	state.Settings.Seed++
 	state.ActionID++
 	return Event{Type: EventMatchRestarted}, nil
