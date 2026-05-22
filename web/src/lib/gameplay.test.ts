@@ -338,7 +338,7 @@ describe('board card state', () => {
   const hiddenUnknown: GameplayCard = { contentType: 'word', word: 'orbit', revealed: false };
 
   it('formats image card content labels for confirmations and fallbacks', () => {
-    expect(cardContentLabel({ contentType: 'image', imageId: 'abc123', revealed: false })).toBe('Picture card');
+    expect(cardContentLabel({ contentType: 'image', imageId: 'abc123', revealed: false })).toBe('this picture card');
     expect(cardContentLabel({ contentType: 'word', word: 'river', revealed: false })).toBe('river');
   });
 

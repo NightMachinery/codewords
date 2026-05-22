@@ -22,12 +22,12 @@ describe('confirmation request builders', () => {
 
   it('includes an image-card preview for picture reveal confirmations', () => {
     const request = buildRevealConfirmation({
-      label: 'Picture card',
+      label: 'this picture card',
       imageUrl: '/api/pictures/card-1',
     });
 
     expect(request.cardPreview).toEqual({
-      label: 'Picture card',
+      label: 'this picture card',
       imageUrl: '/api/pictures/card-1',
     });
   });

@@ -421,7 +421,7 @@ export function shouldAutoJoinRoom(room: RoomSummary, credentialMode: 'auth' | '
 }
 
 export function cardContentLabel(card: GameplayCard): string {
-  if (card.contentType === 'image') return 'Picture card';
+  if (card.contentType === 'image') return 'this picture card';
   return card.word || 'Card';
 }
 
