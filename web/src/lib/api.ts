@@ -62,9 +62,11 @@ export interface RoomSnapshot {
   remainingCounts: RemainingCounts;
   clueLog: ClueEntry[];
   activeBoard?: import('./gameplay').UnityBoardSnapshot;
+  previousBoard?: import('./gameplay').UnityBoardSnapshot | null;
   ownBoard?: import('./gameplay').UnityBoardSnapshot | null;
   unityBoards?: import('./gameplay').UnityBoardSummary[];
   unityProgress?: import('./gameplay').UnityProgress;
+  unityTransitionUntil?: string;
   unityEndStats?: import('./gameplay').UnityEndStats | null;
   viewer: Viewer;
 }

@@ -180,7 +180,7 @@ describe('local gameplay preferences', () => {
   it('defaults local cue/layout preferences and persists partial updates', () => {
     const storage = new MemoryStorage();
     expect(readGameplayPreferences(storage)).toEqual(defaultGameplayPreferences);
-    expect(defaultGameplayPreferences.spymasterRevealedStyle).toBe('invisible');
+    expect(defaultGameplayPreferences.spymasterRevealedStyle).toBe('greyed');
 
     const saved: GameplayPreferences = { confirmGuesses: false, confirmPasses: true, boardColumnsMobile: 4, boardColumnsDesktop: 5, imageCardScale: 8, strictCardAspectRatios: true, boardMustFitHeight: false, showNumberBadges: false, chatSound: false, chatVisualCue: false, cardChoiceSound: false, cardChoiceVisualCue: true, clueSound: true, clueVisualCue: false, endGameSound: true, endGameVisualCue: true, spymasterRevealedStyle: 'greyed' };
     writeGameplayPreferences(storage, saved);

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { Settings } from './api';
-  import { filteredBottomShortcutItems, displayTeamName, formatClueNumber, hexWithAlpha, pressableButtonClasses, sortedTurnPlayers, teamColor, type ClueEntry, type GameplayPhase } from './gameplay';
+  import { filteredBottomShortcutItems, displayTeamName, formatClueNumber, hexWithAlpha, pressableButtonClasses, sortedTurnPlayers, teamColor, type ClueEntry, type GameplayPhase, type UnityBoardView } from './gameplay';
   import ChevronDown from 'lucide-svelte/icons/chevron-down';
   import Grid2X2 from 'lucide-svelte/icons/grid-2x2';
   import List from 'lucide-svelte/icons/list';
@@ -20,7 +20,10 @@
     currentTeam: Team;
     mode?: 'polarity' | 'unity';
     activeBoardOwner?: string;
-    boardView?: 'active' | 'own';
+    boardView?: UnityBoardView;
+    hasPreviousBoard?: boolean;
+    transitionLocked?: boolean;
+    transitionSecondsRemaining?: number;
     currentClue: ClueEntry | null;
     role: { kind: string; activeGuesser: boolean; team?: Team; player?: LobbyPlayer };
     cluePermission: { allowed: boolean; reason: string };
@@ -33,7 +36,9 @@
     hostControls: boolean;
     spymasterViewActive: boolean;
     onToggleView: () => void;
-    onSetBoardView?: (view: 'active' | 'own') => void;
+    onSetSpyView?: (active: boolean) => void;
+    onSetBoardView?: (view: UnityBoardView) => void;
+    onSwitchUnitySpymaster?: () => void;
     onNavigate: (target: string) => void;
     onSubmitClue: () => void;
     onPassTurn: () => void;
@@ -45,6 +50,9 @@
     mode = 'polarity',
     activeBoardOwner = '',
     boardView = 'active',
+    hasPreviousBoard = false,
+    transitionLocked = false,
+    transitionSecondsRemaining = 0,
     currentClue,
     role,
     cluePermission,
@@ -57,7 +65,9 @@
     hostControls,
     spymasterViewActive,
     onToggleView,
+    onSetSpyView = () => {},
     onSetBoardView = () => {},
+    onSwitchUnitySpymaster = () => {},
     onNavigate,
     onSubmitClue,
     onPassTurn
@@ -94,7 +104,7 @@
     : sortedTurnPlayers(players, currentTeam));
   let canActNow = $derived(Boolean(phase === 'active' && isYourTeam && (role.activeGuesser || (role.kind === 'spymaster' && cluePermission.allowed))));
   let shortcutItems = $derived(filteredBottomShortcutItems(hostControls));
-  let showUnityBoardSwitch = $derived(mode === 'unity' && role.player?.id !== activeBoardOwner);
+  let showUnityBoardSwitch = $derived(mode === 'unity' && Boolean(role.player));
   let turnColor = $derived(teamColor(currentTeam, settings));
   let turnGlowStyle = $derived(currentTeam === 'blue' || currentTeam === 'red'
     ? `background-color: ${turnColor}; box-shadow: 0 0 0 1px ${hexWithAlpha(turnColor, '88')}, 0 0 ${canActNow ? '34px' : '18px'} ${hexWithAlpha(turnColor, canActNow ? 'AA' : '66')};`
@@ -147,17 +157,26 @@
   {/if}
 {/snippet}
 
-{#snippet BoardViewIcon(kind: 'active' | 'own')}
-  {#if kind === 'active'}
+{#snippet BoardViewIcon(kind: UnityBoardView | 'active-spy' | 'active-normal' | 'switch-spy')}
+  {#if kind === 'previous'}
+    <svg class="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M7 7h10v10H7z" fill="none" stroke="currentColor" stroke-width="1.8" />
+      <path d="M4 5h11M4 19h11M4 5v14M19 8v8" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8" />
+    </svg>
+  {:else if kind === 'active'}
     <svg class="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
       <path d="M4 6.5 12 3l8 3.5v11L12 21l-8-3.5v-11Z" fill="none" stroke="currentColor" stroke-width="1.8" />
       <path d="M8 9h8M8 12h8M8 15h5" stroke="currentColor" stroke-linecap="round" stroke-width="1.8" />
     </svg>
-  {:else}
+  {:else if kind === 'own'}
     <svg class="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
       <path d="M12 4.5c-3.2 0-5.8 2.6-5.8 5.8v1.8c0 3.2 2.6 5.8 5.8 5.8s5.8-2.6 5.8-5.8v-1.8c0-3.2-2.6-5.8-5.8-5.8Z" fill="none" stroke="currentColor" stroke-width="1.8" />
       <path d="M9.2 11.2h5.6M12 8.4v5.6M7 19.5h10" stroke="currentColor" stroke-linecap="round" stroke-width="1.8" />
     </svg>
+  {:else if kind === 'switch-spy'}
+    <SvgMaskIcon src={customSvg.spy} classes="h-4 w-4" />
+  {:else}
+    <SvgMaskIcon src={customSvg.spy} classes="h-4 w-4" />
   {/if}
 {/snippet}
 
@@ -284,7 +303,41 @@
         {/each}
       </div>
       {#if showUnityBoardSwitch}
-        <div class="grid grid-cols-2 gap-1 rounded-2xl border border-teal-300/30 bg-slate-950/70 p-1" aria-label="Unity board view">
+        <div class="grid grid-flow-col auto-cols-fr gap-1 rounded-2xl border border-teal-300/30 bg-slate-950/70 p-1" aria-label="Unity board view">
+          {#if hasPreviousBoard}
+            <button
+              class={pressableButtonClasses(['grid h-8 w-8 place-items-center rounded-xl', boardView === 'previous' ? 'bg-teal-300 text-slate-950' : 'text-teal-100 hover:bg-teal-300/10'].join(' '))}
+              type="button"
+              aria-label={transitionLocked ? `Previous board, ${transitionSecondsRemaining} seconds remaining` : 'Show previous board'}
+              aria-pressed={boardView === 'previous'}
+              title={transitionLocked ? `Previous board, ${transitionSecondsRemaining}s` : 'Previous board'}
+              onclick={() => onSetBoardView('previous')}
+            >
+              {@render BoardViewIcon('previous')}
+            </button>
+          {/if}
+          {#if role.player?.id === activeBoardOwner}
+            <button
+              class={pressableButtonClasses(['grid h-8 w-8 place-items-center rounded-xl', boardView === 'active' && spymasterViewActive ? 'bg-teal-300 text-slate-950' : 'text-teal-100 hover:bg-teal-300/10'].join(' '))}
+              type="button"
+              aria-label="Current spy view"
+              aria-pressed={boardView === 'active' && spymasterViewActive}
+              title="Current spy view"
+              onclick={() => { onSetBoardView('active'); onSetSpyView(true); }}
+            >
+              {@render BoardViewIcon('active-spy')}
+            </button>
+            <button
+              class={pressableButtonClasses(['grid h-8 w-8 place-items-center rounded-xl', boardView === 'active' && !spymasterViewActive ? 'bg-teal-300 text-slate-950' : 'text-teal-100 hover:bg-teal-300/10'].join(' '))}
+              type="button"
+              aria-label="Current normal view"
+              aria-pressed={boardView === 'active' && !spymasterViewActive}
+              title="Current normal view"
+              onclick={() => { onSetBoardView('active'); onSetSpyView(false); }}
+            >
+              {@render BoardViewIcon('active')}
+            </button>
+          {:else}
           {#each ['active', 'own'] as view (view)}
             <button
               class={pressableButtonClasses(['grid h-8 w-8 place-items-center rounded-xl', boardView === view ? 'bg-teal-300 text-slate-950' : 'text-teal-100 hover:bg-teal-300/10'].join(' '))}
@@ -292,14 +345,27 @@
               aria-label={view === 'active' ? 'Show active board' : 'Show own board'}
               aria-pressed={boardView === view}
               title={view === 'active' ? 'Active board' : 'Own board'}
-              onclick={() => onSetBoardView(view as 'active' | 'own')}
+              onclick={() => onSetBoardView(view as UnityBoardView)}
             >
-              {@render BoardViewIcon(view as 'active' | 'own')}
+              {@render BoardViewIcon(view as UnityBoardView)}
             </button>
           {/each}
+          {/if}
         </div>
       {/if}
-      {#if role.kind === 'spymaster'}
+      {#if mode === 'unity' && hostControls && phase === 'active'}
+        <button
+          class={pressableButtonClasses(['grid h-10 w-10 place-items-center rounded-xl border', transitionLocked ? 'border-slate-700 bg-slate-800 text-slate-500' : 'border-teal-300/50 bg-teal-300/10 text-teal-100 hover:bg-teal-300/20'].join(' '))}
+          type="button"
+          disabled={transitionLocked}
+          aria-label="Switch Unity spy"
+          title={transitionLocked ? `Next board unlocks in ${transitionSecondsRemaining}s` : 'Switch Unity spy'}
+          onclick={onSwitchUnitySpymaster}
+        >
+          {@render BoardViewIcon('switch-spy')}
+        </button>
+      {/if}
+      {#if role.kind === 'spymaster' && mode !== 'unity'}
         <button
           class={pressableButtonClasses(['inline-flex h-10 w-10 items-center justify-center gap-1 rounded-xl border', spymasterViewActive ? 'border-emerald-300/60 bg-emerald-300/15 text-emerald-100' : 'border-slate-600 bg-slate-800 text-slate-300 hover:border-emerald-300/50'].join(' '))}
           onclick={onToggleView}

@@ -202,7 +202,7 @@ export const defaultGameplayPreferences: GameplayPreferences = {
   clueVisualCue: true,
   endGameSound: true,
   endGameVisualCue: true,
-  spymasterRevealedStyle: 'invisible',
+  spymasterRevealedStyle: 'greyed',
 };
 
 export const defaultTeamNames = {
@@ -777,7 +777,7 @@ export function displayCards(cards: GameplayCard[], cardMode: CardMode, imageOrd
   return ordered.map((card, index) => ({ ...card, badgeNumber: index + 1 }));
 }
 
-export type UnityBoardView = 'active' | 'own';
+export type UnityBoardView = 'previous' | 'active' | 'own';
 
 export function unityStartReadiness(players: LobbyPlayer[]): { ready: boolean; reason: string } {
   if (players.some((player) => player.team === '')) {
@@ -790,7 +790,13 @@ export function unityStartReadiness(players: LobbyPlayer[]): { ready: boolean; r
   return { ready: true, reason: '' };
 }
 
-export function unityBoardViewCards(view: UnityBoardView, activeBoard: UnityBoardSnapshot | null | undefined, ownBoard: UnityBoardSnapshot | null | undefined): GameplayCard[] {
+export function unityBoardViewCards(
+  view: UnityBoardView,
+  activeBoard: UnityBoardSnapshot | null | undefined,
+  ownBoard: UnityBoardSnapshot | null | undefined,
+  previousBoard?: UnityBoardSnapshot | null | undefined,
+): GameplayCard[] {
+  if (view === 'previous' && previousBoard) return previousBoard.cards;
   if (view === 'own' && ownBoard) return ownBoard.cards;
   return activeBoard?.cards ?? [];
 }
@@ -818,6 +824,7 @@ export function unityGuessDisabledReason(input: {
   boardView: UnityBoardView;
   activeBoardId?: string;
   displayedBoardId?: string;
+  transitionLocked?: boolean;
   enforceClueGuessLimit: boolean;
   currentClue: ClueEntry | null | undefined;
   cardRevealed?: boolean;
@@ -826,9 +833,11 @@ export function unityGuessDisabledReason(input: {
   if (input.phase !== 'active') return 'The match has not started.';
   if (!input.hasPlayer) return 'Observers are read-only.';
   if (input.waitingForGuessers) return 'Waiting for eligible Unity guessers.';
+  if (input.transitionLocked) return 'Waiting for the next Unity board.';
   if (input.activeGuesser && input.boardView === 'own' && input.displayedBoardId && input.displayedBoardId !== input.activeBoardId) {
     return 'Switch to the active board to reveal cards.';
   }
+  if (input.activeGuesser && input.boardView === 'previous') return 'Switch to the active board to reveal cards.';
   if (!input.activeGuesser) {
     if (input.playerId === input.activeBoardOwner) return 'You cannot guess on your own board.';
     return 'Only eligible Unity guessers can reveal cards.';
@@ -861,7 +870,7 @@ export function unityPlayerBoardRows(players: LobbyPlayer[], boardStats: UnityBo
       const stats = statsByOwner.get(player.id);
       const name = player.displayName.trim() || 'Player';
       if (!stats) {
-        return { id: player.id, name, status: 'no-board', detail: 'No Unity board' };
+        return { id: player.id, name, status: 'no-board' as const, detail: 'No Unity board' };
       }
       const average = stats.turnsUsed > 0 && typeof stats.unityCardsPerTurn === 'number'
         ? `${stats.unityCardsPerTurn.toFixed(2)}/turn`
@@ -869,10 +878,28 @@ export function unityPlayerBoardRows(players: LobbyPlayer[], boardStats: UnityBo
       return {
         id: player.id,
         name,
-        status: 'board',
+        status: 'board' as const,
         detail: `${stats.unityCardsFound}/${stats.totalUnityCards} Unity · ${average} · ${stats.turnsUsed} ${stats.turnsUsed === 1 ? 'turn' : 'turns'}`,
       };
+    })
+    .sort((left, right) => {
+      const leftAverage = statsByOwner.get(left.id)?.unityCardsPerTurn;
+      const rightAverage = statsByOwner.get(right.id)?.unityCardsPerTurn;
+      const leftScore = typeof leftAverage === 'number' ? leftAverage : Number.NEGATIVE_INFINITY;
+      const rightScore = typeof rightAverage === 'number' ? rightAverage : Number.NEGATIVE_INFINITY;
+      if (leftScore !== rightScore) return rightScore - leftScore;
+      return left.name.localeCompare(right.name);
     });
+}
+
+export type PlayerRoleBadgeKind = 'spy' | 'rep' | 'mod';
+
+export function playerRoleBadgeKinds(player: Pick<LobbyPlayer, 'spymaster' | 'representative' | 'mod'>): PlayerRoleBadgeKind[] {
+  const badges: PlayerRoleBadgeKind[] = [];
+  if (player.spymaster) badges.push('spy');
+  else if (player.representative) badges.push('rep');
+  if (player.mod) badges.push('mod');
+  return badges;
 }
 
 export type UnityCounterSegmentPosition = 'first' | 'middle' | 'last';

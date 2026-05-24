@@ -57,6 +57,7 @@
     type ImageCardScale,
     type LastSelected,
     type PanelPreferences,
+    type UnityBoardView,
     type EndGameOutcome,
     type RemainingCounts,
     type MemoryCaptureModel,
@@ -117,11 +118,14 @@
   let remainingCounts = $state<RemainingCounts>({ blue: 0, red: 0, civilian: 0, black: 0 });
   let clueLog = $state<ClueEntry[]>([]);
   let activeBoard = $state<UnityBoardSnapshot | null>(null);
+  let previousBoard = $state<UnityBoardSnapshot | null>(null);
   let ownBoard = $state<UnityBoardSnapshot | null>(null);
   let unityBoards = $state<UnityBoardSummary[]>([]);
   let unityProgress = $state<UnityProgress | null>(null);
   let unityEndStats = $state<UnityEndStats | null>(null);
-  let unityBoardView = $state<'active' | 'own'>('active');
+  let unityTransitionUntil = $state('');
+  let transitionNow = $state(Date.now());
+  let unityBoardView = $state<UnityBoardView>('active');
   let clueText = $state('');
   let clueNumber = $state('');
   let chatMessages = $state<ChatMessage[]>([]);
@@ -160,8 +164,10 @@
 
   let mode = $derived.by((): 'unity' | 'polarity' => settings.mode === 'unity' ? 'unity' : 'polarity');
   let activeBoardOwner = $derived(activeBoard?.ownerId ?? '');
-  let displayedUnityBoard = $derived(unityBoardView === 'own' && ownBoard ? ownBoard : activeBoard);
-  let displayedCardsRaw = $derived(mode === 'unity' ? unityBoardViewCards(unityBoardView, activeBoard, ownBoard) : cards);
+  let unityTransitionLocked = $derived(Boolean(unityTransitionUntil && Date.parse(unityTransitionUntil) > transitionNow));
+  let unityTransitionSecondsRemaining = $derived(unityTransitionLocked ? Math.max(0, Math.ceil((Date.parse(unityTransitionUntil) - transitionNow) / 1000)) : 0);
+  let displayedUnityBoard = $derived(unityBoardView === 'previous' && previousBoard ? previousBoard : unityBoardView === 'own' && ownBoard ? ownBoard : activeBoard);
+  let displayedCardsRaw = $derived(mode === 'unity' ? unityBoardViewCards(unityBoardView, activeBoard, ownBoard, previousBoard) : cards);
   let displayedLastSelected = $derived(mode === 'unity' ? (displayedUnityBoard?.lastSelected ?? null) : lastSelected);
   let displayedClueLog = $derived(mode === 'unity' ? (displayedUnityBoard?.clueLog ?? []) : clueLog);
   let activeClueLog = $derived(mode === 'unity' ? (activeBoard?.clueLog ?? []) : clueLog);
@@ -222,6 +228,22 @@
     sortedCards.length;
     phase;
     updateBoardFitSoon();
+  });
+
+  $effect(() => {
+    if (!unityTransitionUntil) return;
+    transitionNow = Date.now();
+    const interval = window.setInterval(() => {
+      transitionNow = Date.now();
+      if (!unityTransitionLocked) {
+        window.clearInterval(interval);
+        if (unityBoardView === 'previous') {
+          unityBoardView = 'active';
+          updateBoardFitSoon();
+        }
+      }
+    }, 250);
+    return () => window.clearInterval(interval);
   });
 
   $effect(() => {
@@ -322,9 +344,15 @@
     if (message.type === 'snapshot') {
       const nextMode = message.snapshot.settings?.mode === 'unity' ? 'unity' : 'polarity';
       const nextActiveBoard = message.snapshot.activeBoard ?? null;
+      const nextPreviousBoard = message.snapshot.previousBoard ?? null;
       const nextOwnBoard = message.snapshot.ownBoard ?? null;
       const nextUnityBoards = message.snapshot.unityBoards ?? [];
-      const nextDisplayedCards = nextMode === 'unity' ? unityBoardViewCards(unityBoardView, nextActiveBoard, nextOwnBoard) : (message.snapshot.cards ?? []);
+      const nextTransitionUntil = message.snapshot.unityTransitionUntil ?? '';
+      const nextTransitionLocked = Boolean(nextTransitionUntil && Date.parse(nextTransitionUntil) > Date.now());
+      if (nextMode === 'unity' && nextTransitionLocked && nextPreviousBoard) {
+        unityBoardView = 'previous';
+      }
+      const nextDisplayedCards = nextMode === 'unity' ? unityBoardViewCards(unityBoardView, nextActiveBoard, nextOwnBoard, nextPreviousBoard) : (message.snapshot.cards ?? []);
       const nextActiveClueLog = nextMode === 'unity' ? (nextActiveBoard?.clueLog ?? []) : (message.snapshot.clueLog ?? []);
       const nextClueSignature = clueCueSignature(nextActiveClueLog);
       const nextCards = nextDisplayedCards;
@@ -361,10 +389,13 @@
       finishedAt = message.snapshot.finishedAt ?? '';
       cards = message.snapshot.cards ?? [];
       activeBoard = nextActiveBoard;
+      previousBoard = nextPreviousBoard;
       ownBoard = nextOwnBoard;
       unityBoards = nextUnityBoards;
       unityProgress = message.snapshot.unityProgress ?? null;
       unityEndStats = message.snapshot.unityEndStats ?? null;
+      unityTransitionUntil = nextTransitionUntil;
+      transitionNow = Date.now();
       lastSelected = message.snapshot.lastSelected ?? null;
       remainingCounts = message.snapshot.remainingCounts ?? { blue: 0, red: 0, civilian: 0, black: 0 };
       const previousClue = currentClue;
@@ -434,6 +465,11 @@
 
   function submitClue() {
     error = '';
+    if (mode === 'unity' && unityTransitionLocked) {
+      error = 'Waiting for the next Unity board.';
+      appendSystemMessage(error, 'submitClue');
+      return;
+    }
     if (!cluePermission.allowed) {
       error = cluePermission.reason;
       appendSystemMessage(cluePermission.reason, 'submitClue');
@@ -517,6 +553,7 @@
         boardView: unityBoardView,
         activeBoardId: activeBoard?.ownerId,
         displayedBoardId: displayedUnityBoard?.ownerId,
+        transitionLocked: unityTransitionLocked,
         enforceClueGuessLimit: settings.enforceClueGuessLimit,
         currentClue,
         cardRevealed: card?.revealed,
@@ -538,6 +575,7 @@
     if (phase === 'game_over') return 'The match is over.';
     if (phase !== 'active') return 'The match has not started.';
     if (!role.player) return 'Observers are read-only.';
+    if (mode === 'unity' && unityTransitionLocked) return 'Waiting for the next Unity board.';
     if (mode === 'unity' && unityProgress?.waitingForGuessers) return 'Waiting for eligible Unity guessers.';
     if (!role.activeGuesser) return mode === 'unity' && role.player?.id === activeBoardOwner ? 'You cannot pass on your own board.' : role.kind === 'spymaster' ? 'Spymasters cannot pass while teammates can.' : `Only the ${displayTeamName(currentTeam, settings)} guesser can pass.`;
     return '';
@@ -768,6 +806,26 @@
     clueText = '';
     clueNumber = '';
     sendSocketAction('resetClue', { type: 'resetClue' });
+  }
+
+  function switchUnitySpymaster() {
+    error = '';
+    if (!hostControls) {
+      error = 'Only moderators can switch the Unity spy.';
+      appendSystemMessage(error, 'switchUnitySpymaster');
+      return;
+    }
+    if (mode !== 'unity' || phase !== 'active') {
+      error = 'Unity spy switching is available during active Unity matches.';
+      appendSystemMessage(error, 'switchUnitySpymaster');
+      return;
+    }
+    if (unityTransitionLocked) {
+      error = 'Waiting for the next Unity board.';
+      appendSystemMessage(error, 'switchUnitySpymaster');
+      return;
+    }
+    sendSocketAction('switchUnitySpymaster', { type: 'switchUnitySpymaster' });
   }
 
   async function restartMatch() {
@@ -1168,7 +1226,10 @@
             <section bind:this={boardShell} class="rounded-[1.5rem] border border-slate-700/70 bg-slate-900/70 p-2 shadow-2xl shadow-slate-950/35 sm:rounded-[2rem] sm:p-5" style={boardFitStyle}>
               <div class="mb-3 flex flex-wrap items-center justify-between gap-3 sm:mb-5">
                 <div>
-                  <p class="text-xs font-black uppercase tracking-[0.22em] text-slate-400">{mode === 'unity' ? `${displayedUnityBoard?.ownerId === currentPlayer?.id ? 'Your' : 'Unity'} board` : 'Board'}</p>
+                  <p class="text-xs font-black uppercase tracking-[0.22em] text-slate-400">{mode === 'unity' ? `${unityBoardView === 'previous' ? 'Previous' : displayedUnityBoard?.ownerId === currentPlayer?.id ? 'Your' : 'Unity'} board` : 'Board'}</p>
+                  {#if mode === 'unity' && unityTransitionLocked}
+                    <p class="mt-1 text-xs font-bold text-teal-100">Next board unlocks in {unityTransitionSecondsRemaining}s.</p>
+                  {/if}
                 </div>
                 <div class="isolate flex min-w-0 max-w-full overflow-hidden rounded-full border border-slate-600/70 bg-slate-950 text-[10px] font-black uppercase tracking-widest shadow-inner shadow-slate-950/60">
                   {#if mode === 'unity'}
@@ -1385,6 +1446,9 @@
         mode={mode}
         activeBoardOwner={activeBoardOwner}
         boardView={unityBoardView}
+        hasPreviousBoard={Boolean(previousBoard)}
+        transitionLocked={unityTransitionLocked}
+        transitionSecondsRemaining={unityTransitionSecondsRemaining}
         currentClue={currentClue}
         role={role}
         cluePermission={cluePermission}
@@ -1399,6 +1463,8 @@
         onSetBoardView={(view) => { unityBoardView = view; updateBoardFitSoon(); }}
         spymasterViewActive={spymasterViewActive}
         onToggleView={() => (spymasterViewActive = !spymasterViewActive)}
+        onSetSpyView={(active) => (spymasterViewActive = active)}
+        onSwitchUnitySpymaster={switchUnitySpymaster}
         onSubmitClue={submitClue}
         onPassTurn={passTurn}
       />

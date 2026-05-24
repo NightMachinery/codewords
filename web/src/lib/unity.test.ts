@@ -5,10 +5,12 @@ import {
   type Settings,
 } from './api';
 import {
+  defaultGameplayPreferences,
   defaultTeamNames,
   displayTeamName,
   isActiveGuesser,
   normalizeLobbySettingsForSave,
+  playerRoleBadgeKinds,
   teamColor,
   shouldCueUnitySpymaster,
   unityBoardViewCards,
@@ -75,11 +77,17 @@ describe('unity frontend helpers', () => {
 
   it('selects active or own unity board cards for display', () => {
     const active: UnityBoardSnapshot = { ownerId: 'host', cards: [{ contentType: 'word', word: 'Active', revealed: false }], clueLog: [], turnsUsed: 1, remainingCounts: { unity: 9, civilian: 10, black: 4 } };
+    const previous: UnityBoardSnapshot = { ownerId: 'p3', cards: [{ contentType: 'word', word: 'Previous', revealed: true, color: 'civilian' }], clueLog: [], turnsUsed: 1, remainingCounts: { unity: 8, civilian: 9, black: 4 } };
     const own: UnityBoardSnapshot = { ownerId: 'p2', cards: [{ contentType: 'word', word: 'Own', revealed: false, color: 'unity' }], clueLog: [], turnsUsed: 0, remainingCounts: { unity: 10, civilian: 11, black: 4 } };
 
-    expect(unityBoardViewCards('active', active, own)[0].word).toBe('Active');
-    expect(unityBoardViewCards('own', active, own)[0].word).toBe('Own');
-    expect(unityBoardViewCards('own', active, null)[0].word).toBe('Active');
+    expect(unityBoardViewCards('active', active, own, previous)[0].word).toBe('Active');
+    expect(unityBoardViewCards('previous', active, own, previous)[0].word).toBe('Previous');
+    expect(unityBoardViewCards('own', active, own, previous)[0].word).toBe('Own');
+    expect(unityBoardViewCards('own', active, null, previous)[0].word).toBe('Active');
+  });
+
+  it('defaults spy revealed cards to greyed', () => {
+    expect(defaultGameplayPreferences.spymasterRevealedStyle).toBe('greyed');
   });
 
   it('cues unity spymasters only for active live board handoffs', () => {
@@ -129,10 +137,27 @@ describe('unity frontend helpers', () => {
       boardView: 'own',
       activeBoardId: 'host',
       displayedBoardId: 'p2',
+      transitionLocked: false,
       enforceClueGuessLimit: false,
       currentClue: null,
       cardRevealed: false,
     })).toBe('Switch to the active board to reveal cards.');
+
+    expect(unityGuessDisabledReason({
+      phase: 'active',
+      hasPlayer: true,
+      waitingForGuessers: false,
+      activeGuesser: true,
+      playerId: 'p2',
+      activeBoardOwner: 'host',
+      boardView: 'previous',
+      activeBoardId: 'host',
+      displayedBoardId: 'p3',
+      transitionLocked: true,
+      enforceClueGuessLimit: false,
+      currentClue: null,
+      cardRevealed: false,
+    })).toBe('Waiting for the next Unity board.');
   });
 
   it('formats unity end game stats and shared pool progress', () => {
@@ -158,5 +183,19 @@ describe('unity frontend helpers', () => {
       { id: 'p2', name: 'P2', status: 'board', detail: '0/10 Unity · N/A · 0 turns' },
       { id: 'p3', name: 'P3', status: 'no-board', detail: 'No Unity board' },
     ]);
+  });
+
+  it('sorts unity player board rows by higher average first', () => {
+    const rows = unityPlayerBoardRows(players, [
+      { ownerId: 'host', unityCardsFound: 1, totalUnityCards: 10, turnsUsed: 2, unityCardsPerTurn: 0.5 },
+      { ownerId: 'p2', unityCardsFound: 3, totalUnityCards: 10, turnsUsed: 2, unityCardsPerTurn: 1.5 },
+      { ownerId: 'p3', unityCardsFound: 0, totalUnityCards: 10, turnsUsed: 0, unityCardsPerTurn: null },
+    ]);
+
+    expect(rows.map((row) => row.id)).toEqual(['p2', 'host', 'p3']);
+  });
+
+  it('shows spy instead of rep when both role badges apply', () => {
+    expect(playerRoleBadgeKinds({ ...players[0], spymaster: true, representative: true, mod: true })).toEqual(['spy', 'mod']);
   });
 });

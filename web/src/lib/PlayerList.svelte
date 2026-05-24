@@ -9,7 +9,7 @@
     type Team
   } from './lobby';
   import type { Settings, Viewer } from './api';
-  import { displayTeamName, hexWithAlpha, teamColor, type UnityBoardSummary, type UnityProgress } from './gameplay';
+  import { displayTeamName, hexWithAlpha, playerRoleBadgeKinds, teamColor, type PlayerRoleBadgeKind, type UnityBoardSummary, type UnityProgress } from './gameplay';
   import { customSvg } from './customSvg';
   import SvgMaskIcon from './SvgMaskIcon.svelte';
 
@@ -64,25 +64,31 @@
   <SvgMaskIcon src={customSvg.representative} classes="h-3.5 w-3.5" />
 {/snippet}
 
-{#snippet roleBadges(player: LobbyPlayer)}
-  {#if player.spymaster}
+{#snippet RoleBadge(kind: PlayerRoleBadgeKind)}
+  {#if kind === 'spy'}
     <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-xs font-black text-slate-950">{@render SpyIcon()} Spy</span>
-  {/if}
-  {#if player.representative}
+  {:else if kind === 'rep'}
     <span class="inline-flex items-center gap-1 rounded-full bg-amber-200 px-2 py-1 text-xs font-black text-slate-950">{@render RepIcon()} Rep</span>
-  {/if}
-  {#if player.mod}
+  {:else}
     <span class="rounded-full bg-emerald-200 px-2.5 py-1 text-xs font-black text-slate-950">Mod</span>
   {/if}
 {/snippet}
 
+{#snippet roleBadges(player: LobbyPlayer)}
+  {@const effectivePlayer = { ...player, spymaster: player.spymaster || (mode === 'unity' && phase !== 'lobby' && player.id === activeBoardOwner) }}
+  {#each playerRoleBadgeKinds(effectivePlayer) as badge (badge)}
+    {@render RoleBadge(badge)}
+  {/each}
+{/snippet}
+
 {#snippet PlayerCard(player: LobbyPlayer)}
-  <article class="group rounded-2xl border border-slate-700 bg-slate-950/85 p-3 transition duration-300 hover:-translate-y-0.5 hover:border-slate-500">
+  {@const self = player.id === (viewer?.playerId || viewer?.userId)}
+  <article class={['group rounded-2xl border p-3 transition duration-300 hover:-translate-y-0.5 hover:border-slate-500', self ? 'border-emerald-300/70 bg-emerald-300/10 shadow-lg shadow-emerald-950/25' : 'border-slate-700 bg-slate-950/85'].join(' ')}>
     <div class="flex items-start justify-between gap-3">
       <div>
         <h3 class="font-black text-slate-50">
           {player.displayName || 'Unnamed player'}
-          {#if player.id === (viewer?.playerId || viewer?.userId)}
+          {#if self}
             <span class="ml-1 text-[10px] text-emerald-300 uppercase tracking-wider">(You)</span>
           {/if}
         </h3>
