@@ -17,6 +17,7 @@ import {
   unityEndGameSummary,
   unityPlayerBoardRows,
   unityGuessDisabledReason,
+  isUnityTemporaryRepresentative,
   unityTurnsPendingForDisplayedBoard,
   unityStartReadiness,
   type GameplayCard,
@@ -74,6 +75,22 @@ describe('unity frontend helpers', () => {
     const twoReps = ownerRep.map((player) => player.id === 'p2' ? { ...player, representative: true } : player);
     expect(isActiveGuesser(twoReps, 'p2', 'unity', 'host')).toBe(true);
     expect(isActiveGuesser(twoReps, 'p3', 'unity', 'host')).toBe(false);
+  });
+
+  it('marks only implicit unity guessers as temporary representatives', () => {
+    expect(isUnityTemporaryRepresentative(players, 'p2', 'host')).toBe(true);
+    expect(isUnityTemporaryRepresentative(players, 'host', 'host')).toBe(false);
+
+    const oneRep = players.map((player) => player.id === 'p2' ? { ...player, representative: true } : player);
+    expect(isUnityTemporaryRepresentative(oneRep, 'p2', 'host')).toBe(false);
+    expect(isUnityTemporaryRepresentative(oneRep, 'p3', 'host')).toBe(false);
+
+    const ownerRep = players.map((player) => player.id === 'host' ? { ...player, representative: true } : player);
+    expect(isUnityTemporaryRepresentative(ownerRep, 'p2', 'host')).toBe(true);
+
+    const twoReps = ownerRep.map((player) => player.id === 'p2' ? { ...player, representative: true } : player);
+    expect(isUnityTemporaryRepresentative(twoReps, 'p2', 'host')).toBe(false);
+    expect(isUnityTemporaryRepresentative(twoReps, 'p3', 'host')).toBe(false);
   });
 
   it('selects active or own unity board cards for display', () => {
@@ -198,6 +215,7 @@ describe('unity frontend helpers', () => {
 
   it('shows spy instead of rep when both role badges apply', () => {
     expect(playerRoleBadgeKinds({ ...players[0], spymaster: true, representative: true, mod: true })).toEqual(['spy', 'mod']);
+    expect(playerRoleBadgeKinds({ ...players[1], temporaryRepresentative: true })).toEqual(['tempRep']);
   });
 
   it('marks active finite unity board turns as pending before consumption', () => {

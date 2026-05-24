@@ -9,7 +9,7 @@
     type Team
   } from './lobby';
   import type { Settings, Viewer } from './api';
-  import { displayTeamName, hexWithAlpha, playerRoleBadgeKinds, teamColor, type PlayerRoleBadgeKind, type UnityBoardSummary, type UnityProgress } from './gameplay';
+  import { displayTeamName, hexWithAlpha, isUnityTemporaryRepresentative, playerRoleBadgeKinds, teamColor, type PlayerRoleBadgeKind, type UnityBoardSummary, type UnityProgress } from './gameplay';
   import { customSvg } from './customSvg';
   import SvgMaskIcon from './SvgMaskIcon.svelte';
 
@@ -69,13 +69,15 @@
     <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-xs font-black text-slate-950">{@render SpyIcon()} Spy</span>
   {:else if kind === 'rep'}
     <span class="inline-flex items-center gap-1 rounded-full bg-amber-200 px-2 py-1 text-xs font-black text-slate-950">{@render RepIcon()} Rep</span>
+  {:else if kind === 'tempRep'}
+    <span class="inline-flex items-center gap-1 rounded-full border border-amber-200/70 bg-amber-200/15 px-2 py-1 text-xs font-black text-amber-100" title="Temporary representative for this Unity board">{@render RepIcon()} Temp Rep</span>
   {:else}
     <span class="rounded-full bg-emerald-200 px-2.5 py-1 text-xs font-black text-slate-950">Mod</span>
   {/if}
 {/snippet}
 
 {#snippet roleBadges(player: LobbyPlayer)}
-  {@const effectivePlayer = { ...player, spymaster: player.spymaster || (mode === 'unity' && phase !== 'lobby' && player.id === activeBoardOwner) }}
+  {@const effectivePlayer = { ...player, spymaster: player.spymaster || (mode === 'unity' && phase !== 'lobby' && player.id === activeBoardOwner), temporaryRepresentative: mode === 'unity' && phase === 'active' && isUnityTemporaryRepresentative(players, player.id, activeBoardOwner) }}
   {#each playerRoleBadgeKinds(effectivePlayer) as badge (badge)}
     {@render RoleBadge(badge)}
   {/each}

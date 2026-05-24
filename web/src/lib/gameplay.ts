@@ -247,6 +247,15 @@ export function isActiveGuesser(players: LobbyPlayer[], playerId: string | undef
   return !player.spymaster;
 }
 
+export function isUnityTemporaryRepresentative(players: LobbyPlayer[], playerId: string | undefined, activeBoardOwner = ''): boolean {
+  if (!playerId || !activeBoardOwner) return false;
+  const player = players.find((candidate) => candidate.id === playerId);
+  if (!player || player.team !== 'unity' || player.representative || player.id === activeBoardOwner) return false;
+
+  const representatives = players.filter((candidate) => candidate.team === 'unity' && candidate.representative);
+  return representatives.length === 0 || (representatives.length === 1 && representatives[0].id === activeBoardOwner);
+}
+
 export function viewerRole(
   players: LobbyPlayer[],
   viewer: Viewer | null | undefined,
@@ -892,12 +901,13 @@ export function unityPlayerBoardRows(players: LobbyPlayer[], boardStats: UnityBo
     });
 }
 
-export type PlayerRoleBadgeKind = 'spy' | 'rep' | 'mod';
+export type PlayerRoleBadgeKind = 'spy' | 'rep' | 'tempRep' | 'mod';
 
-export function playerRoleBadgeKinds(player: Pick<LobbyPlayer, 'spymaster' | 'representative' | 'mod'>): PlayerRoleBadgeKind[] {
+export function playerRoleBadgeKinds(player: Pick<LobbyPlayer, 'spymaster' | 'representative' | 'mod'> & { temporaryRepresentative?: boolean }): PlayerRoleBadgeKind[] {
   const badges: PlayerRoleBadgeKind[] = [];
   if (player.spymaster) badges.push('spy');
   else if (player.representative) badges.push('rep');
+  else if (player.temporaryRepresentative) badges.push('tempRep');
   if (player.mod) badges.push('mod');
   return badges;
 }
