@@ -902,6 +902,25 @@ export function playerRoleBadgeKinds(player: Pick<LobbyPlayer, 'spymaster' | 're
   return badges;
 }
 
+export function unityTurnsPendingForDisplayedBoard(input: {
+  phase: GameplayPhase;
+  unlimitedTurns: boolean | undefined;
+  displayedBoardId?: string;
+  activeBoardId?: string;
+  transitionLocked: boolean;
+}): boolean {
+  return input.phase === 'active'
+    && !input.unlimitedTurns
+    && !input.transitionLocked
+    && Boolean(input.displayedBoardId)
+    && input.displayedBoardId === input.activeBoardId;
+}
+
+export function unityTurnsSegmentStyle(input: { pending: boolean; color: string }): string {
+  if (!input.pending) return '';
+  return `background: linear-gradient(90deg, ${hexWithAlpha(input.color, '55')}, rgba(20,184,166,0.12)); box-shadow: inset 0 0 0 1px ${hexWithAlpha(input.color, 'AA')};`;
+}
+
 export type UnityCounterSegmentPosition = 'first' | 'middle' | 'last';
 
 export function unityCounterSegmentClasses(position: UnityCounterSegmentPosition): string {

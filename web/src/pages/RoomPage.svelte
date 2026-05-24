@@ -49,6 +49,8 @@
     unityBoardViewCards,
     unityEndGameSummary,
     unityGuessDisabledReason,
+    unityTurnsPendingForDisplayedBoard,
+    unityTurnsSegmentStyle,
     unityPlayerBoardRows,
     unityStartReadiness,
     type ClueEntry,
@@ -171,6 +173,13 @@
   let displayedLastSelected = $derived(mode === 'unity' ? (displayedUnityBoard?.lastSelected ?? null) : lastSelected);
   let displayedClueLog = $derived(mode === 'unity' ? (displayedUnityBoard?.clueLog ?? []) : clueLog);
   let activeClueLog = $derived(mode === 'unity' ? (activeBoard?.clueLog ?? []) : clueLog);
+  let unityTurnsPending = $derived(mode === 'unity' && unityTurnsPendingForDisplayedBoard({
+    phase,
+    unlimitedTurns: settings.unityUnlimitedTurns,
+    displayedBoardId: displayedUnityBoard?.ownerId,
+    activeBoardId: activeBoard?.ownerId,
+    transitionLocked: unityTransitionLocked,
+  }));
   let cardMode = $derived(cardModeFromImageCount(settings.imageCardCount ?? 0, settings.totalCards ?? 25));
   let sortedCards = $derived(displayCards(displayedCardsRaw, cardMode, settings.mixedImageOrderFirst));
   let capturePreferences = $derived.by(() => pendingCaptureModel ? { ...preferences, ...pendingCaptureModel.boardLayout, showNumberBadges: pendingCaptureModel.showNumberBadges } : preferences);
@@ -1236,7 +1245,7 @@
 	                  <span class={`${unityCounterSegmentClasses('first')} flex-[1.35_1_0] text-teal-100`} title={`Unity ${displayedUnityBoard?.remainingCounts.unity ?? 0}`} aria-label={`Unity ${displayedUnityBoard?.remainingCounts.unity ?? 0}`} style={`background: linear-gradient(90deg, ${hexWithAlpha(teamColor('unity', settings), '40')}, transparent);`}><SvgMaskIcon src={customSvg.unityCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Unity</span><span>{displayedUnityBoard?.remainingCounts.unity ?? 0}</span></span>
 	                  <span class={`${unityCounterSegmentClasses('middle')} flex-1 border-l border-slate-600/70 text-amber-100`} title={`Civilian ${displayedUnityBoard?.remainingCounts.civilian ?? 0}`} aria-label={`Civilian ${displayedUnityBoard?.remainingCounts.civilian ?? 0}`} style="background: linear-gradient(90deg, rgba(251,191,36,0.18), transparent)"><SvgMaskIcon src={customSvg.civilianCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Civilian</span><span>{displayedUnityBoard?.remainingCounts.civilian ?? 0}</span></span>
 	                  <span class={`${unityCounterSegmentClasses('middle')} flex-1 border-l border-slate-600/70 text-zinc-100`} title={`Assassin ${displayedUnityBoard?.remainingCounts.black ?? 0}`} aria-label={`Assassin ${displayedUnityBoard?.remainingCounts.black ?? 0}`} style="background: linear-gradient(90deg, rgba(24,24,27,0.85), rgba(0,0,0,0.55))"><SvgMaskIcon src={customSvg.assassinCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Assassin</span><span>{displayedUnityBoard?.remainingCounts.black ?? 0}</span></span>
-	                  <span class={`${unityCounterSegmentClasses('last')} flex-[1.2_1_0] border-l border-slate-600/70 text-teal-100`} title="Turns remaining" aria-label="Turns remaining"><SvgMaskIcon src={customSvg.turnBudget} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Turns</span><span>{settings.unityUnlimitedTurns ? '∞' : mode === 'unity' && settings.unityStrictPerBoardTurns ? Math.max(0, (settings.unityTurnLimit ?? 0) - (displayedUnityBoard?.turnsUsed ?? 0)) : unityProgress?.sharedTurnsRemaining ?? 0}</span></span>
+	                  <span class={`${unityCounterSegmentClasses('last')} flex-[1.2_1_0] border-l border-slate-600/70 ${unityTurnsPending ? 'text-emerald-50' : 'text-teal-100'}`} title={unityTurnsPending ? 'Turns remaining; current spy has not spent this turn yet' : 'Turns remaining'} aria-label={unityTurnsPending ? 'Turns remaining, current spy turn unspent' : 'Turns remaining'} style={unityTurnsSegmentStyle({ pending: unityTurnsPending, color: teamColor('unity', settings) })}><SvgMaskIcon src={customSvg.turnBudget} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Turns</span><span class={unityTurnsPending ? 'rounded-full bg-emerald-100 px-1.5 py-0.5 text-slate-950' : ''}>{settings.unityUnlimitedTurns ? '∞' : mode === 'unity' && settings.unityStrictPerBoardTurns ? Math.max(0, (settings.unityTurnLimit ?? 0) - (displayedUnityBoard?.turnsUsed ?? 0)) : unityProgress?.sharedTurnsRemaining ?? 0}</span></span>
                   {:else}
                   <span class="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 px-2 py-1.5 sm:px-3" title={`${displayTeamName('blue', settings)} ${remainingCounts.blue}`} aria-label={`${displayTeamName('blue', settings)} ${remainingCounts.blue}`} style={`color: ${teamColor('blue', settings)}; background: linear-gradient(90deg, ${hexWithAlpha(teamColor('blue', settings), currentTeam === 'blue' ? '40' : '24')}, transparent); ${currentTeam === 'blue' ? `box-shadow: inset 0 0 0 1px ${hexWithAlpha(teamColor('blue', settings), '66')};` : ''}`}><SvgMaskIcon src={customSvg.blueCard} classes="h-3.5 w-3.5" /><span class="hidden min-w-0 truncate sm:inline">{displayTeamName('blue', settings)}</span><span>{remainingCounts.blue}</span></span>
                   <span class="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 border-l border-slate-600/70 px-2 py-1.5 sm:px-3" title={`${displayTeamName('red', settings)} ${remainingCounts.red}`} aria-label={`${displayTeamName('red', settings)} ${remainingCounts.red}`} style={`color: ${teamColor('red', settings)}; background: linear-gradient(90deg, ${hexWithAlpha(teamColor('red', settings), currentTeam === 'red' ? '40' : '24')}, transparent); ${currentTeam === 'red' ? `box-shadow: inset 0 0 0 1px ${hexWithAlpha(teamColor('red', settings), '66')};` : ''}`}><SvgMaskIcon src={customSvg.redCard} classes="h-3.5 w-3.5" /><span class="hidden min-w-0 truncate sm:inline">{displayTeamName('red', settings)}</span><span>{remainingCounts.red}</span></span>

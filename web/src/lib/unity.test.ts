@@ -17,6 +17,7 @@ import {
   unityEndGameSummary,
   unityPlayerBoardRows,
   unityGuessDisabledReason,
+  unityTurnsPendingForDisplayedBoard,
   unityStartReadiness,
   type GameplayCard,
   type UnityBoardSnapshot,
@@ -197,5 +198,39 @@ describe('unity frontend helpers', () => {
 
   it('shows spy instead of rep when both role badges apply', () => {
     expect(playerRoleBadgeKinds({ ...players[0], spymaster: true, representative: true, mod: true })).toEqual(['spy', 'mod']);
+  });
+
+  it('marks active finite unity board turns as pending before consumption', () => {
+    const active: UnityBoardSnapshot = { ownerId: 'host', cards: [{ contentType: 'word', word: 'Active', revealed: false }], clueLog: [], turnsUsed: 0, remainingCounts: { unity: 10, civilian: 11, black: 4 } };
+    const previous: UnityBoardSnapshot = { ownerId: 'p2', cards: [{ contentType: 'word', word: 'Previous', revealed: false }], clueLog: [], turnsUsed: 1, remainingCounts: { unity: 9, civilian: 10, black: 4 } };
+
+    expect(unityTurnsPendingForDisplayedBoard({
+      phase: 'active',
+      unlimitedTurns: false,
+      displayedBoardId: 'host',
+      activeBoardId: 'host',
+      transitionLocked: false,
+    })).toBe(true);
+    expect(unityTurnsPendingForDisplayedBoard({
+      phase: 'active',
+      unlimitedTurns: false,
+      displayedBoardId: previous.ownerId,
+      activeBoardId: active.ownerId,
+      transitionLocked: false,
+    })).toBe(false);
+    expect(unityTurnsPendingForDisplayedBoard({
+      phase: 'active',
+      unlimitedTurns: true,
+      displayedBoardId: active.ownerId,
+      activeBoardId: active.ownerId,
+      transitionLocked: false,
+    })).toBe(false);
+    expect(unityTurnsPendingForDisplayedBoard({
+      phase: 'game_over',
+      unlimitedTurns: false,
+      displayedBoardId: active.ownerId,
+      activeBoardId: active.ownerId,
+      transitionLocked: false,
+    })).toBe(false);
   });
 });
