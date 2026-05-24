@@ -248,7 +248,12 @@ func (a *app) handleGetRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	chats, _ := a.store.ChatMessages(r.Context(), roomID, 50)
-	writeJSON(w, http.StatusOK, map[string]any{"room": roomDTO(room), "players": playerDTOs(players), "settings": mustSettings(room.SettingsJSON), "viewer": viewerDTO(viewerID, viewerID == room.HostUserID, viewerIsMod(players, room.HostUserID, viewerID)), "chatMessages": chatDTOs(chats)})
+	playerPayload, err := a.playerDTOsWithNames(r.Context(), players)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "players_failed", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"room": roomDTO(room), "players": playerPayload, "settings": mustSettings(room.SettingsJSON), "viewer": viewerDTO(viewerID, viewerID == room.HostUserID, viewerIsMod(players, room.HostUserID, viewerID)), "chatMessages": chatDTOs(chats)})
 }
 
 func (a *app) handleJoinRoom(w http.ResponseWriter, r *http.Request) {
@@ -750,7 +755,7 @@ func commandFromMessage(t string, msg map[string]any) (game.Command, error) {
 			playerID, _ = msg["actorId"].(string)
 		}
 		team, _ := msg["team"].(string)
-		return game.AssignTeamCommand{PlayerID: playerID, Team: game.Team(team)}, nil
+		return game.AssignTeamCommand{PlayerID: playerID, Team: game.Team(team), Now: time.Now().UTC()}, nil
 	case "toggleSpymaster":
 		playerID, _ := msg["playerId"].(string)
 		return game.ToggleSpymasterCommand{PlayerID: playerID}, nil
@@ -767,12 +772,14 @@ func commandFromMessage(t string, msg map[string]any) (game.Command, error) {
 		return game.RandomizeTeamsCommand{}, nil
 	case "guessCard":
 		idx := int(number(msg["index"]))
-		return game.GuessCommand{Index: idx}, nil
+		return game.GuessCommand{Index: idx, Now: time.Now().UTC()}, nil
 	case "passTurn":
-		return game.PassCommand{}, nil
+		return game.PassCommand{Now: time.Now().UTC()}, nil
 	case "submitClue":
 		text, _ := msg["text"].(string)
-		return game.SubmitClueCommand{Text: text, Number: clueNumber(msg["number"])}, nil
+		return game.SubmitClueCommand{Text: text, Number: clueNumber(msg["number"]), Now: time.Now().UTC()}, nil
+	case "switchUnitySpymaster":
+		return game.SwitchUnitySpymasterCommand{Now: time.Now().UTC()}, nil
 	case "shuffleRoles":
 		return game.ShuffleRolesCommand{}, nil
 	case "resetClue":
@@ -1069,6 +1076,47 @@ func playerDTOs(players []storage.RoomPlayer) []map[string]any {
 	}
 	return out
 }
+
+func (a *app) playerDTOsWithNames(ctx context.Context, players []storage.RoomPlayer) ([]map[string]any, error) {
+	out := playerDTOs(players)
+	for i, p := range players {
+		user, err := a.store.UserByID(ctx, p.UserID)
+		if err != nil {
+			return nil, err
+		}
+		out[i]["displayName"] = user.DisplayName
+	}
+	applyStableDuplicateDisplayNames(out)
+	return out, nil
+}
+
+func applyStableDuplicateDisplayNames(players []map[string]any) {
+	byName := map[string][]int{}
+	for i, player := range players {
+		name, _ := player["displayName"].(string)
+		name = strings.TrimSpace(name)
+		if name == "" {
+			name = "Player"
+		}
+		player["displayName"] = name
+		key := strings.ToLower(name)
+		byName[key] = append(byName[key], i)
+	}
+	for _, indices := range byName {
+		if len(indices) < 2 {
+			continue
+		}
+		sort.SliceStable(indices, func(i, j int) bool {
+			left, _ := players[indices[i]]["id"].(string)
+			right, _ := players[indices[j]]["id"].(string)
+			return left < right
+		})
+		for ordinal, index := range indices {
+			base, _ := players[index]["displayName"].(string)
+			players[index]["displayName"] = fmt.Sprintf("%s %d", base, ordinal+1)
+		}
+	}
+}
 func viewerIsMod(players []storage.RoomPlayer, hostID, viewerID string) bool {
 	if viewerID == "" {
 		return false
@@ -1223,6 +1271,7 @@ func snapshotDTO(state game.State, viewerID string) map[string]any {
 		players = append(players, map[string]any{"id": p.ID, "displayName": p.DisplayName, "team": p.Team, "spymaster": p.Spymaster, "representative": p.Representative, "mod": p.Mod || p.ID == state.HostID, "previousTeam": p.PreviousTeam, "previousSpymaster": p.PreviousSpymaster, "previousRepresentative": p.PreviousRepresentative})
 	}
 	sort.Slice(players, func(i, j int) bool { return players[i]["id"].(string) < players[j]["id"].(string) })
+	applyStableDuplicateDisplayNames(players)
 	cards := make([]map[string]any, len(s.Cards))
 	remaining := map[string]int{"blue": 0, "red": 0, "civilian": 0, "black": 0}
 	for i, c := range s.Cards {
@@ -1245,6 +1294,9 @@ func snapshotDTO(state game.State, viewerID string) map[string]any {
 	out := map[string]any{"phase": s.Phase, "mode": state.Mode, "players": players, "settings": state.Settings, "currentTeam": s.CurrentTeam, "winner": s.Winner, "finishedAt": s.FinishedAt, "actionId": s.ActionID, "cards": cards, "lastSelected": s.LastSelected, "remainingCounts": remaining, "clueLog": s.ClueLog, "viewer": map[string]any{"playerId": viewerID, "userId": viewerID, "isHost": viewerID != "" && viewerID == state.HostID, "isMod": state.CanManage(viewerID)}}
 	if state.Mode == game.ModeUnity || state.Settings.Mode == game.ModeUnity {
 		out["activeBoard"] = snapshotBoardDTO(s.ActiveBoard)
+		if s.PreviousBoard != nil {
+			out["previousBoard"] = snapshotBoardDTO(*s.PreviousBoard)
+		}
 		if s.OwnBoard != nil {
 			out["ownBoard"] = snapshotBoardDTO(*s.OwnBoard)
 		}
@@ -1257,6 +1309,7 @@ func snapshotDTO(state game.State, viewerID string) map[string]any {
 			"strictPerBoardTurns":  s.UnityProgress.StrictPerBoardTurns,
 			"waitingForGuessers":   s.UnityProgress.WaitingForGuessers,
 		}
+		out["unityTransitionUntil"] = s.UnityTransitionUntil
 		if s.UnityEndStats != nil {
 			boardStats := make([]map[string]any, len(s.UnityEndStats.BoardStats))
 			for i, board := range s.UnityEndStats.BoardStats {

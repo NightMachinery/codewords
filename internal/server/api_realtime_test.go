@@ -215,7 +215,7 @@ func TestUnityStartSnapshotIncludesSafeActiveAndOwnBoards(t *testing.T) {
 		t.Fatalf("expected active unity match, got winner %#v", snapshot["winner"])
 	}
 	progress := snapshot["unityProgress"].(map[string]any)
-	if progress["totalUnityCards"].(float64) != 30 || progress["sharedTurnsRemaining"].(float64) != 8 {
+	if progress["totalUnityCards"].(float64) != 30 || progress["sharedTurnsRemaining"].(float64) != 9 {
 		t.Fatalf("unexpected unity progress: %#v", progress)
 	}
 	activeBoard := snapshot["activeBoard"].(map[string]any)
@@ -547,6 +547,92 @@ func TestWebSocketForceBoardLayoutRequiresModAndBroadcastsSanitizedPreferences(t
 	}
 	if msg["by"] == "" {
 		t.Fatalf("expected broadcaster id, got %#v", msg)
+	}
+}
+
+func TestDuplicateDisplayNamesReceiveStableRoomScopedNumbers(t *testing.T) {
+	players := []map[string]any{
+		{"id": "b", "displayName": "Alex"},
+		{"id": "a", "displayName": "Alex"},
+		{"id": "c", "displayName": "Bea"},
+	}
+
+	applyStableDuplicateDisplayNames(players)
+
+	names := map[string]string{}
+	for _, player := range players {
+		names[player["id"].(string)] = player["displayName"].(string)
+	}
+	if names["a"] != "Alex 1" || names["b"] != "Alex 2" || names["c"] != "Bea" {
+		t.Fatalf("unexpected duplicate display names: %#v", names)
+	}
+}
+
+func TestUnitySwitchSpymasterWebSocketBroadcastsPreviousBoardTransition(t *testing.T) {
+	h := newTestHandler(t)
+	postJSON(t, h, "/api/identity/bootstrap", map[string]any{"authToken": "host-switch", "displayName": "Host"}, http.StatusOK)
+	roomResp := postJSON(t, h, "/api/rooms", map[string]any{"authToken": "host-switch", "settings": map[string]any{"mode": "unity", "wordpackId": "english", "seed": 431, "totalCards": 9, "unityTurnLimit": 3}}, http.StatusCreated)
+	roomID := roomResp["room"].(map[string]any)["id"].(string)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "switch-p2", "displayName": "P2"}, http.StatusOK)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "switch-p3", "displayName": "P3"}, http.StatusOK)
+	makeUnityRoomStartable(t, h, roomID, []string{"host-switch", "switch-p2", "switch-p3"})
+	postJSON(t, h, "/api/rooms/"+roomID+"/start", map[string]any{"authToken": "host-switch"}, http.StatusOK)
+
+	server := httptest.NewServer(h)
+	defer server.Close()
+	hostURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws/rooms/" + roomID + "?authToken=host-switch"
+	hostConn, _, err := websocket.DefaultDialer.Dial(hostURL, nil)
+	if err != nil {
+		t.Fatalf("dial host websocket: %v", err)
+	}
+	defer hostConn.Close()
+	guestURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws/rooms/" + roomID + "?authToken=switch-p2"
+	guestConn, _, err := websocket.DefaultDialer.Dial(guestURL, nil)
+	if err != nil {
+		t.Fatalf("dial guest websocket: %v", err)
+	}
+	defer guestConn.Close()
+	if err := hostConn.SetReadDeadline(testDeadline()); err != nil {
+		t.Fatalf("set host read deadline: %v", err)
+	}
+	if err := guestConn.SetReadDeadline(testDeadline()); err != nil {
+		t.Fatalf("set guest read deadline: %v", err)
+	}
+
+	var hostMsg map[string]any
+	if err := hostConn.ReadJSON(&hostMsg); err != nil {
+		t.Fatalf("read host initial snapshot: %v", err)
+	}
+	var guestMsg map[string]any
+	if err := guestConn.ReadJSON(&guestMsg); err != nil {
+		t.Fatalf("read guest initial snapshot: %v", err)
+	}
+	initialOwner := hostMsg["snapshot"].(map[string]any)["activeBoard"].(map[string]any)["ownerId"].(string)
+
+	if err := guestConn.WriteJSON(map[string]any{"type": "switchUnitySpymaster"}); err != nil {
+		t.Fatalf("write guest switch: %v", err)
+	}
+	if err := guestConn.ReadJSON(&guestMsg); err != nil {
+		t.Fatalf("read guest rejection: %v", err)
+	}
+	if guestMsg["type"] != "error" || guestMsg["code"] != "command_rejected" {
+		t.Fatalf("expected non-mod rejection, got %#v", guestMsg)
+	}
+
+	if err := hostConn.WriteJSON(map[string]any{"type": "switchUnitySpymaster"}); err != nil {
+		t.Fatalf("write host switch: %v", err)
+	}
+	if err := hostConn.ReadJSON(&hostMsg); err != nil {
+		t.Fatalf("read host switch snapshot: %v", err)
+	}
+	snapshot := hostMsg["snapshot"].(map[string]any)
+	nextOwner := snapshot["activeBoard"].(map[string]any)["ownerId"].(string)
+	previous := snapshot["previousBoard"].(map[string]any)
+	if previous["ownerId"] != initialOwner || nextOwner == initialOwner {
+		t.Fatalf("expected previous=%s and new active owner, previous=%#v active=%s", initialOwner, previous, nextOwner)
+	}
+	if snapshot["unityTransitionUntil"] == "" {
+		t.Fatalf("expected transition deadline in snapshot: %#v", snapshot)
 	}
 }
 

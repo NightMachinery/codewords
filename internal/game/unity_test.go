@@ -2,7 +2,9 @@ package game
 
 import (
 	"errors"
+	"slices"
 	"testing"
+	"time"
 )
 
 func TestUnityStartGeneratesPersonalBoardsAndSafeSnapshots(t *testing.T) {
@@ -177,6 +179,61 @@ func TestUnityUsesDistinctImagesAcrossBoardsWhenEnoughImagesExist(t *testing.T) 
 	}
 }
 
+func TestUnityRequiresEnoughImagesForAllActiveBoards(t *testing.T) {
+	state := unityLobby(t, Settings{Mode: ModeUnity, Seed: 516, TotalCards: 9, ImageCardCount: 2, UnityTurnLimit: 6})
+
+	if _, err := Apply(&state, StartCommand{GameID: "game-images-short", Words: makeWords(40), ImageIDs: []string{"img-a", "img-b", "img-c", "img-d", "img-e"}}, "host"); !errors.Is(err, ErrNotEnoughImages) {
+		t.Fatalf("expected not enough images for three Unity boards, got %v", err)
+	}
+}
+
+func TestUnityMidGameJoinUsesUnusedImages(t *testing.T) {
+	state := NewLobby("host", Settings{Mode: ModeUnity, Seed: 517, TotalCards: 9, ImageCardCount: 2, UnityTurnLimit: 6})
+	for _, player := range []string{"host", "p2"} {
+		mustApply(t, &state, AddPlayerCommand{PlayerID: player, DisplayName: player}, player)
+		mustApply(t, &state, AssignTeamCommand{PlayerID: player, Team: TeamUnity}, "host")
+	}
+	mustApply(t, &state, StartCommand{GameID: "game-mid-images", Words: makeWords(40), ImageIDs: []string{"img-a", "img-b", "img-c", "img-d", "img-e", "img-f"}}, "host")
+	mustApply(t, &state, AddPlayerCommand{PlayerID: "late", DisplayName: "Late"}, "late")
+	mustApply(t, &state, AssignTeamCommand{PlayerID: "late", Team: TeamObservers}, "host")
+
+	mustApply(t, &state, AssignTeamCommand{PlayerID: "late", Team: TeamUnity}, "host")
+
+	seen := map[string]string{}
+	for ownerID, board := range state.UnityBoards {
+		for _, card := range board.Cards {
+			if card.Content.Type != ContentImage {
+				continue
+			}
+			if previousOwner, ok := seen[card.Content.ImageID]; ok {
+				t.Fatalf("image %s duplicated on owners %s and %s", card.Content.ImageID, previousOwner, ownerID)
+			}
+			seen[card.Content.ImageID] = ownerID
+		}
+	}
+	if len(seen) != 6 {
+		t.Fatalf("expected six unique images after late join, got %#v", seen)
+	}
+}
+
+func TestUnityMidGameJoinRejectsWhenUnusedImagesAreUnavailable(t *testing.T) {
+	state := NewLobby("host", Settings{Mode: ModeUnity, Seed: 518, TotalCards: 9, ImageCardCount: 2, UnityTurnLimit: 6})
+	for _, player := range []string{"host", "p2"} {
+		mustApply(t, &state, AddPlayerCommand{PlayerID: player, DisplayName: player}, player)
+		mustApply(t, &state, AssignTeamCommand{PlayerID: player, Team: TeamUnity}, "host")
+	}
+	mustApply(t, &state, StartCommand{GameID: "game-mid-images-short", Words: makeWords(40), ImageIDs: []string{"img-a", "img-b", "img-c", "img-d"}}, "host")
+	mustApply(t, &state, AddPlayerCommand{PlayerID: "late", DisplayName: "Late"}, "late")
+	mustApply(t, &state, AssignTeamCommand{PlayerID: "late", Team: TeamObservers}, "host")
+
+	if _, err := Apply(&state, AssignTeamCommand{PlayerID: "late", Team: TeamUnity}, "host"); !errors.Is(err, ErrNotEnoughImages) {
+		t.Fatalf("expected not enough unused images, got %v", err)
+	}
+	if state.Players["late"].Team != TeamObservers {
+		t.Fatalf("failed Unity assignment should leave late player as observer, got %#v", state.Players["late"])
+	}
+}
+
 func TestUnityRepresentativeGuessingRules(t *testing.T) {
 	state := unityLobby(t, Settings{Mode: ModeUnity, Seed: 52, UnityTurnLimit: 5})
 	mustApply(t, &state, StartCommand{GameID: "game-2", Words: makeWords(80)}, "host")
@@ -212,7 +269,7 @@ func TestUnityRepresentativeGuessingRules(t *testing.T) {
 func TestUnitySharedPoolObserverLedgerAndRejoin(t *testing.T) {
 	state := unityLobby(t, Settings{Mode: ModeUnity, Seed: 53, UnityTurnLimit: 2})
 	mustApply(t, &state, StartCommand{GameID: "game-3", Words: makeWords(80)}, "host")
-	if state.UnitySharedTurnsRemaining != 5 {
+	if state.UnitySharedTurnsRemaining != 6 {
 		t.Fatalf("expected first active board to spend from 3 boards * 2 shared turns, got %d", state.UnitySharedTurnsRemaining)
 	}
 
@@ -246,6 +303,82 @@ func TestUnitySharedPoolObserverLedgerAndRejoin(t *testing.T) {
 	}
 	if state.UnityBoards["p2"].WithdrawnSharedTurns != 0 {
 		t.Fatalf("expected withdrawn contribution cleared, got %#v", state.UnityBoards["p2"])
+	}
+}
+
+func TestUnityTurnsChargeOnlyWhenTurnFinalizesWithActivity(t *testing.T) {
+	state := unityLobby(t, Settings{Mode: ModeUnity, Seed: 530, UnityTurnLimit: 2})
+	mustApply(t, &state, StartCommand{GameID: "game-charge-finalize", Words: makeWords(80)}, "host")
+	state.ActiveBoardOwner = "host"
+	state.UnitySharedTurnsRemaining = 6
+	setUnityBoardColors(&state, "host", []Color{ColorUnity, ColorCivilian})
+	setUnityBoardColors(&state, "p2", []Color{ColorUnity})
+
+	mustApply(t, &state, SwitchUnitySpymasterCommand{Now: time.Unix(100, 0)}, "host")
+	if state.UnityBoards["host"].TurnsUsed != 0 || state.UnitySharedTurnsRemaining != 6 {
+		t.Fatalf("empty spy switch should not spend a turn, turns=%d shared=%d", state.UnityBoards["host"].TurnsUsed, state.UnitySharedTurnsRemaining)
+	}
+
+	state.UnityTransitionUntil = ""
+	state.ActiveBoardOwner = "host"
+	mustApply(t, &state, SubmitClueCommand{Text: "bridge", Number: ClueNumber{Kind: ClueNumberBlank}}, "host")
+	mustApply(t, &state, SwitchUnitySpymasterCommand{Now: time.Unix(101, 0)}, "host")
+	if state.UnityBoards["host"].TurnsUsed != 1 || state.UnitySharedTurnsRemaining != 5 {
+		t.Fatalf("spy switch after clue should spend current board turn, turns=%d shared=%d", state.UnityBoards["host"].TurnsUsed, state.UnitySharedTurnsRemaining)
+	}
+}
+
+func TestUnitySwitchSpymasterIsModOnlyAndCreatesTransition(t *testing.T) {
+	state := unityLobby(t, Settings{Mode: ModeUnity, Seed: 531, UnityTurnLimit: 3})
+	mustApply(t, &state, StartCommand{GameID: "game-switch-spy", Words: makeWords(80)}, "host")
+	state.ActiveBoardOwner = "host"
+	setUnityBoardColors(&state, "host", []Color{ColorUnity})
+	setUnityBoardColors(&state, "p2", []Color{ColorUnity})
+	setUnityBoardColors(&state, "p3", []Color{ColorUnity})
+
+	if _, err := Apply(&state, SwitchUnitySpymasterCommand{Now: time.Unix(200, 0)}, "p2"); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("expected non-mod switch to be forbidden, got %v", err)
+	}
+	mustApply(t, &state, SwitchUnitySpymasterCommand{Now: time.Unix(200, 0)}, "host")
+
+	if state.PreviousBoardOwner != "host" || state.ActiveBoardOwner != "p2" {
+		t.Fatalf("expected switch from host to p2, previous=%s active=%s", state.PreviousBoardOwner, state.ActiveBoardOwner)
+	}
+	if state.UnityTransitionUntil == "" {
+		t.Fatalf("expected transition deadline to be set")
+	}
+	if state.Round == 0 {
+		t.Fatalf("expected next board round to be active")
+	}
+}
+
+func TestUnityTransitionRejectsGameplayActions(t *testing.T) {
+	state := unityLobby(t, Settings{Mode: ModeUnity, Seed: 532, UnityTurnLimit: 3})
+	mustApply(t, &state, StartCommand{GameID: "game-transition-lock", Words: makeWords(80)}, "host")
+	state.ActiveBoardOwner = "host"
+	setUnityBoardColors(&state, "host", []Color{ColorCivilian})
+	setUnityBoardColors(&state, "p2", []Color{ColorUnity})
+	setUnityBoardColors(&state, "p3", []Color{ColorUnity})
+
+	mustApply(t, &state, GuessCommand{Index: 0, Now: time.Unix(300, 0)}, "p2")
+	if state.UnityTransitionUntil == "" || state.PreviousBoardOwner != "host" {
+		t.Fatalf("expected civilian reveal to create transition, previous=%s until=%q", state.PreviousBoardOwner, state.UnityTransitionUntil)
+	}
+	if _, err := Apply(&state, GuessCommand{Index: 0, Now: time.Unix(305, 0)}, "host"); !errors.Is(err, ErrInvalidCommand) {
+		t.Fatalf("expected transition to reject guesses, got %v", err)
+	}
+	if _, err := Apply(&state, PassCommand{Now: time.Unix(305, 0)}, "host"); !errors.Is(err, ErrInvalidCommand) {
+		t.Fatalf("expected transition to reject passes, got %v", err)
+	}
+	if _, err := Apply(&state, SubmitClueCommand{Text: "late", Number: ClueNumber{Kind: ClueNumberBlank}, Now: time.Unix(305, 0)}, state.ActiveBoardOwner); !errors.Is(err, ErrInvalidCommand) {
+		t.Fatalf("expected transition to reject clues, got %v", err)
+	}
+	if _, err := Apply(&state, SwitchUnitySpymasterCommand{Now: time.Unix(305, 0)}, "host"); !errors.Is(err, ErrInvalidCommand) {
+		t.Fatalf("expected transition to reject spy switches, got %v", err)
+	}
+
+	if _, err := Apply(&state, GuessCommand{Index: 0, Now: time.Unix(311, 0)}, "host"); err != nil {
+		t.Fatalf("expected guess after transition to be accepted, got %v", err)
 	}
 }
 
@@ -308,11 +441,11 @@ func TestUnitySolvingOneBoardAutoRotatesWithoutExtraSharedTurn(t *testing.T) {
 	if state.ActiveBoardOwner != "p2" {
 		t.Fatalf("expected next unfinished board p2, got %s", state.ActiveBoardOwner)
 	}
-	if state.UnityBoards["host"].TurnsUsed != hostTurns {
-		t.Fatalf("solved board should not be charged again, before=%d after=%d", hostTurns, state.UnityBoards["host"].TurnsUsed)
+	if state.UnityBoards["host"].TurnsUsed != hostTurns+1 {
+		t.Fatalf("solved board should spend exactly the completed turn, before=%d after=%d", hostTurns, state.UnityBoards["host"].TurnsUsed)
 	}
-	if state.UnitySharedTurnsRemaining != 6 {
-		t.Fatalf("auto-rotation should not spend another shared turn, got %d", state.UnitySharedTurnsRemaining)
+	if state.UnitySharedTurnsRemaining != 5 {
+		t.Fatalf("auto-rotation should spend exactly the completed turn, got %d", state.UnitySharedTurnsRemaining)
 	}
 }
 
@@ -387,6 +520,36 @@ func TestUnityEndStatsIncludesPerBoardAverages(t *testing.T) {
 	}
 	if byOwner["p3"].UnityCardsPerTurn != nil {
 		t.Fatalf("expected unplayed board average to be nil, got %#v", byOwner["p3"].UnityCardsPerTurn)
+	}
+}
+
+func TestUnityEndStatsRanksHigherAveragesFirst(t *testing.T) {
+	state := unityLobby(t, Settings{Mode: ModeUnity, Seed: 591, UnityTurnLimit: 10})
+	mustApply(t, &state, StartCommand{GameID: "game-end-stats-sort", Words: makeWords(80)}, "host")
+	setUnityBoardColors(&state, "host", []Color{ColorUnity, ColorUnity})
+	setUnityBoardColors(&state, "p2", []Color{ColorUnity, ColorUnity})
+	setUnityBoardColors(&state, "p3", []Color{ColorUnity})
+	hostBoard := state.UnityBoards["host"]
+	hostBoard.Cards[0].Revealed = true
+	hostBoard.TurnsUsed = 2
+	state.UnityBoards["host"] = hostBoard
+	p2Board := state.UnityBoards["p2"]
+	p2Board.Cards[0].Revealed = true
+	p2Board.Cards[1].Revealed = true
+	p2Board.TurnsUsed = 1
+	state.UnityBoards["p2"] = p2Board
+	p3Board := state.UnityBoards["p3"]
+	p3Board.TurnsUsed = 0
+	state.UnityBoards["p3"] = p3Board
+
+	stats := state.buildUnityEndStats("test")
+
+	got := []string{}
+	for _, board := range stats.BoardStats {
+		got = append(got, board.OwnerID)
+	}
+	if !slices.Equal(got, []string{"p2", "host", "p3"}) {
+		t.Fatalf("expected board stats ranked by average desc, got %v", got)
 	}
 }
 

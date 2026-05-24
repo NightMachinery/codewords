@@ -7,7 +7,10 @@ import (
 	"math/rand"
 	"sort"
 	"strings"
+	"time"
 )
+
+const unityTransitionDuration = 10 * time.Second
 
 // UnityCardCount returns the automatic target count for one Unity board.
 func UnityCardCount(totalCards int) int {
@@ -27,6 +30,8 @@ func (c StartCommand) startUnity(state *State, actorID string) (Event, error) {
 	state.Round = 0
 	state.RoundGuesses = 0
 	state.UnityWaitingForGuessers = false
+	state.PreviousBoardOwner = ""
+	state.UnityTransitionUntil = ""
 	state.UnityEndStats = nil
 	state.UnityWords = uniqueWords(c.Words)
 	state.UnityImageIDs = uniqueImageIDs(c.ImageIDs)
@@ -128,6 +133,9 @@ func unityImageIDsByOwner(settings Settings, gameID string, ownerIDs []string, i
 	}
 	uniqueImages := uniqueImageIDs(imageIDs)
 	if len(uniqueImages) < imageCount {
+		return nil, ErrNotEnoughImages
+	}
+	if len(uniqueImages) < imageCount*len(ownerIDs) {
 		return nil, ErrNotEnoughImages
 	}
 	rng := rand.New(rand.NewSource(unityImagePoolSeed(settings.Seed, gameID)))
@@ -236,6 +244,10 @@ func (s State) unityRemainingFor(ownerID string) int {
 }
 
 func (s *State) advanceUnityTurnFrom(startIndex int) bool {
+	return s.advanceUnityTurnFromAt(startIndex, time.Time{})
+}
+
+func (s *State) advanceUnityTurnFromAt(startIndex int, now time.Time) bool {
 	active := s.activeUnityBoardIDs()
 	if len(active) == 0 {
 		s.unityWin("all_unity_found")
@@ -247,13 +259,10 @@ func (s *State) advanceUnityTurnFrom(startIndex int) bool {
 		if s.Players[ownerID].Team != TeamUnity || s.unityRemainingFor(ownerID) == 0 {
 			continue
 		}
-		s.ActiveBoardOwner = ownerID
+		s.setUnityActiveBoard(ownerID, now)
 		if !s.hasEligibleUnityGuessers() {
 			s.UnityWaitingForGuessers = true
 			return false
-		}
-		if !s.chargeUnityTurn(ownerID) {
-			return true
 		}
 		s.UnityWaitingForGuessers = false
 		s.Round = s.startRound(TeamUnity)
@@ -264,19 +273,59 @@ func (s *State) advanceUnityTurnFrom(startIndex int) bool {
 	return false
 }
 
+func (s *State) setUnityActiveBoard(ownerID string, now time.Time) {
+	previous := s.ActiveBoardOwner
+	s.ActiveBoardOwner = ownerID
+	if previous == "" || previous == ownerID {
+		s.PreviousBoardOwner = ""
+		s.UnityTransitionUntil = ""
+		return
+	}
+	s.PreviousBoardOwner = previous
+	if now.IsZero() {
+		s.UnityTransitionUntil = ""
+		return
+	}
+	s.UnityTransitionUntil = nowOrCurrent(now).Add(unityTransitionDuration).UTC().Format(time.RFC3339Nano)
+}
+
+func nowOrCurrent(now time.Time) time.Time {
+	if now.IsZero() {
+		return time.Now().UTC()
+	}
+	return now.UTC()
+}
+
+func (s *State) unityTransitionLocked(now time.Time) bool {
+	if s.UnityTransitionUntil == "" {
+		return false
+	}
+	until, err := time.Parse(time.RFC3339Nano, s.UnityTransitionUntil)
+	if err != nil {
+		s.UnityTransitionUntil = ""
+		s.PreviousBoardOwner = ""
+		return false
+	}
+	if nowOrCurrent(now).Before(until) {
+		return true
+	}
+	s.UnityTransitionUntil = ""
+	return false
+}
+
 func (s *State) chargeUnityTurn(ownerID string) bool {
 	if s.Settings.UnityUnlimitedTurns {
 		return true
+	}
+	if !s.Settings.UnityStrictPerBoardTurns && s.UnitySharedTurnsRemaining <= 0 {
+		s.unityLose("turn_pool_empty")
+		return false
 	}
 	board := s.UnityBoards[ownerID]
 	board.TurnsUsed++
 	s.UnityBoards[ownerID] = board
 	if s.Settings.UnityStrictPerBoardTurns {
 		return true
-	}
-	if s.UnitySharedTurnsRemaining <= 0 {
-		s.unityLose("turn_pool_empty")
-		return false
 	}
 	s.UnitySharedTurnsRemaining--
 	return true
@@ -321,6 +370,9 @@ func (s State) isUnityActiveGuesser(playerID string) bool {
 }
 
 func (c GuessCommand) guessUnity(state *State, actorID string) (Event, error) {
+	if state.unityTransitionLocked(c.Now) {
+		return Event{}, fmt.Errorf("%w: unity board transition", ErrInvalidCommand)
+	}
 	board := state.UnityBoards[state.ActiveBoardOwner]
 	if c.Index < 0 || c.Index >= len(board.Cards) {
 		return Event{}, fmt.Errorf("%w: card index", ErrInvalidCommand)
@@ -345,30 +397,35 @@ func (c GuessCommand) guessUnity(state *State, actorID string) (Event, error) {
 		state.unityLose("assassin")
 		return Event{Type: EventGuessAccepted}, nil
 	}
-	if state.allActiveUnityBoardsSolved() {
-		state.unityWin("all_unity_found")
-		return Event{Type: EventGuessAccepted}, nil
-	}
 	if selectedColor != ColorUnity {
 		state.finalizeUnityRound(&board)
 		state.UnityBoards[board.OwnerID] = board
-		state.endUnityTurn(board.OwnerID)
+		state.endUnityTurn(board.OwnerID, true, c.Now)
 	} else if state.unityRemainingFor(board.OwnerID) == 0 {
 		state.finalizeUnityRound(&board)
 		state.UnityBoards[board.OwnerID] = board
-		state.endCompletedUnityBoardTurn(board.OwnerID)
+		if state.allActiveUnityBoardsSolved() {
+			if state.chargeUnityTurn(board.OwnerID) {
+				state.unityWin("all_unity_found")
+			}
+			return Event{Type: EventGuessAccepted}, nil
+		}
+		state.endCompletedUnityBoardTurn(board.OwnerID, true, c.Now)
 	} else if state.Settings.EnforceClueGuessLimit {
 		clue := currentUnityClue(board)
 		if clue != nil && clue.Number.Kind == ClueNumberNumeric && clue.Guesses >= clue.Number.Value {
 			state.finalizeUnityRound(&board)
 			state.UnityBoards[board.OwnerID] = board
-			state.endUnityTurn(board.OwnerID)
+			state.endUnityTurn(board.OwnerID, true, c.Now)
 		}
 	}
 	return Event{Type: EventGuessAccepted}, nil
 }
 
 func (c PassCommand) passUnity(state *State, actorID string) (Event, error) {
+	if state.unityTransitionLocked(c.Now) {
+		return Event{}, fmt.Errorf("%w: unity board transition", ErrInvalidCommand)
+	}
 	if !state.IsActiveGuesser(actorID, TeamUnity) {
 		return Event{}, ErrForbidden
 	}
@@ -376,12 +433,15 @@ func (c PassCommand) passUnity(state *State, actorID string) (Event, error) {
 	state.ActionID++
 	state.finalizeUnityRound(&board)
 	state.UnityBoards[board.OwnerID] = board
-	state.endUnityTurn(board.OwnerID)
+	state.endUnityTurn(board.OwnerID, true, c.Now)
 	return Event{Type: EventPassAccepted}, nil
 }
 
-func (s *State) endUnityTurn(ownerID string) {
+func (s *State) endUnityTurn(ownerID string, charge bool, now time.Time) {
 	if s.Phase == PhaseGameOver {
+		return
+	}
+	if charge && !s.chargeUnityTurn(ownerID) {
 		return
 	}
 	if s.Settings.UnityStrictPerBoardTurns && !s.Settings.UnityUnlimitedTurns {
@@ -399,11 +459,14 @@ func (s *State) endUnityTurn(ownerID string) {
 		}
 		return
 	}
-	s.advanceUnityTurnFrom(s.unityBoardIndex(ownerID))
+	s.advanceUnityTurnFromAt(s.unityBoardIndex(ownerID), now)
 }
 
-func (s *State) endCompletedUnityBoardTurn(ownerID string) {
+func (s *State) endCompletedUnityBoardTurn(ownerID string, charge bool, now time.Time) {
 	if s.Phase == PhaseGameOver {
+		return
+	}
+	if charge && !s.chargeUnityTurn(ownerID) {
 		return
 	}
 	active := s.activeUnityBoardIDs()
@@ -418,7 +481,7 @@ func (s *State) endCompletedUnityBoardTurn(ownerID string) {
 		if s.Players[nextOwnerID].Team != TeamUnity || s.unityRemainingFor(nextOwnerID) == 0 {
 			continue
 		}
-		s.ActiveBoardOwner = nextOwnerID
+		s.setUnityActiveBoard(nextOwnerID, now)
 		s.UnityWaitingForGuessers = !s.hasEligibleUnityGuessers()
 		if !s.UnityWaitingForGuessers {
 			s.Round = s.startRound(TeamUnity)
@@ -430,6 +493,9 @@ func (s *State) endCompletedUnityBoardTurn(ownerID string) {
 }
 
 func (c SubmitClueCommand) submitUnityClue(state *State, actorID string) (Event, error) {
+	if state.unityTransitionLocked(c.Now) {
+		return Event{}, fmt.Errorf("%w: unity board transition", ErrInvalidCommand)
+	}
 	if actorID != state.ActiveBoardOwner {
 		return Event{}, ErrForbidden
 	}
@@ -455,6 +521,40 @@ func (c SubmitClueCommand) submitUnityClue(state *State, actorID string) (Event,
 	board.ClueLog[idx] = entry
 	state.UnityBoards[board.OwnerID] = board
 	return Event{Type: EventClueSubmitted}, nil
+}
+
+func (c SwitchUnitySpymasterCommand) apply(state *State, actorID string) (Event, error) {
+	if state.Phase != PhaseActive || state.Mode != ModeUnity {
+		return Event{}, fmt.Errorf("%w: switch outside active unity phase", ErrInvalidCommand)
+	}
+	if state.unityTransitionLocked(c.Now) {
+		return Event{}, fmt.Errorf("%w: unity board transition", ErrInvalidCommand)
+	}
+	if !state.CanManage(actorID) {
+		return Event{}, ErrForbidden
+	}
+	board := state.UnityBoards[state.ActiveBoardOwner]
+	charge := state.unityTurnHasActivity(board)
+	if charge {
+		state.finalizeUnityRound(&board)
+		state.UnityBoards[board.OwnerID] = board
+	}
+	state.ActionID++
+	state.endUnityTurn(board.OwnerID, charge, c.Now)
+	return Event{Type: EventUnitySpySwitched}, nil
+}
+
+func (s State) unityTurnHasActivity(board UnityBoardState) bool {
+	if s.RoundGuesses > 0 {
+		return true
+	}
+	if len(board.ClueLog) > 0 {
+		entry := board.ClueLog[len(board.ClueLog)-1]
+		if entry.Round == s.Round && entry.Status == ClueActive && strings.TrimSpace(entry.Text) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *State) validateUnityGuessAgainstClue(board *UnityBoardState) error {
@@ -533,20 +633,25 @@ func (s *State) finalizeUnityRound(board *UnityBoardState) {
 	board.ClueLog = append(board.ClueLog, ClueEntry{Round: s.Round, Team: TeamUnity, Text: "NA", Number: ClueNumber{Kind: ClueNumberBlank}, Status: ClueNA, Guesses: guesses})
 }
 
-func (s *State) reconcileUnityRoster(playerID string, nextTeam Team) {
+func (s *State) reconcileUnityRoster(playerID string, nextTeam Team, now time.Time) error {
 	if s.UnityBoards == nil {
-		return
+		return nil
 	}
 	if nextTeam == TeamUnity {
 		if _, ok := s.UnityBoards[playerID]; !ok {
-			board, err := GenerateUnityBoard(s.Settings, s.GameID, playerID, s.UnityWords, s.UnityImageIDs)
-			if err == nil {
-				s.UnityBoards[playerID] = UnityBoardState{OwnerID: playerID, Cards: board.Cards}
-				s.UnityBoardOrder = append(s.UnityBoardOrder, playerID)
-				sort.Strings(s.UnityBoardOrder)
-				if !s.Settings.UnityUnlimitedTurns && !s.Settings.UnityStrictPerBoardTurns {
-					s.UnitySharedTurnsRemaining += s.Settings.UnityTurnLimit
-				}
+			imageIDs, err := s.unityImageIDsForNewOwner(playerID)
+			if err != nil {
+				return err
+			}
+			board, err := GenerateUnityBoard(s.Settings, s.GameID, playerID, s.UnityWords, imageIDs)
+			if err != nil {
+				return err
+			}
+			s.UnityBoards[playerID] = UnityBoardState{OwnerID: playerID, Cards: board.Cards}
+			s.UnityBoardOrder = append(s.UnityBoardOrder, playerID)
+			sort.Strings(s.UnityBoardOrder)
+			if !s.Settings.UnityUnlimitedTurns && !s.Settings.UnityStrictPerBoardTurns {
+				s.UnitySharedTurnsRemaining += s.Settings.UnityTurnLimit
 			}
 		} else if !s.Settings.UnityUnlimitedTurns && !s.Settings.UnityStrictPerBoardTurns {
 			board := s.UnityBoards[playerID]
@@ -558,7 +663,7 @@ func (s *State) reconcileUnityRoster(playerID string, nextTeam Team) {
 		board, boardExists := s.UnityBoards[playerID]
 		if !boardExists {
 			s.ResolveUnityAfterRosterChange()
-			return
+			return nil
 		}
 		if !s.Settings.UnityUnlimitedTurns && !s.Settings.UnityStrictPerBoardTurns {
 			remainingContribution := s.Settings.UnityTurnLimit - board.TurnsUsed
@@ -574,10 +679,48 @@ func (s *State) reconcileUnityRoster(playerID string, nextTeam Team) {
 			s.UnityBoards[playerID] = board
 		}
 		if s.ActiveBoardOwner == playerID {
-			s.advanceUnityTurnFrom(s.unityBoardIndex(playerID))
+			charge := s.unityTurnHasActivity(board)
+			if charge {
+				s.finalizeUnityRound(&board)
+				s.UnityBoards[playerID] = board
+			}
+			s.endUnityTurn(playerID, charge, now)
 		}
 	}
 	s.ResolveUnityAfterRosterChange()
+	return nil
+}
+
+func (s State) unityImageIDsForNewOwner(ownerID string) ([]string, error) {
+	settings := SettingsWithDefaults(s.Settings)
+	imageCount := settings.ImageCardCount
+	if imageCount == 0 {
+		return s.UnityImageIDs, nil
+	}
+	used := map[string]bool{}
+	for _, board := range s.UnityBoards {
+		for _, card := range board.Cards {
+			if card.Content.Type == ContentImage {
+				used[card.Content.ImageID] = true
+			}
+		}
+	}
+	available := make([]string, 0)
+	for _, id := range uniqueImageIDs(s.UnityImageIDs) {
+		if !used[id] {
+			available = append(available, id)
+		}
+	}
+	if len(available) < imageCount {
+		return nil, ErrNotEnoughImages
+	}
+	rng := rand.New(rand.NewSource(unityBoardSeed(settings.Seed, s.GameID, ownerID)))
+	perm := rng.Perm(len(available))
+	out := make([]string, imageCount)
+	for i := 0; i < imageCount; i++ {
+		out[i] = available[perm[i]]
+	}
+	return out, nil
 }
 
 // ResolveUnityAfterRosterChange applies immediate Unity win/loss/wait checks.
@@ -660,6 +803,23 @@ func (s State) buildUnityEndStats(reason string) *UnityEndStats {
 			addBoard(board)
 		}
 	}
+	sort.SliceStable(boardStats, func(i, j int) bool {
+		left := boardStats[i].UnityCardsPerTurn
+		right := boardStats[j].UnityCardsPerTurn
+		if left == nil && right == nil {
+			return boardStats[i].OwnerID < boardStats[j].OwnerID
+		}
+		if left == nil {
+			return false
+		}
+		if right == nil {
+			return true
+		}
+		if *left == *right {
+			return boardStats[i].OwnerID < boardStats[j].OwnerID
+		}
+		return *left > *right
+	})
 	score := 0.0
 	if turns > 0 {
 		score = float64(found) / float64(turns)
@@ -669,6 +829,11 @@ func (s State) buildUnityEndStats(reason string) *UnityEndStats {
 
 func (s State) unitySnapshotFor(viewer Viewer) Snapshot {
 	activeBoard := s.safeUnityBoardSnapshot(s.ActiveBoardOwner, viewer.PlayerID)
+	var previousBoard *SnapshotBoard
+	if s.PreviousBoardOwner != "" {
+		board := s.safeUnityBoardSnapshot(s.PreviousBoardOwner, viewer.PlayerID)
+		previousBoard = &board
+	}
 	var ownBoard *SnapshotBoard
 	if viewer.PlayerID != "" {
 		if _, ok := s.UnityBoards[viewer.PlayerID]; ok {
@@ -683,6 +848,9 @@ func (s State) unitySnapshotFor(viewer Viewer) Snapshot {
 	}
 	found, total := 0, 0
 	for _, board := range s.UnityBoards {
+		if s.Players[board.OwnerID].Team != TeamUnity {
+			continue
+		}
 		for _, card := range board.Cards {
 			if card.Color == ColorUnity {
 				total++
@@ -693,19 +861,21 @@ func (s State) unitySnapshotFor(viewer Viewer) Snapshot {
 		}
 	}
 	return Snapshot{
-		Phase:         s.Phase,
-		CurrentTeam:   TeamUnity,
-		Winner:        s.Winner,
-		FinishedAt:    s.FinishedAt,
-		ActionID:      s.ActionID,
-		Cards:         activeBoard.Cards,
-		LastSelected:  s.LastSelected,
-		ClueLog:       activeBoard.ClueLog,
-		ActiveBoard:   activeBoard,
-		OwnBoard:      ownBoard,
-		UnityBoards:   summaries,
-		UnityProgress: UnityProgress{UnityCardsFound: found, TotalUnityCards: total, SharedTurnsRemaining: s.UnitySharedTurnsRemaining, UnlimitedTurns: s.Settings.UnityUnlimitedTurns, StrictPerBoardTurns: s.Settings.UnityStrictPerBoardTurns, WaitingForGuessers: s.UnityWaitingForGuessers},
-		UnityEndStats: s.UnityEndStats,
+		Phase:                s.Phase,
+		CurrentTeam:          TeamUnity,
+		Winner:               s.Winner,
+		FinishedAt:           s.FinishedAt,
+		ActionID:             s.ActionID,
+		Cards:                activeBoard.Cards,
+		LastSelected:         s.LastSelected,
+		ClueLog:              activeBoard.ClueLog,
+		ActiveBoard:          activeBoard,
+		PreviousBoard:        previousBoard,
+		OwnBoard:             ownBoard,
+		UnityBoards:          summaries,
+		UnityProgress:        UnityProgress{UnityCardsFound: found, TotalUnityCards: total, SharedTurnsRemaining: s.UnitySharedTurnsRemaining, UnlimitedTurns: s.Settings.UnityUnlimitedTurns, StrictPerBoardTurns: s.Settings.UnityStrictPerBoardTurns, WaitingForGuessers: s.UnityWaitingForGuessers},
+		UnityTransitionUntil: s.UnityTransitionUntil,
+		UnityEndStats:        s.UnityEndStats,
 	}
 }
 

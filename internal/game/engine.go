@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"sort"
 	"strings"
+	"time"
 )
 
 // Command is implemented by every engine command.
@@ -24,6 +25,7 @@ type AddPlayerCommand struct {
 type AssignTeamCommand struct {
 	PlayerID string
 	Team     Team
+	Now      time.Time
 }
 
 // RejoinTeamCommand restores an observer to their last playable team and role.
@@ -65,15 +67,24 @@ type StartCommand struct {
 type SubmitClueCommand struct {
 	Text   string
 	Number ClueNumber
+	Now    time.Time
 }
 
 // GuessCommand reveals a card for the current team.
 type GuessCommand struct {
 	Index int
+	Now   time.Time
 }
 
 // PassCommand ends the current team's round voluntarily.
-type PassCommand struct{}
+type PassCommand struct {
+	Now time.Time
+}
+
+// SwitchUnitySpymasterCommand rotates the active Unity board owner.
+type SwitchUnitySpymasterCommand struct {
+	Now time.Time
+}
 
 // ShuffleRolesCommand randomizes unrevealed red/blue/civilian/assassin cards.
 type ShuffleRolesCommand struct{}
@@ -352,6 +363,7 @@ func (c AssignTeamCommand) apply(state *State, actorID string) (Event, error) {
 	if !ok {
 		return Event{}, fmt.Errorf("%w: unknown player", ErrInvalidCommand)
 	}
+	previousPlayer := player
 	if player.Team != c.Team {
 		if c.Team == TeamObservers && (player.Team == TeamBlue || player.Team == TeamRed || player.Team == TeamUnity) {
 			player.PreviousTeam = player.Team
@@ -364,7 +376,10 @@ func (c AssignTeamCommand) apply(state *State, actorID string) (Event, error) {
 	player.Team = c.Team
 	state.Players[c.PlayerID] = player
 	if state.Phase == PhaseActive && state.Mode == ModeUnity {
-		state.reconcileUnityRoster(c.PlayerID, c.Team)
+		if err := state.reconcileUnityRoster(c.PlayerID, c.Team, c.Now); err != nil {
+			state.Players[c.PlayerID] = previousPlayer
+			return Event{}, err
+		}
 	}
 	return Event{Type: EventTeamAssigned}, nil
 }
@@ -394,7 +409,13 @@ func (c RejoinTeamCommand) apply(state *State, actorID string) (Event, error) {
 	}
 	state.Players[c.PlayerID] = player
 	if state.Phase == PhaseActive && state.Mode == ModeUnity {
-		state.reconcileUnityRoster(c.PlayerID, player.Team)
+		if err := state.reconcileUnityRoster(c.PlayerID, player.Team, time.Time{}); err != nil {
+			player.Team = TeamObservers
+			player.Spymaster = false
+			player.Representative = false
+			state.Players[c.PlayerID] = player
+			return Event{}, err
+		}
 	}
 	return Event{Type: EventTeamAssigned}, nil
 }
@@ -736,10 +757,12 @@ func (c RestartMatchCommand) apply(state *State, actorID string) (Event, error) 
 	state.RoundGuesses = 0
 	state.GameID = ""
 	state.ActiveBoardOwner = ""
+	state.PreviousBoardOwner = ""
 	state.UnityBoards = nil
 	state.UnityBoardOrder = nil
 	state.UnitySharedTurnsRemaining = 0
 	state.UnityWaitingForGuessers = false
+	state.UnityTransitionUntil = ""
 	state.UnityWords = nil
 	state.UnityImageIDs = nil
 	state.UnityEndStats = nil

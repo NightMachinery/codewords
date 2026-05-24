@@ -273,10 +273,12 @@ type State struct {
 	Round                     int                        `json:"round"`
 	RoundGuesses              int                        `json:"roundGuesses,omitempty"`
 	ActiveBoardOwner          string                     `json:"activeBoardOwner,omitempty"`
+	PreviousBoardOwner        string                     `json:"previousBoardOwner,omitempty"`
 	UnityBoards               map[string]UnityBoardState `json:"unityBoards,omitempty"`
 	UnityBoardOrder           []string                   `json:"unityBoardOrder,omitempty"`
 	UnitySharedTurnsRemaining int                        `json:"unitySharedTurnsRemaining,omitempty"`
 	UnityWaitingForGuessers   bool                       `json:"unityWaitingForGuessers,omitempty"`
+	UnityTransitionUntil      string                     `json:"unityTransitionUntil,omitempty"`
 	UnityWords                []string                   `json:"unityWords,omitempty"`
 	UnityImageIDs             []string                   `json:"unityImageIds,omitempty"`
 	UnityEndStats             *UnityEndStats             `json:"unityEndStats,omitempty"`
@@ -292,20 +294,21 @@ type Board struct {
 type EventType string
 
 const (
-	EventPlayerAdded     EventType = "player_added"
-	EventTeamAssigned    EventType = "team_assigned"
-	EventRoleChanged     EventType = "role_changed"
-	EventSettingsUpdated EventType = "settings_updated"
-	EventModChanged      EventType = "mod_changed"
-	EventMatchStarted    EventType = "match_started"
-	EventGuessAccepted   EventType = "guess_accepted"
-	EventPassAccepted    EventType = "pass_accepted"
-	EventClueSubmitted   EventType = "clue_submitted"
-	EventClueFinalized   EventType = "clue_finalized"
-	EventTeamsRandomized EventType = "teams_randomized"
-	EventRolesShuffled   EventType = "roles_shuffled"
-	EventClueReset       EventType = "clue_reset"
-	EventMatchRestarted  EventType = "match_restarted"
+	EventPlayerAdded      EventType = "player_added"
+	EventTeamAssigned     EventType = "team_assigned"
+	EventRoleChanged      EventType = "role_changed"
+	EventSettingsUpdated  EventType = "settings_updated"
+	EventModChanged       EventType = "mod_changed"
+	EventMatchStarted     EventType = "match_started"
+	EventGuessAccepted    EventType = "guess_accepted"
+	EventPassAccepted     EventType = "pass_accepted"
+	EventClueSubmitted    EventType = "clue_submitted"
+	EventClueFinalized    EventType = "clue_finalized"
+	EventTeamsRandomized  EventType = "teams_randomized"
+	EventRolesShuffled    EventType = "roles_shuffled"
+	EventClueReset        EventType = "clue_reset"
+	EventMatchRestarted   EventType = "match_restarted"
+	EventUnitySpySwitched EventType = "unity_spy_switched"
 )
 
 // Event is returned for an accepted command.
@@ -356,17 +359,19 @@ type UnityProgress struct {
 
 // Snapshot is a viewer-safe game state.
 type Snapshot struct {
-	Phase         Phase
-	CurrentTeam   Team
-	Winner        Team
-	FinishedAt    string
-	ActionID      int
-	Cards         []SnapshotCard
-	LastSelected  *LastSelected
-	ClueLog       []ClueEntry
-	ActiveBoard   SnapshotBoard
-	OwnBoard      *SnapshotBoard
-	UnityBoards   []UnityBoardSummary
-	UnityProgress UnityProgress
-	UnityEndStats *UnityEndStats
+	Phase                Phase
+	CurrentTeam          Team
+	Winner               Team
+	FinishedAt           string
+	ActionID             int
+	Cards                []SnapshotCard
+	LastSelected         *LastSelected
+	ClueLog              []ClueEntry
+	ActiveBoard          SnapshotBoard
+	PreviousBoard        *SnapshotBoard
+	OwnBoard             *SnapshotBoard
+	UnityBoards          []UnityBoardSummary
+	UnityProgress        UnityProgress
+	UnityTransitionUntil string
+	UnityEndStats        *UnityEndStats
 }
