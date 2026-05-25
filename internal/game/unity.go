@@ -364,9 +364,35 @@ func (s State) isUnityActiveGuesser(playerID string) bool {
 		return true
 	}
 	if len(reps) == 1 && reps[0].ID == s.ActiveBoardOwner {
-		return true
+		return playerID == s.UnityTemporaryRepresentativeID()
 	}
 	return player.Representative
+}
+
+func (s State) UnityTemporaryRepresentativeID() string {
+	if s.ActiveBoardOwner == "" {
+		return ""
+	}
+	reps := make([]Player, 0)
+	candidates := make([]string, 0)
+	for id, p := range s.Players {
+		if p.Team != TeamUnity {
+			continue
+		}
+		if p.Representative {
+			reps = append(reps, p)
+		}
+		if id != s.ActiveBoardOwner {
+			candidates = append(candidates, id)
+		}
+	}
+	if len(reps) != 1 || reps[0].ID != s.ActiveBoardOwner || len(candidates) == 0 {
+		return ""
+	}
+	sort.Strings(candidates)
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(fmt.Sprintf("%d:%s:%s:temp-rep", s.Settings.Seed, s.GameID, s.ActiveBoardOwner)))
+	return candidates[int(h.Sum32())%len(candidates)]
 }
 
 func (c GuessCommand) guessUnity(state *State, actorID string) (Event, error) {
@@ -873,7 +899,7 @@ func (s State) unitySnapshotFor(viewer Viewer) Snapshot {
 		PreviousBoard:        previousBoard,
 		OwnBoard:             ownBoard,
 		UnityBoards:          summaries,
-		UnityProgress:        UnityProgress{UnityCardsFound: found, TotalUnityCards: total, SharedTurnsRemaining: s.UnitySharedTurnsRemaining, UnlimitedTurns: s.Settings.UnityUnlimitedTurns, StrictPerBoardTurns: s.Settings.UnityStrictPerBoardTurns, WaitingForGuessers: s.UnityWaitingForGuessers},
+		UnityProgress:        UnityProgress{UnityCardsFound: found, TotalUnityCards: total, SharedTurnsRemaining: s.UnitySharedTurnsRemaining, UnlimitedTurns: s.Settings.UnityUnlimitedTurns, StrictPerBoardTurns: s.Settings.UnityStrictPerBoardTurns, WaitingForGuessers: s.UnityWaitingForGuessers, TemporaryRepresentativeID: s.UnityTemporaryRepresentativeID()},
 		UnityTransitionUntil: s.UnityTransitionUntil,
 		UnityEndStats:        s.UnityEndStats,
 	}

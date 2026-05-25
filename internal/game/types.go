@@ -349,12 +349,13 @@ type UnityBoardSummary struct {
 
 // UnityProgress is public cooperative progress.
 type UnityProgress struct {
-	UnityCardsFound      int
-	TotalUnityCards      int
-	SharedTurnsRemaining int
-	UnlimitedTurns       bool
-	StrictPerBoardTurns  bool
-	WaitingForGuessers   bool
+	UnityCardsFound           int
+	TotalUnityCards           int
+	SharedTurnsRemaining      int
+	UnlimitedTurns            bool
+	StrictPerBoardTurns       bool
+	WaitingForGuessers        bool
+	TemporaryRepresentativeID string
 }
 
 // Snapshot is a viewer-safe game state.

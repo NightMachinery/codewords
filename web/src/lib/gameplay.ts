@@ -66,6 +66,7 @@ export interface UnityProgress {
   unlimitedTurns: boolean;
   strictPerBoardTurns: boolean;
   waitingForGuessers: boolean;
+  temporaryRepresentativeId?: string;
 }
 
 export interface UnityEndStats {
@@ -225,7 +226,7 @@ export function findViewerPlayer(players: LobbyPlayer[], viewer: Viewer | null |
   return players.find((player) => player.id === id);
 }
 
-export function isActiveGuesser(players: LobbyPlayer[], playerId: string | undefined, currentTeam: Team, activeBoardOwner = ''): boolean {
+export function isActiveGuesser(players: LobbyPlayer[], playerId: string | undefined, currentTeam: Team, activeBoardOwner = '', temporaryRepresentativeId = ''): boolean {
   if (!playerId || (currentTeam !== 'blue' && currentTeam !== 'red' && currentTeam !== 'unity')) return false;
   const player = players.find((candidate) => candidate.id === playerId);
   if (!player || player.team !== currentTeam) return false;
@@ -234,7 +235,7 @@ export function isActiveGuesser(players: LobbyPlayer[], playerId: string | undef
     if (player.id === activeBoardOwner) return false;
     const representatives = players.filter((candidate) => candidate.team === 'unity' && candidate.representative);
     if (representatives.length === 0) return true;
-    if (representatives.length === 1 && representatives[0].id === activeBoardOwner) return true;
+    if (representatives.length === 1 && representatives[0].id === activeBoardOwner) return player.id === temporaryRepresentativeId;
     return player.representative;
   }
 
@@ -247,13 +248,15 @@ export function isActiveGuesser(players: LobbyPlayer[], playerId: string | undef
   return !player.spymaster;
 }
 
-export function isUnityTemporaryRepresentative(players: LobbyPlayer[], playerId: string | undefined, activeBoardOwner = ''): boolean {
+export function isUnityTemporaryRepresentative(players: LobbyPlayer[], playerId: string | undefined, activeBoardOwner = '', temporaryRepresentativeId = ''): boolean {
   if (!playerId || !activeBoardOwner) return false;
   const player = players.find((candidate) => candidate.id === playerId);
   if (!player || player.team !== 'unity' || player.representative || player.id === activeBoardOwner) return false;
 
   const representatives = players.filter((candidate) => candidate.team === 'unity' && candidate.representative);
-  return representatives.length === 0 || (representatives.length === 1 && representatives[0].id === activeBoardOwner);
+  if (representatives.length === 0) return true;
+  if (representatives.length === 1 && representatives[0].id === activeBoardOwner) return player.id === temporaryRepresentativeId;
+  return false;
 }
 
 export function viewerRole(
@@ -262,6 +265,7 @@ export function viewerRole(
   currentTeam: Team,
   phase: GameplayPhase = 'active',
   activeBoardOwner = '',
+  temporaryRepresentativeId = '',
 ): {
   kind: 'observer' | 'player' | 'spymaster';
   team?: Team;
@@ -274,7 +278,7 @@ export function viewerRole(
   if (!player) {
     return { kind: 'observer', canSeeHiddenColors: gameOver, activeGuesser: false };
   }
-  const activeGuesser = phase === 'active' && isActiveGuesser(players, player.id, currentTeam, activeBoardOwner);
+  const activeGuesser = phase === 'active' && isActiveGuesser(players, player.id, currentTeam, activeBoardOwner, temporaryRepresentativeId);
   return {
     kind: currentTeam === 'unity' && player.id === activeBoardOwner ? 'spymaster' : player.spymaster ? 'spymaster' : 'player',
     team: player.team,

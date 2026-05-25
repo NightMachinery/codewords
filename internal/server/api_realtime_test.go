@@ -236,6 +236,23 @@ func TestUnityStartSnapshotIncludesSafeActiveAndOwnBoards(t *testing.T) {
 	if _, ok := ownCards[0].(map[string]any)["color"]; !ok {
 		t.Fatalf("own board should include hidden color for owner: %#v", ownCards[0])
 	}
+
+	handler := h.(*Handler)
+	rt, err := handler.app.loadRuntime(context.Background(), roomID)
+	if err != nil {
+		t.Fatalf("load runtime: %v", err)
+	}
+	rt.mu.Lock()
+	player := rt.state.Players[activeOwner]
+	player.Representative = true
+	rt.state.Players[activeOwner] = player
+	tempSnapshot := snapshotDTO(rt.state, activeOwner)
+	rt.mu.Unlock()
+	tempProgress := tempSnapshot["unityProgress"].(map[string]any)
+	tempRep, ok := tempProgress["temporaryRepresentativeId"].(string)
+	if !ok || tempRep == "" || tempRep == activeOwner {
+		t.Fatalf("expected temporary representative id in unity progress, got %#v", tempProgress)
+	}
 }
 
 func TestUnityActiveRoomLinkOpenAddsObserverAndModCanAssignUnityBoard(t *testing.T) {

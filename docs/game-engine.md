@@ -36,7 +36,7 @@ Unity snapshots expose the active board to everyone, but hidden colors are prese
 
 ## Unity turn and budget rules
 
-The active board owner is that board's spymaster. They may submit clues for their own active board but cannot guess or pass on it. With zero representatives, every non-observer Unity player except the active board owner can guess/pass. With one representative, that representative is the only guesser unless they are the active board owner; in that case all other Unity players can guess/pass. With two or more representatives, only representatives other than the active board owner can guess/pass.
+The active board owner is that board's spymaster. They may submit clues for their own active board but cannot guess or pass on it. With zero representatives, every non-observer Unity player except the active board owner can guess/pass. With one representative, that representative is the only guesser unless they are the active board owner; in that case the engine picks one other active Unity player as the temporary representative for that board owner. With two or more representatives, only representatives other than the active board owner can guess/pass.
 
 Correct Unity guesses keep the same board active while that board still has unrevealed Unity cards. If a correct guess finds the last Unity card on that board, the engine finalizes that board's clue row and auto-rotates away because there is nothing useful left to guess there. Civilian guesses, pass, and enforced clue-limit exhaustion also end the board turn and rotate to the next unfinished active Unity board. Revealing any assassin ends the match as a global loss. When all active Unity players' boards have no unrevealed Unity cards, Unity wins.
 

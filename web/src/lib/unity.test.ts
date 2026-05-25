@@ -69,8 +69,8 @@ describe('unity frontend helpers', () => {
     expect(isActiveGuesser(oneRep, 'p3', 'unity', 'host')).toBe(false);
 
     const ownerRep = players.map((player) => player.id === 'host' ? { ...player, representative: true } : player);
-    expect(isActiveGuesser(ownerRep, 'p2', 'unity', 'host')).toBe(true);
-    expect(isActiveGuesser(ownerRep, 'p3', 'unity', 'host')).toBe(true);
+    expect(isActiveGuesser(ownerRep, 'p2', 'unity', 'host', 'p2')).toBe(true);
+    expect(isActiveGuesser(ownerRep, 'p3', 'unity', 'host', 'p2')).toBe(false);
 
     const twoReps = ownerRep.map((player) => player.id === 'p2' ? { ...player, representative: true } : player);
     expect(isActiveGuesser(twoReps, 'p2', 'unity', 'host')).toBe(true);
@@ -86,7 +86,8 @@ describe('unity frontend helpers', () => {
     expect(isUnityTemporaryRepresentative(oneRep, 'p3', 'host')).toBe(false);
 
     const ownerRep = players.map((player) => player.id === 'host' ? { ...player, representative: true } : player);
-    expect(isUnityTemporaryRepresentative(ownerRep, 'p2', 'host')).toBe(true);
+    expect(isUnityTemporaryRepresentative(ownerRep, 'p2', 'host', 'p2')).toBe(true);
+    expect(isUnityTemporaryRepresentative(ownerRep, 'p3', 'host', 'p2')).toBe(false);
 
     const twoReps = ownerRep.map((player) => player.id === 'p2' ? { ...player, representative: true } : player);
     expect(isUnityTemporaryRepresentative(twoReps, 'p2', 'host')).toBe(false);

@@ -256,8 +256,17 @@ func TestUnityRepresentativeGuessingRules(t *testing.T) {
 
 	mustApply(t, &state, ToggleRepresentativeCommand{PlayerID: "p2"}, "host")
 	mustApply(t, &state, ToggleRepresentativeCommand{PlayerID: "host"}, "host")
-	if !state.IsActiveGuesser("p2", TeamUnity) || !state.IsActiveGuesser("p3", TeamUnity) {
-		t.Fatalf("if the only rep is active owner, all other players should guess")
+	tempRep := state.UnityTemporaryRepresentativeID()
+	if tempRep != "p2" && tempRep != "p3" {
+		t.Fatalf("expected one non-owner temp rep, got %q", tempRep)
+	}
+	for _, id := range []string{"p2", "p3"} {
+		if state.IsActiveGuesser(id, TeamUnity) != (id == tempRep) {
+			t.Fatalf("if only rep is active owner, only selected temp rep should guess; id=%s temp=%s", id, tempRep)
+		}
+	}
+	if state.SnapshotFor(Viewer{PlayerID: "p2"}).UnityProgress.TemporaryRepresentativeID != tempRep {
+		t.Fatalf("snapshot should expose temp rep %q", tempRep)
 	}
 
 	mustApply(t, &state, ToggleRepresentativeCommand{PlayerID: "p2"}, "host")

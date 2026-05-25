@@ -77,7 +77,7 @@
 {/snippet}
 
 {#snippet roleBadges(player: LobbyPlayer)}
-  {@const effectivePlayer = { ...player, spymaster: player.spymaster || (mode === 'unity' && phase !== 'lobby' && player.id === activeBoardOwner), temporaryRepresentative: mode === 'unity' && phase === 'active' && isUnityTemporaryRepresentative(players, player.id, activeBoardOwner) }}
+  {@const effectivePlayer = { ...player, spymaster: player.spymaster || (mode === 'unity' && phase !== 'lobby' && player.id === activeBoardOwner), temporaryRepresentative: mode === 'unity' && phase === 'active' && isUnityTemporaryRepresentative(players, player.id, activeBoardOwner, unityProgress?.temporaryRepresentativeId ?? '') }}
   {#each playerRoleBadgeKinds(effectivePlayer) as badge (badge)}
     {@render RoleBadge(badge)}
   {/each}

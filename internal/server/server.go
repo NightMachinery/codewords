@@ -1302,12 +1302,13 @@ func snapshotDTO(state game.State, viewerID string) map[string]any {
 		}
 		out["unityBoards"] = unityBoardSummaryDTOs(s.UnityBoards)
 		out["unityProgress"] = map[string]any{
-			"unityCardsFound":      s.UnityProgress.UnityCardsFound,
-			"totalUnityCards":      s.UnityProgress.TotalUnityCards,
-			"sharedTurnsRemaining": s.UnityProgress.SharedTurnsRemaining,
-			"unlimitedTurns":       s.UnityProgress.UnlimitedTurns,
-			"strictPerBoardTurns":  s.UnityProgress.StrictPerBoardTurns,
-			"waitingForGuessers":   s.UnityProgress.WaitingForGuessers,
+			"unityCardsFound":           s.UnityProgress.UnityCardsFound,
+			"totalUnityCards":           s.UnityProgress.TotalUnityCards,
+			"sharedTurnsRemaining":      s.UnityProgress.SharedTurnsRemaining,
+			"unlimitedTurns":            s.UnityProgress.UnlimitedTurns,
+			"strictPerBoardTurns":       s.UnityProgress.StrictPerBoardTurns,
+			"waitingForGuessers":        s.UnityProgress.WaitingForGuessers,
+			"temporaryRepresentativeId": s.UnityProgress.TemporaryRepresentativeID,
 		}
 		out["unityTransitionUntil"] = s.UnityTransitionUntil
 		if s.UnityEndStats != nil {

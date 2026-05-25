@@ -188,7 +188,7 @@
   let hostControls = $derived(canManageLobby(viewer));
   let currentPlayer = $derived(findViewerPlayer(players, viewer));
   let needsName = $derived(Boolean(credentialMode === 'auth' && !displayName && (roomStatus === 'lobby' || !currentPlayer)));
-  let role = $derived(viewerRole(players, viewer, currentTeam as any, phase, activeBoardOwner));
+  let role = $derived(viewerRole(players, viewer, currentTeam as any, phase, activeBoardOwner, unityProgress?.temporaryRepresentativeId ?? ''));
   let boardRole = $derived(mode === 'unity' && unityBoardView === 'own' && ownBoard?.ownerId === currentPlayer?.id
     ? { ...role, kind: 'spymaster', canSeeHiddenColors: true, activeGuesser: false }
     : role);
