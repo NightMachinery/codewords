@@ -373,22 +373,51 @@ func (a *app) handleMigrateLink(w http.ResponseWriter, r *http.Request) {
 	if !a.readyOrError(w) {
 		return
 	}
-	var req struct{ AuthToken string }
+	var req struct {
+		AuthToken string
+		PlayerID  string
+	}
 	if !decodeRequest(w, r, &req) {
 		return
 	}
 	roomID := r.PathValue("roomId")
-	_, user, ok := a.requireMember(w, r.Context(), roomID, req.AuthToken)
+	room, user, ok := a.requireMember(w, r.Context(), roomID, req.AuthToken)
 	if !ok {
 		return
 	}
-	link, err := a.identity.CreateMigrateLink(r.Context(), roomID, user.ID)
+	targetUserID := strings.TrimSpace(req.PlayerID)
+	if targetUserID == "" {
+		targetUserID = user.ID
+	}
+	if targetUserID != user.ID {
+		players, err := a.store.RoomPlayers(r.Context(), roomID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "players_failed", err.Error())
+			return
+		}
+		if !viewerIsMod(players, room.HostUserID, user.ID) {
+			writeError(w, http.StatusForbidden, "forbidden", "moderator only")
+			return
+		}
+		found := false
+		for _, player := range players {
+			if player.UserID == targetUserID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			writeError(w, http.StatusNotFound, "player_not_found", "target player is not in this room")
+			return
+		}
+	}
+	link, err := a.identity.CreateMigrateLink(r.Context(), roomID, targetUserID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "migrate_link_failed", err.Error())
 		return
 	}
 	url := a.roomLink(r, roomID) + "?migrateId=" + link.MigrateID
-	writeJSON(w, http.StatusOK, map[string]any{"roomId": roomID, "userId": user.ID, "migrateId": link.MigrateID, "migrateUrl": url})
+	writeJSON(w, http.StatusOK, map[string]any{"roomId": roomID, "userId": targetUserID, "migrateId": link.MigrateID, "migrateUrl": url})
 }
 
 func (a *app) handleMigrateBootstrap(w http.ResponseWriter, r *http.Request) {

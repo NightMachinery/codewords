@@ -23,7 +23,7 @@ Implemented JSON endpoints:
 - `GET /api/pictures/catalog`
 - `GET /api/pictures/{imageId}`
 
-Authentication uses explicit bearer/query/body auth tokens from browser storage. Migrate bootstrap accepts only room-scoped migrate ids and never exposes the global auth token. Error responses contain stable `error.code` and English `error.message` fields.
+Authentication uses explicit bearer/query/body auth tokens from browser storage. Migrate-link creation defaults to the requester, or accepts an optional `playerId` for moderator-only target-player links. Migrate bootstrap accepts only room-scoped migrate ids and never exposes the global auth token. Error responses contain stable `error.code` and English `error.message` fields.
 
 Room settings are strictly validated by HTTP and WebSocket update paths. Dynamic board settings include `totalCards` (`9..100`, default `25`), `imageCardCount` (`0..totalCards`), `autoColorCounts`, `startingTeamHandicap`, optional manual `blueCards`/`redCards`/`neutralCards`, and `blackCards` as assassins within neutral cards. Invalid explicit counts are rejected with `invalid_settings` rather than silently clamped.
 

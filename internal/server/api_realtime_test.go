@@ -723,6 +723,42 @@ func TestMigrateIdProvidesRoomViewerContext(t *testing.T) {
 	}
 }
 
+func TestModeratorCanCreateTargetPlayerMigrateLink(t *testing.T) {
+	h := newTestHandler(t)
+	host := postJSON(t, h, "/api/identity/bootstrap", map[string]any{"authToken": "host-target-migrate", "displayName": "Host"}, http.StatusOK)
+	guest := postJSON(t, h, "/api/identity/bootstrap", map[string]any{"authToken": "guest-target-migrate", "displayName": "Guest"}, http.StatusOK)
+	roomResp := postJSON(t, h, "/api/rooms", map[string]any{"authToken": "host-target-migrate", "settings": map[string]any{"wordpackId": "english"}}, http.StatusCreated)
+	roomID := roomResp["room"].(map[string]any)["id"].(string)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "guest-target-migrate", "displayName": "Guest"}, http.StatusOK)
+
+	link := postJSON(t, h, "/api/rooms/"+roomID+"/migrate-link", map[string]any{"authToken": "host-target-migrate", "playerId": guest["userId"].(string)}, http.StatusOK)
+
+	if link["userId"] != guest["userId"] || link["userId"] == host["userId"] {
+		t.Fatalf("expected target player's migrate link, got %#v", link)
+	}
+	resolved := postJSON(t, h, "/api/rooms/"+roomID+"/migrate-bootstrap", map[string]any{"migrateId": link["migrateId"].(string)}, http.StatusOK)
+	if resolved["userId"] != guest["userId"] {
+		t.Fatalf("expected migrate id to resolve target player, got %#v", resolved)
+	}
+}
+
+func TestTargetPlayerMigrateLinkRequiresModerator(t *testing.T) {
+	h := newTestHandler(t)
+	postJSON(t, h, "/api/identity/bootstrap", map[string]any{"authToken": "host-target-migrate-denied", "displayName": "Host"}, http.StatusOK)
+	guest := postJSON(t, h, "/api/identity/bootstrap", map[string]any{"authToken": "guest-target-migrate-denied", "displayName": "Guest"}, http.StatusOK)
+	other := postJSON(t, h, "/api/identity/bootstrap", map[string]any{"authToken": "other-target-migrate-denied", "displayName": "Other"}, http.StatusOK)
+	roomResp := postJSON(t, h, "/api/rooms", map[string]any{"authToken": "host-target-migrate-denied", "settings": map[string]any{"wordpackId": "english"}}, http.StatusCreated)
+	roomID := roomResp["room"].(map[string]any)["id"].(string)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "guest-target-migrate-denied", "displayName": "Guest"}, http.StatusOK)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "other-target-migrate-denied", "displayName": "Other"}, http.StatusOK)
+
+	postJSON(t, h, "/api/rooms/"+roomID+"/migrate-link", map[string]any{"authToken": "guest-target-migrate-denied", "playerId": other["userId"].(string)}, http.StatusForbidden)
+	self := postJSON(t, h, "/api/rooms/"+roomID+"/migrate-link", map[string]any{"authToken": "guest-target-migrate-denied", "playerId": guest["userId"].(string)}, http.StatusOK)
+	if self["userId"] != guest["userId"] {
+		t.Fatalf("expected explicit self migrate link to remain allowed, got %#v", self)
+	}
+}
+
 func assertBalancedRandomizedPlayers(t *testing.T, players []any) {
 	t.Helper()
 	counts := map[string]int{}
