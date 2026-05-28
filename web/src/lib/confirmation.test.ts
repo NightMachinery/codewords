@@ -4,6 +4,7 @@ import {
   buildPassConfirmation,
   buildRestartConfirmation,
   buildRevealConfirmation,
+  buildSwitchUnitySpymasterConfirmation,
 } from './confirmation';
 
 describe('confirmation request builders', () => {
@@ -55,6 +56,19 @@ describe('confirmation request builders', () => {
       confirmLabel: 'Restart',
       cancelLabel: 'Stay Here',
       tone: 'danger',
+    });
+  });
+
+  it('builds an action-specific Unity spy switch confirmation', () => {
+    const request = buildSwitchUnitySpymasterConfirmation();
+
+    expect(request).toMatchObject({
+      kind: 'switchUnitySpymaster',
+      title: 'Switch Unity spy?',
+      message: 'Move the live Unity board to the next eligible player. If this spy has given a clue or revealed a card, this spends their turn.',
+      confirmLabel: 'Switch Spy',
+      cancelLabel: 'Stay Here',
+      tone: 'pass',
     });
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { canManageLobby, canShowModControl, canShowRejoinTeamButton, canShowRoleControls, canShowTeamAssignmentButton, playerBuckets, visiblePlayerBuckets, startReadiness, type LobbyPlayer } from './lobby';
+import { canManageLobby, canShowMigrateDeviceButton, canShowModControl, canShowRejoinTeamButton, canShowRoleControls, canShowTeamAssignmentButton, playerBuckets, visiblePlayerBuckets, startReadiness, type LobbyPlayer } from './lobby';
 
 const players: LobbyPlayer[] = [
   { id: 'host', displayName: 'Host', team: 'blue', spymaster: true, representative: false, mod: true },
@@ -29,6 +29,12 @@ describe('lobby helpers', () => {
     expect(canManageLobby({ userId: 'host', isHost: true, isMod: true })).toBe(true);
     expect(canManageLobby({ userId: 'guest', isHost: false, isMod: true })).toBe(true);
     expect(canManageLobby({ userId: 'guest', isHost: false, isMod: false })).toBe(false);
+  });
+
+  it('shows per-player migrate-device buttons only to moderators', () => {
+    expect(canShowMigrateDeviceButton({ phase: 'active', hostControls: true, player: players[1] })).toBe(true);
+    expect(canShowMigrateDeviceButton({ phase: 'game_over', hostControls: true, player: players[1] })).toBe(false);
+    expect(canShowMigrateDeviceButton({ phase: 'active', hostControls: false, player: players[1] })).toBe(false);
   });
 
   it('shows mid-game player controls to moderators and only self observer/rejoin controls to regular players', () => {

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { Settings } from './api';
-  import { filteredBottomShortcutItems, displayTeamName, formatClueNumber, hexWithAlpha, pressableButtonClasses, sortedTurnPlayers, teamColor, type ClueEntry, type GameplayPhase, type UnityBoardView } from './gameplay';
+  import { bottomStripRoleBadgeKinds, filteredBottomShortcutItems, displayTeamName, formatClueNumber, hexWithAlpha, isUnityTemporaryRepresentative, pressableButtonClasses, sortedTurnPlayers, teamColor, type ClueEntry, type GameplayPhase, type PlayerRoleBadgeKind, type UnityBoardView } from './gameplay';
   import ChevronDown from 'lucide-svelte/icons/chevron-down';
   import Grid2X2 from 'lucide-svelte/icons/grid-2x2';
   import List from 'lucide-svelte/icons/list';
@@ -11,6 +11,7 @@
   import SkipForward from 'lucide-svelte/icons/skip-forward';
   import SlidersHorizontal from 'lucide-svelte/icons/sliders-horizontal';
   import Users from 'lucide-svelte/icons/users';
+  import RefreshCw from 'lucide-svelte/icons/refresh-cw';
   import { customSvg } from './customSvg';
   import SvgMaskIcon from './SvgMaskIcon.svelte';
   import type { LobbyPlayer, Team } from './lobby';
@@ -20,6 +21,7 @@
     currentTeam: Team;
     mode?: 'polarity' | 'unity';
     activeBoardOwner?: string;
+    temporaryRepresentativeId?: string;
     boardView?: UnityBoardView;
     hasPreviousBoard?: boolean;
     transitionLocked?: boolean;
@@ -34,6 +36,7 @@
     settings: Settings;
     players: LobbyPlayer[];
     hostControls: boolean;
+    compactSwitchUnitySpymaster?: boolean;
     spymasterViewActive: boolean;
     onToggleView: () => void;
     onSetSpyView?: (active: boolean) => void;
@@ -49,6 +52,7 @@
     currentTeam,
     mode = 'polarity',
     activeBoardOwner = '',
+    temporaryRepresentativeId = '',
     boardView = 'active',
     hasPreviousBoard = false,
     transitionLocked = false,
@@ -63,6 +67,7 @@
     settings,
     players,
     hostControls,
+    compactSwitchUnitySpymaster = false,
     spymasterViewActive,
     onToggleView,
     onSetSpyView = () => {},
@@ -99,9 +104,14 @@
 
   let isYourTeam = $derived(role.team === currentTeam);
   let teamLabel = $derived(displayTeamName(currentTeam, settings));
-  let currentTeamPlayers = $derived(mode === 'unity'
-    ? sortedTurnPlayers(players, currentTeam).filter((player) => player.id === activeBoardOwner || player.representative)
-    : sortedTurnPlayers(players, currentTeam));
+  let currentTeamPlayers = $derived.by(() => {
+    const sorted = sortedTurnPlayers(players, currentTeam);
+    if (mode !== 'unity') return sorted;
+    return sorted.filter((player) => {
+      if (player.id === activeBoardOwner || player.representative) return true;
+      return isUnityTemporaryRepresentative(players, player.id, activeBoardOwner, temporaryRepresentativeId);
+    });
+  });
   let canActNow = $derived(Boolean(phase === 'active' && isYourTeam && (role.activeGuesser || (role.kind === 'spymaster' && cluePermission.allowed))));
   let shortcutItems = $derived(filteredBottomShortcutItems(hostControls));
   let showUnityBoardSwitch = $derived(mode === 'unity' && Boolean(role.player));
@@ -122,9 +132,11 @@
   <div class="relative min-w-0 flex-1 overflow-hidden">
     <div bind:this={playerStrip} class="flex min-w-0 flex-nowrap items-center gap-2 overflow-hidden whitespace-nowrap text-[11px] font-black text-slate-100">
       {#each currentTeamPlayers as player (player.id)}
+        {@const effectivePlayer = { ...player, spymaster: mode === 'unity' && player.id === activeBoardOwner ? true : player.spymaster, temporaryRepresentative: mode === 'unity' && isUnityTemporaryRepresentative(players, player.id, activeBoardOwner, temporaryRepresentativeId) }}
         <span class="inline-flex min-w-0 max-w-28 shrink-0 items-center gap-1 truncate">
-          {#if player.spymaster}<SvgMaskIcon src={customSvg.spy} classes="h-3.5 w-3.5 shrink-0 text-cyan-100" />{/if}
-          {#if player.representative}<SvgMaskIcon src={customSvg.representative} classes="h-3.5 w-3.5 shrink-0 text-amber-100" />{/if}
+          {#each bottomStripRoleBadgeKinds(effectivePlayer) as badge (badge)}
+            {@render BottomStripBadge(badge)}
+          {/each}
           <span class="truncate">{player.displayName.trim() || 'Player'}</span>
         </span>
       {:else}
@@ -135,6 +147,16 @@
       <span class="pointer-events-none absolute right-0 top-0 bg-slate-950/95 pl-2 text-[11px] font-black text-slate-300">…</span>
     {/if}
   </div>
+{/snippet}
+
+{#snippet BottomStripBadge(kind: PlayerRoleBadgeKind)}
+  {#if kind === 'spy'}
+    <SvgMaskIcon src={customSvg.spy} classes="h-3.5 w-3.5 shrink-0 text-cyan-100" />
+  {:else if kind === 'rep'}
+    <SvgMaskIcon src={customSvg.representative} classes="h-3.5 w-3.5 shrink-0 text-amber-100" />
+  {:else if kind === 'tempRep'}
+    <span class="inline-grid h-4 w-4 shrink-0 place-items-center rounded-full border border-amber-200/70 text-[9px] font-black text-amber-100">T</span>
+  {/if}
 {/snippet}
 
 {#snippet MiniIcon(kind: 'spy' | 'rep' | 'board' | 'players' | 'clues' | 'settings' | 'local' | 'chat')}
@@ -174,7 +196,7 @@
       <path d="M9.2 11.2h5.6M12 8.4v5.6M7 19.5h10" stroke="currentColor" stroke-linecap="round" stroke-width="1.8" />
     </svg>
   {:else if kind === 'switch-spy'}
-    <SvgMaskIcon src={customSvg.spy} classes="h-4 w-4" />
+    <RefreshCw class="h-4 w-4" />
   {:else}
     <SvgMaskIcon src={customSvg.spy} classes="h-4 w-4" />
   {/if}
@@ -353,7 +375,7 @@
           {/if}
         </div>
       {/if}
-      {#if mode === 'unity' && hostControls && phase === 'active'}
+      {#if mode === 'unity' && hostControls && phase === 'active' && !compactSwitchUnitySpymaster}
         <button
           class={pressableButtonClasses(['grid h-10 w-10 place-items-center rounded-xl border', transitionLocked ? 'border-slate-700 bg-slate-800 text-slate-500' : 'border-teal-300/50 bg-teal-300/10 text-teal-100 hover:bg-teal-300/20'].join(' '))}
           type="button"

@@ -2,6 +2,7 @@
   import { onDestroy, onMount, tick } from 'svelte';
   import Copy from 'lucide-svelte/icons/copy';
   import Power from 'lucide-svelte/icons/power';
+  import RefreshCw from 'lucide-svelte/icons/refresh-cw';
   import Smartphone from 'lucide-svelte/icons/smartphone';
 
   import { api, defaultSettings, type ChatMessage, type PictureAsset, type Settings, type Viewer, type Wordpack } from '../lib/api';
@@ -85,6 +86,7 @@
     buildPassConfirmation,
     buildRestartConfirmation,
     buildRevealConfirmation,
+    buildSwitchUnitySpymasterConfirmation,
     type ConfirmationRequest,
   } from '../lib/confirmation';
 
@@ -152,14 +154,17 @@
   let previousUnityBoardsForCue: UnityBoardSummary[] = [];
   let lastClueSignature = '';
   let previousPhaseForDraft: 'lobby' | 'active' | 'game_over' = 'lobby';
+  let previousActiveBoardOwnerForDraft = '';
   let spymasterViewActive = $state(true);
   let localProfiles = $state<SettingsProfile[]>([]);
   let profileNotice = $state('');
   let boardShell = $state<HTMLElement | null>(null);
+  let boardContainer = $state<HTMLElement | null>(null);
   let memoryCaptureElement = $state<HTMLElement | null>(null);
   let pendingCaptureModel = $state<MemoryCaptureModel | null>(null);
   let captureViewportWidth = $state(1400);
   let boardFitStyle = $state('');
+  let compactUnitySwitchButton = $state(false);
   let pendingConfirmation = $state<ConfirmationRequest | null>(null);
   let bottomPanelObserver: ResizeObserver | null = null;
   let confirmationResolver: ((confirmed: boolean) => void) | null = null;
@@ -179,6 +184,7 @@
     displayedBoardId: displayedUnityBoard?.ownerId,
     activeBoardId: activeBoard?.ownerId,
     transitionLocked: unityTransitionLocked,
+    turnHasActivity: unityTurnHasActivity(activeBoard),
   }));
   let cardMode = $derived(cardModeFromImageCount(settings.imageCardCount ?? 0, settings.totalCards ?? 25));
   let sortedCards = $derived(displayCards(displayedCardsRaw, cardMode, settings.mixedImageOrderFirst));
@@ -193,6 +199,7 @@
     ? { ...role, kind: 'spymaster', canSeeHiddenColors: true, activeGuesser: false }
     : role);
   let activeTeamHasRepresentative = $derived(players.some((player) => player.team === currentTeam && player.representative));
+  let showBelowBoardSwitchUnitySpymaster = $derived(mode === 'unity' && hostControls && phase === 'active' && compactUnitySwitchButton);
   let cluePermission = $derived(canSubmitClue(players, viewer, currentTeam as any, phase, settings, activeBoardOwner));
   let clueNumberParsed = $derived(clueNumberFromInput(clueNumber));
   let clueProblem = $derived(clueSubmitProblem(clueText, clueNumberParsed as any, settings));
@@ -258,6 +265,17 @@
   $effect(() => {
     const panel = document.getElementById('bottom-sticky-panel');
     if (panel && bottomPanelObserver) bottomPanelObserver.observe(panel);
+  });
+
+  $effect(() => {
+    if (!boardContainer) return;
+    const measure = () => {
+      compactUnitySwitchButton = boardContainer ? boardContainer.clientWidth < 620 : false;
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(boardContainer);
+    return () => observer.disconnect();
   });
 
   async function boot() {
@@ -360,6 +378,10 @@
       const nextTransitionLocked = Boolean(nextTransitionUntil && Date.parse(nextTransitionUntil) > Date.now());
       if (nextMode === 'unity' && nextTransitionLocked && nextPreviousBoard) {
         unityBoardView = 'previous';
+      } else if (nextMode === 'unity' && unityBoardView === 'previous') {
+        unityBoardView = 'active';
+      } else if (nextMode !== 'unity') {
+        unityBoardView = 'active';
       }
       const nextDisplayedCards = nextMode === 'unity' ? unityBoardViewCards(unityBoardView, nextActiveBoard, nextOwnBoard, nextPreviousBoard) : (message.snapshot.cards ?? []);
       const nextActiveClueLog = nextMode === 'unity' ? (nextActiveBoard?.clueLog ?? []) : (message.snapshot.clueLog ?? []);
@@ -410,12 +432,14 @@
       const previousClue = currentClue;
       const nextClueLog = message.snapshot.clueLog ?? [];
       const nextClue = currentSubmittedClue(nextActiveClueLog);
-      if (shouldResetClueDraft({ reason: 'snapshot', previousClue, nextClue, previousPhase: previousPhaseForDraft, nextPhase: message.snapshot.phase })) {
+      if (shouldResetClueDraft({ reason: 'snapshot', previousClue, nextClue, previousPhase: previousPhaseForDraft, nextPhase: message.snapshot.phase })
+        || (nextMode === 'unity' && previousActiveBoardOwnerForDraft && previousActiveBoardOwnerForDraft !== (nextActiveBoard?.ownerId ?? ''))) {
         clueText = '';
         clueNumber = '';
       }
       clueLog = nextClueLog;
       previousPhaseForDraft = message.snapshot.phase;
+      previousActiveBoardOwnerForDraft = nextActiveBoard?.ownerId ?? '';
       if (enteredGameOver) {
         emitEndGameCue(message.snapshot.winner as 'blue' | 'red' | 'unity' | 'observers', message.snapshot.viewer, message.snapshot.players);
       }
@@ -456,6 +480,13 @@
     const roleLabel = role.player ? `${role.kind}/${role.team ?? 'none'}${role.activeGuesser ? '/guesser' : ''}` : 'observer';
     const timestamp = new Date().toLocaleTimeString();
     return `[${timestamp}] ${action} · connection=${connection} · phase=${phase} · role=${roleLabel} · activeBoard=${activeBoardOwner || 'none'} · view=${mode === 'unity' ? unityBoardView : 'active'}`;
+  }
+
+  function unityTurnHasActivity(board: UnityBoardSnapshot | null | undefined): boolean {
+    if (!board) return false;
+    if (board.lastSelected) return true;
+    const latest = board.clueLog.at(-1);
+    return Boolean(latest && latest.status === 'active' && latest.text.trim());
   }
 
   function appendSystemMessage(body: string, action = 'system'): void {
@@ -789,10 +820,10 @@
       clearCopyStatusSoon(copyStatus);
   }
 
-  async function copyMigrateLink() {
+  async function copyMigrateLink(playerId = '') {
     error = '';
     try {
-      const link = await api.createMigrateLink(roomId, authToken);
+      const link = await api.createMigrateLink(roomId, authToken, playerId);
       migrateUrl = link.migrateUrl;
       const result = await copyText(link.migrateUrl);
       copyStatus = result.ok ? 'Migrate-device link copied.' : link.migrateUrl;
@@ -817,7 +848,7 @@
     sendSocketAction('resetClue', { type: 'resetClue' });
   }
 
-  function switchUnitySpymaster() {
+  async function switchUnitySpymaster() {
     error = '';
     if (!hostControls) {
       error = 'Only moderators can switch the Unity spy.';
@@ -834,6 +865,7 @@
       appendSystemMessage(error, 'switchUnitySpymaster');
       return;
     }
+    if (!await askForConfirmation(buildSwitchUnitySpymasterConfirmation())) return;
     sendSocketAction('switchUnitySpymaster', { type: 'switchUnitySpymaster' });
   }
 
@@ -998,7 +1030,7 @@
           <span class="hidden sm:inline">Copy</span>
         </button>
         {#if currentPlayer}
-          <button class={pressableButtonClasses('inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-950/70 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-slate-100 hover:border-emerald-300/60 hover:text-emerald-100')} type="button" onclick={copyMigrateLink} title="Copy migrate-device link" aria-label="Copy migrate-device link">
+          <button class={pressableButtonClasses('inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-950/70 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-slate-100 hover:border-emerald-300/60 hover:text-emerald-100')} type="button" onclick={() => copyMigrateLink()} title="Copy migrate-device link" aria-label="Copy migrate-device link">
             <Smartphone class="h-4 w-4" />
             <span class="hidden md:inline">Migrate Device</span>
           </button>
@@ -1127,6 +1159,7 @@
             onToggleRepresentative={(id) => sendSocketAction('toggleRepresentative', { type: 'toggleRepresentative', playerId: id })}
             onToggleMod={(id) => sendSocketAction('toggleMod', { type: 'toggleMod', playerId: id })}
             onRejoinTeam={(id) => sendSocketAction('rejoinTeam', { type: 'rejoinTeam', playerId: id })}
+            onCopyMigrateLink={(id) => copyMigrateLink(id)}
           />
         </div>
 
@@ -1174,7 +1207,7 @@
       </section>
       {:else}
         <section class={activeMatchLayoutClasses()}>
-          <div class="space-y-6">
+          <div bind:this={boardContainer} class="space-y-6">
             {#if phase === 'game_over'}
               <section class={['relative overflow-hidden rounded-[2rem] border p-6 shadow-2xl shadow-slate-950/30', winner === 'blue' ? 'border-blue-300/50 bg-blue-400/15' : 'border-red-300/50 bg-red-400/15']} style={winner ? `border-color: ${hexWithAlpha(teamColor(winner, settings), '80')}; background-color: ${hexWithAlpha(teamColor(winner, settings), '26')};` : ''}>
                 <div class="pointer-events-none absolute -right-14 -top-16 h-48 w-48 rounded-full opacity-25 blur-2xl" style={`background-color: ${teamColor(winner, settings)}`}></div>
@@ -1267,6 +1300,19 @@
                 onGuess={guessCard}
               />
             </section>
+            {#if showBelowBoardSwitchUnitySpymaster}
+              <button
+                class={pressableButtonClasses(['flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-black uppercase tracking-[0.16em]', unityTransitionLocked ? 'border-slate-700 bg-slate-800 text-slate-500' : 'border-teal-300/50 bg-teal-300/10 text-teal-100 hover:bg-teal-300/20'].join(' '))}
+                type="button"
+                disabled={unityTransitionLocked}
+                aria-label="Switch Unity spy"
+                title={unityTransitionLocked ? `Next board unlocks in ${unityTransitionSecondsRemaining}s` : 'Switch Unity spy'}
+                onclick={switchUnitySpymaster}
+              >
+                <RefreshCw class="h-4 w-4" />
+                <span>{unityTransitionLocked ? `Next board in ${unityTransitionSecondsRemaining}s` : 'Switch Unity spy'}</span>
+              </button>
+            {/if}
           </div>
 
           <aside class="space-y-6 pb-32">
@@ -1286,6 +1332,7 @@
               onToggleRepresentative={(id) => sendSocketAction('toggleRepresentative', { type: 'toggleRepresentative', playerId: id })}
               onToggleMod={(id) => sendSocketAction('toggleMod', { type: 'toggleMod', playerId: id })}
               onRejoinTeam={(id) => sendSocketAction('rejoinTeam', { type: 'rejoinTeam', playerId: id })}
+              onCopyMigrateLink={(id) => copyMigrateLink(id)}
             />
 
             <section id="clues" class="rounded-[2rem] border border-slate-700/70 bg-slate-900/80 p-5">
@@ -1454,6 +1501,7 @@
         currentTeam={currentTeam as any}
         mode={mode}
         activeBoardOwner={activeBoardOwner}
+        temporaryRepresentativeId={unityProgress?.temporaryRepresentativeId ?? ''}
         boardView={unityBoardView}
         hasPreviousBoard={Boolean(previousBoard)}
         transitionLocked={unityTransitionLocked}
@@ -1468,6 +1516,7 @@
         settings={settings}
         players={players}
         hostControls={hostControls}
+        compactSwitchUnitySpymaster={compactUnitySwitchButton}
         onNavigate={navigateTo}
         onSetBoardView={(view) => { unityBoardView = view; updateBoardFitSoon(); }}
         spymasterViewActive={spymasterViewActive}

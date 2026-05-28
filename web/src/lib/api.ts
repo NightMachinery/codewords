@@ -131,8 +131,8 @@ export class ApiClient {
     return this.post(`/api/rooms/${encodeURIComponent(roomId)}/start`, { authToken });
   }
 
-  async createMigrateLink(roomId: string, authToken: string): Promise<{ migrateUrl: string; migrateId: string }> {
-    return this.post(`/api/rooms/${encodeURIComponent(roomId)}/migrate-link`, { authToken });
+  async createMigrateLink(roomId: string, authToken: string, playerId = ''): Promise<{ migrateUrl: string; migrateId: string; userId: string }> {
+    return this.post(`/api/rooms/${encodeURIComponent(roomId)}/migrate-link`, { authToken, ...(playerId ? { playerId } : {}) });
   }
 
   async migrateBootstrap(roomId: string, migrateId: string): Promise<{ roomId: string; userId: string; displayName: string }> {

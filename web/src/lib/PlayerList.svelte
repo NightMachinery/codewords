@@ -1,5 +1,6 @@
 <script lang="ts">
   import {
+    canShowMigrateDeviceButton,
     canShowModControl,
     canShowRejoinTeamButton,
     canShowRoleControls,
@@ -12,6 +13,7 @@
   import { displayTeamName, hexWithAlpha, isUnityTemporaryRepresentative, playerRoleBadgeKinds, teamColor, type PlayerRoleBadgeKind, type UnityBoardSummary, type UnityProgress } from './gameplay';
   import { customSvg } from './customSvg';
   import SvgMaskIcon from './SvgMaskIcon.svelte';
+  import Smartphone from 'lucide-svelte/icons/smartphone';
 
   interface Props {
     players: LobbyPlayer[];
@@ -29,6 +31,7 @@
     onToggleRepresentative: (id: string) => void;
     onToggleMod: (id: string) => void;
     onRejoinTeam: (id: string) => void;
+    onCopyMigrateLink: (id: string) => void;
   }
 
   let {
@@ -46,7 +49,8 @@
     onToggleSpymaster,
     onToggleRepresentative,
     onToggleMod,
-    onRejoinTeam
+    onRejoinTeam,
+    onCopyMigrateLink
   }: Props = $props();
 
   let visibleBuckets = $derived(visiblePlayerBuckets(players).filter((bucket) => {
@@ -124,6 +128,11 @@
       {#if canShowModControl({ phase, hostControls, player, roomHostId })}
         <button class="rounded-full border border-emerald-400/60 px-3 py-1.5 text-xs font-bold text-emerald-100 hover:bg-emerald-400/15" onclick={() => onToggleMod(player.id)}>
           {player.mod ? 'Demote mod' : 'Promote mod'}
+        </button>
+      {/if}
+      {#if canShowMigrateDeviceButton({ phase, hostControls, player })}
+        <button class="grid h-8 w-8 place-items-center rounded-full border border-slate-600 text-slate-200 hover:border-emerald-300 hover:text-emerald-100" type="button" onclick={() => onCopyMigrateLink(player.id)} title={`Copy migrate-device link for ${player.displayName || 'player'}`} aria-label={`Copy migrate-device link for ${player.displayName || 'player'}`}>
+          <Smartphone class="h-4 w-4" />
         </button>
       {/if}
     </div>

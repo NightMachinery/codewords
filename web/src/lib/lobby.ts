@@ -96,6 +96,10 @@ export function canShowModControl(input: { phase: PlayerPanelPhase; hostControls
   return input.phase !== 'game_over' && input.hostControls && input.player.id !== input.roomHostId;
 }
 
+export function canShowMigrateDeviceButton(input: { phase: PlayerPanelPhase; hostControls: boolean; player: LobbyPlayer }): boolean {
+  return input.phase !== 'game_over' && input.hostControls && Boolean(input.player.id);
+}
+
 export function canManageLobby(viewer: ViewerContext | null | undefined): boolean {
   return Boolean(viewer?.isHost || viewer?.isMod);
 }

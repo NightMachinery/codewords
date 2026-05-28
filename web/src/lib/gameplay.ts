@@ -887,12 +887,15 @@ export function unityPlayerBoardRows(players: LobbyPlayer[], boardStats: UnityBo
       }
       const average = stats.turnsUsed > 0 && typeof stats.unityCardsPerTurn === 'number'
         ? `${stats.unityCardsPerTurn.toFixed(2)}/turn`
-        : 'N/A';
+        : '';
+      const detailParts = [`${stats.unityCardsFound}/${stats.totalUnityCards} Unity`];
+      if (average) detailParts.push(average);
+      detailParts.push(`${stats.turnsUsed} ${stats.turnsUsed === 1 ? 'turn' : 'turns'}`);
       return {
         id: player.id,
         name,
         status: 'board' as const,
-        detail: `${stats.unityCardsFound}/${stats.totalUnityCards} Unity · ${average} · ${stats.turnsUsed} ${stats.turnsUsed === 1 ? 'turn' : 'turns'}`,
+        detail: detailParts.join(' · '),
       };
     })
     .sort((left, right) => {
@@ -910,10 +913,17 @@ export type PlayerRoleBadgeKind = 'spy' | 'rep' | 'tempRep' | 'mod';
 export function playerRoleBadgeKinds(player: Pick<LobbyPlayer, 'spymaster' | 'representative' | 'mod'> & { temporaryRepresentative?: boolean }): PlayerRoleBadgeKind[] {
   const badges: PlayerRoleBadgeKind[] = [];
   if (player.spymaster) badges.push('spy');
-  else if (player.representative) badges.push('rep');
-  else if (player.temporaryRepresentative) badges.push('tempRep');
+  if (player.representative) badges.push('rep');
+  if (player.temporaryRepresentative) badges.push('tempRep');
   if (player.mod) badges.push('mod');
   return badges;
+}
+
+export function bottomStripRoleBadgeKinds(player: Pick<LobbyPlayer, 'spymaster' | 'representative'> & { temporaryRepresentative?: boolean }): PlayerRoleBadgeKind[] {
+  if (player.spymaster) return ['spy'];
+  if (player.representative) return ['rep'];
+  if (player.temporaryRepresentative) return ['tempRep'];
+  return [];
 }
 
 export function unityTurnsPendingForDisplayedBoard(input: {
@@ -922,10 +932,12 @@ export function unityTurnsPendingForDisplayedBoard(input: {
   displayedBoardId?: string;
   activeBoardId?: string;
   transitionLocked: boolean;
+  turnHasActivity?: boolean;
 }): boolean {
   return input.phase === 'active'
     && !input.unlimitedTurns
     && !input.transitionLocked
+    && !input.turnHasActivity
     && Boolean(input.displayedBoardId)
     && input.displayedBoardId === input.activeBoardId;
 }

@@ -11,6 +11,7 @@ import {
   isActiveGuesser,
   normalizeLobbySettingsForSave,
   playerRoleBadgeKinds,
+  bottomStripRoleBadgeKinds,
   teamColor,
   shouldCueUnitySpymaster,
   unityBoardViewCards,
@@ -191,7 +192,7 @@ describe('unity frontend helpers', () => {
     expect(unityEndGameSummary({ ...stats, unityCardsFound: 12, reason: 'assassin' }, progress).headline).toBe('Players were divided.');
   });
 
-  it('formats unity player board rows with N/A averages for unplayed boards', () => {
+  it('formats unity player board rows without N/A averages for unplayed boards', () => {
     const rows = unityPlayerBoardRows(players, [
       { ownerId: 'host', unityCardsFound: 4, totalUnityCards: 10, turnsUsed: 2, unityCardsPerTurn: 2 },
       { ownerId: 'p2', unityCardsFound: 0, totalUnityCards: 10, turnsUsed: 0, unityCardsPerTurn: null },
@@ -199,7 +200,7 @@ describe('unity frontend helpers', () => {
 
     expect(rows).toEqual([
       { id: 'host', name: 'Host', status: 'board', detail: '4/10 Unity · 2.00/turn · 2 turns' },
-      { id: 'p2', name: 'P2', status: 'board', detail: '0/10 Unity · N/A · 0 turns' },
+      { id: 'p2', name: 'P2', status: 'board', detail: '0/10 Unity · 0 turns' },
       { id: 'p3', name: 'P3', status: 'no-board', detail: 'No Unity board' },
     ]);
   });
@@ -215,7 +216,11 @@ describe('unity frontend helpers', () => {
   });
 
   it('shows spy instead of rep when both role badges apply', () => {
-    expect(playerRoleBadgeKinds({ ...players[0], spymaster: true, representative: true, mod: true })).toEqual(['spy', 'mod']);
+    expect(bottomStripRoleBadgeKinds({ spymaster: true, representative: true })).toEqual(['spy']);
+  });
+
+  it('shows all applicable player card badges', () => {
+    expect(playerRoleBadgeKinds({ ...players[0], spymaster: true, representative: true, temporaryRepresentative: true, mod: true })).toEqual(['spy', 'rep', 'tempRep', 'mod']);
     expect(playerRoleBadgeKinds({ ...players[1], temporaryRepresentative: true })).toEqual(['tempRep']);
   });
 
@@ -229,7 +234,16 @@ describe('unity frontend helpers', () => {
       displayedBoardId: 'host',
       activeBoardId: 'host',
       transitionLocked: false,
+      turnHasActivity: false,
     })).toBe(true);
+    expect(unityTurnsPendingForDisplayedBoard({
+      phase: 'active',
+      unlimitedTurns: false,
+      displayedBoardId: 'host',
+      activeBoardId: 'host',
+      transitionLocked: false,
+      turnHasActivity: true,
+    })).toBe(false);
     expect(unityTurnsPendingForDisplayedBoard({
       phase: 'active',
       unlimitedTurns: false,

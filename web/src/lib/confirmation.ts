@@ -1,4 +1,4 @@
-export type ConfirmationKind = 'reveal' | 'pass' | 'restart';
+export type ConfirmationKind = 'reveal' | 'pass' | 'restart' | 'switchUnitySpymaster';
 export type ConfirmationTone = 'reveal' | 'pass' | 'danger';
 
 export interface ConfirmationCardPreview {
@@ -52,5 +52,16 @@ export function buildRestartConfirmation(): ConfirmationRequest {
     confirmLabel: 'Restart',
     cancelLabel: 'Stay Here',
     tone: 'danger',
+  };
+}
+
+export function buildSwitchUnitySpymasterConfirmation(): ConfirmationRequest {
+  return {
+    kind: 'switchUnitySpymaster',
+    title: 'Switch Unity spy?',
+    message: 'Move the live Unity board to the next eligible player. If this spy has given a clue or revealed a card, this spends their turn.',
+    confirmLabel: 'Switch Spy',
+    cancelLabel: 'Stay Here',
+    tone: 'pass',
   };
 }
