@@ -821,11 +821,18 @@ func (s State) buildUnityEndStats(reason string) *UnityEndStats {
 	}
 	for _, ownerID := range s.UnityBoardOrder {
 		if board, ok := s.UnityBoards[ownerID]; ok {
+			if s.Players[ownerID].Team != TeamUnity {
+				seen[ownerID] = true
+				continue
+			}
 			addBoard(board)
 		}
 	}
 	for ownerID, board := range s.UnityBoards {
 		if !seen[ownerID] {
+			if s.Players[ownerID].Team != TeamUnity {
+				continue
+			}
 			addBoard(board)
 		}
 	}

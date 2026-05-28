@@ -52,6 +52,6 @@ In active Unity matches, new link-openers are added as observers. If a moderator
 
 Unity lobby joins assign new players directly to Unity instead of applying Polarity team balancing. Unity image-card boards use a deterministic match-wide image pool: image-card matches require enough unique assets for every active Unity board, and images are not duplicated across boards.
 
-Unity end stats include global found/total/turn/assassin totals plus one row per personal board with owner id, Unity cards found, total Unity cards, turns used, and Unity cards found per board turn. Higher per-turn averages are ranked first, and unplayed boards expose no per-turn average.
+Unity end stats include global found/total/turn/assassin totals plus one row per active Unity-team personal board with owner id, Unity cards found, total Unity cards, turns used, and Unity cards found per board turn. Observer-owned stored boards remain available for review but do not count toward active progress, win/loss, or end stats. Higher per-turn averages are ranked first, and unplayed boards expose no per-turn average.
 
 `RestartMatchCommand` returns the room to lobby state, clears active board state including Unity personal boards and progress, and increments the seed so the next start generates a fresh board instead of reusing the prior word/image order.

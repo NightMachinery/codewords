@@ -532,6 +532,43 @@ func TestUnityEndStatsIncludesPerBoardAverages(t *testing.T) {
 	}
 }
 
+func TestUnityEndStatsExcludeObserverBoards(t *testing.T) {
+	state := unityLobby(t, Settings{Mode: ModeUnity, Seed: 592, UnityTurnLimit: 10})
+	mustApply(t, &state, StartCommand{GameID: "game-end-stats-observers", Words: makeWords(80)}, "host")
+	setUnityBoardColors(&state, "host", []Color{ColorUnity, ColorUnity})
+	setUnityBoardColors(&state, "p2", []Color{ColorUnity})
+	setUnityBoardColors(&state, "p3", []Color{ColorUnity, ColorUnity, ColorUnity})
+	hostBoard := state.UnityBoards["host"]
+	hostBoard.Cards[0].Revealed = true
+	hostBoard.TurnsUsed = 2
+	state.UnityBoards["host"] = hostBoard
+	p2Board := state.UnityBoards["p2"]
+	p2Board.Cards[0].Revealed = true
+	p2Board.TurnsUsed = 1
+	state.UnityBoards["p2"] = p2Board
+	p3Board := state.UnityBoards["p3"]
+	p3Board.Cards[0].Revealed = true
+	p3Board.Cards[1].Revealed = true
+	p3Board.Cards[2].Revealed = true
+	p3Board.TurnsUsed = 3
+	state.UnityBoards["p3"] = p3Board
+	mustApply(t, &state, AssignTeamCommand{PlayerID: "p3", Team: TeamObservers}, "host")
+	state.Phase = PhaseActive
+
+	stats := state.buildUnityEndStats("test")
+
+	if stats.UnityCardsFound != 2 || stats.TotalUnityCards != 3 || stats.TotalTurns != 3 {
+		t.Fatalf("expected observer board excluded from totals, got %#v", stats)
+	}
+	gotOwners := []string{}
+	for _, row := range stats.BoardStats {
+		gotOwners = append(gotOwners, row.OwnerID)
+	}
+	if !slices.Equal(gotOwners, []string{"p2", "host"}) {
+		t.Fatalf("expected only active Unity board rows, got %v", gotOwners)
+	}
+}
+
 func TestUnityEndStatsRanksHigherAveragesFirst(t *testing.T) {
 	state := unityLobby(t, Settings{Mode: ModeUnity, Seed: 591, UnityTurnLimit: 10})
 	mustApply(t, &state, StartCommand{GameID: "game-end-stats-sort", Words: makeWords(80)}, "host")
