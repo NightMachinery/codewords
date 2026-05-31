@@ -73,6 +73,7 @@
   import { getOrCreateAuthToken, resolveSessionCredential, type SessionCredential } from '../lib/identity';
   import { canManageLobby, startReadiness, type LobbyPlayer } from '../lib/lobby';
   import { RoomSocket, type BoardLayoutPreferences, type RoomSocketMessage } from '../lib/realtime';
+  import { applyTheme, darkModeThemes, lightModeThemes, prefersDarkScheme, readThemePreferences, resolveTheme, THEMES, watchColorScheme, writeThemePreferences, type ThemeId, type ThemePreferences } from '../lib/theme';
   import { applySettingsProfile, exportSettingsProfileJson5, parseSettingsProfileJson5, profileFromSettings, readSavedProfiles, writeSavedProfiles, type SettingsProfile } from '../lib/settingsProfiles';
   import vanillaProfileText from '../../../assets/profiles/vanilla.json5?raw';
   import mildlyMixedProfileText from '../../../assets/profiles/mildly-mixed.json5?raw';
@@ -148,6 +149,12 @@
   let captureStatus = $state('');
   let captureBusy = $state(false);
   let forceBoardLayoutPending = $state(false);
+  let themePreferences = $state<ThemePreferences>(readThemePreferences(localStorage));
+  let systemPrefersDark = $state(prefersDarkScheme());
+  // A theme pushed by a moderator: applied for this session only, never persisted. Cleared
+  // when the user changes their own theme settings.
+  let sessionThemeOverride = $state<ThemeId | null>(null);
+  let forceThemePending = $state(false);
   let socket: RoomSocket | null = null;
   let sawSnapshot = false;
   let previousCardsForCue: GameplayCard[] = [];
@@ -192,6 +199,7 @@
   let canRandomizeTeams = $derived(players.filter((player) => player.team !== 'observers').length >= 2);
   let startState = $derived(mode === 'unity' ? unityStartReadiness(players) : startReadiness(players));
   let hostControls = $derived(canManageLobby(viewer));
+  let effectiveThemeId = $derived(sessionThemeOverride ?? resolveTheme(themePreferences, systemPrefersDark));
   let currentPlayer = $derived(findViewerPlayer(players, viewer));
   let needsName = $derived(Boolean(credentialMode === 'auth' && !displayName && (roomStatus === 'lobby' || !currentPlayer)));
   let role = $derived(viewerRole(players, viewer, currentTeam as any, phase, activeBoardOwner, unityProgress?.temporaryRepresentativeId ?? ''));
@@ -227,12 +235,21 @@
     window.addEventListener('resize', updateBoardFit);
     window.addEventListener('codewords:layout-change', updateBoardFitSoon);
     bottomPanelObserver = new ResizeObserver(updateBoardFit);
+    const unwatchColorScheme = watchColorScheme((prefersDark) => {
+      systemPrefersDark = prefersDark;
+    });
     return () => {
       window.removeEventListener('resize', updateBoardFit);
       window.removeEventListener('codewords:layout-change', updateBoardFitSoon);
       bottomPanelObserver?.disconnect();
+      unwatchColorScheme();
       socket?.close();
     };
+  });
+
+  // Keep the document theme in sync with the resolved theme (saved prefs, OS, or mod push).
+  $effect(() => {
+    applyTheme(effectiveThemeId);
   });
 
   onDestroy(() => socket?.close());
@@ -655,6 +672,25 @@
   function updatePanelPreferences(next: Partial<PanelPreferences>) {
     panelPreferences = { ...panelPreferences, ...next };
     writePanelPreferences(localStorage, panelPreferences);
+  }
+
+  function updateThemePreferences(next: Partial<ThemePreferences>) {
+    themePreferences = { ...themePreferences, ...next };
+    writeThemePreferences(localStorage, themePreferences);
+    // The user is taking control of their own theme; drop any moderator-pushed override.
+    sessionThemeOverride = null;
+  }
+
+  function forceThemeForRoom() {
+    if (!hostControls) {
+      error = 'Only moderators can push the theme.';
+      appendSystemMessage(error, 'forceTheme');
+      return;
+    }
+    forceThemePending = true;
+    if (!sendSocketAction('forceTheme', { type: 'forceTheme', theme: effectiveThemeId })) {
+      forceThemePending = false;
+    }
   }
 
 
@@ -1387,7 +1423,52 @@
                 </span>
               </button>
               {#if panelPreferences.localOptionsOpen}
-                <label class="mt-4 flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
+                <div class="mt-4 grid gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
+                  <span class="text-sm font-bold text-slate-200">Theme</span>
+                  <label class="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs text-slate-300 cursor-pointer">
+                    <input type="checkbox" checked={themePreferences.auto} onchange={(event) => updateThemePreferences({ auto: event.currentTarget.checked })} />
+                    Match system dark mode automatically
+                  </label>
+                  {#if themePreferences.auto}
+                    <label class="block text-xs text-slate-400">
+                      Dark mode theme
+                      <select class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" value={themePreferences.darkTheme} onchange={(event) => updateThemePreferences({ darkTheme: event.currentTarget.value as ThemeId })}>
+                        {#each darkModeThemes as theme (theme.id)}
+                          <option value={theme.id}>{theme.label}</option>
+                        {/each}
+                      </select>
+                    </label>
+                    <label class="block text-xs text-slate-400">
+                      Light mode theme
+                      <select class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" value={themePreferences.lightTheme} onchange={(event) => updateThemePreferences({ lightTheme: event.currentTarget.value as ThemeId })}>
+                        {#each lightModeThemes as theme (theme.id)}
+                          <option value={theme.id}>{theme.label}</option>
+                        {/each}
+                      </select>
+                    </label>
+                  {:else}
+                    <label class="block text-xs text-slate-400">
+                      Theme
+                      <select class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" value={themePreferences.manual} onchange={(event) => updateThemePreferences({ manual: event.currentTarget.value as ThemeId })}>
+                        {#each THEMES as theme (theme.id)}
+                          <option value={theme.id}>{theme.label}</option>
+                        {/each}
+                      </select>
+                    </label>
+                  {/if}
+                  {#if hostControls}
+                    <button
+                      class={['rounded-xl border px-3 py-2 text-left text-xs font-black uppercase tracking-[0.16em] transition active:translate-y-px disabled:cursor-wait', forceThemePending ? 'border-emerald-200 bg-emerald-300 text-slate-950' : 'border-emerald-300/40 bg-emerald-300/10 text-emerald-100 hover:border-emerald-200 hover:bg-emerald-300/20'].join(' ')}
+                      type="button"
+                      disabled={forceThemePending}
+                      aria-busy={forceThemePending}
+                      onclick={forceThemeForRoom}
+                    >
+                      {forceThemePending ? 'Pushing theme…' : 'Push current theme to everyone (this session)'}
+                    </button>
+                  {/if}
+                </div>
+                <label class="mt-3 flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
                   <input type="checkbox" checked={preferences.confirmGuesses} onchange={(event) => updatePreferences({ confirmGuesses: event.currentTarget.checked })} />
                   <span class="text-sm text-slate-200">Confirm before revealing a card</span>
                 </label>

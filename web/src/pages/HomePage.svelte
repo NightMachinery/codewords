@@ -5,6 +5,7 @@
   import { api, defaultSettings } from '../lib/api';
   import { getOrCreateAuthToken } from '../lib/identity';
   import { roomPath } from '../lib/routes';
+  import { applyTheme, darkModeThemes, lightModeThemes, prefersDarkScheme, readThemePreferences, resolveTheme, THEMES, watchColorScheme, writeThemePreferences, type ThemeId, type ThemePreferences } from '../lib/theme';
 
   let authToken = '';
   let displayName = $state('');
@@ -14,9 +15,24 @@
   let loading = $state(true);
   let creating = $state(false);
   let error = $state('');
+  let themePreferences = $state<ThemePreferences>(readThemePreferences(localStorage));
+  let systemPrefersDark = $state(prefersDarkScheme());
+  let effectiveThemeId = $derived(resolveTheme(themePreferences, systemPrefersDark));
+
+  $effect(() => {
+    applyTheme(effectiveThemeId);
+  });
+
+  function updateThemePreferences(next: Partial<ThemePreferences>) {
+    themePreferences = { ...themePreferences, ...next };
+    writeThemePreferences(localStorage, themePreferences);
+  }
 
   onMount(() => {
     authToken = getOrCreateAuthToken(localStorage);
+    const unwatchColorScheme = watchColorScheme((prefersDark) => {
+      systemPrefersDark = prefersDark;
+    });
     api
       .bootstrap(authToken)
       .then((identity) => {
@@ -30,6 +46,7 @@
       .finally(() => {
         loading = false;
       });
+    return () => unwatchColorScheme();
   });
 
   async function saveName() {
@@ -148,6 +165,33 @@
               >
                 Join
               </button>
+            </div>
+
+            <div class="grid gap-2">
+              <label class="flex items-center gap-2 text-xs font-bold text-emerald-100/80">
+                <input type="checkbox" checked={themePreferences.auto} onchange={(event) => updateThemePreferences({ auto: event.currentTarget.checked })} />
+                Match system dark mode
+              </label>
+              {#if themePreferences.auto}
+                <div class="grid grid-cols-2 gap-2">
+                  <select class="min-w-0 rounded-2xl border border-slate-500/35 bg-[oklch(11%_0.025_255_/_0.86)] px-3 py-2 text-sm text-slate-50 outline-none" value={themePreferences.darkTheme} onchange={(event) => updateThemePreferences({ darkTheme: event.currentTarget.value as ThemeId })} aria-label="Dark mode theme">
+                    {#each darkModeThemes as theme (theme.id)}
+                      <option value={theme.id}>{theme.label}</option>
+                    {/each}
+                  </select>
+                  <select class="min-w-0 rounded-2xl border border-slate-500/35 bg-[oklch(11%_0.025_255_/_0.86)] px-3 py-2 text-sm text-slate-50 outline-none" value={themePreferences.lightTheme} onchange={(event) => updateThemePreferences({ lightTheme: event.currentTarget.value as ThemeId })} aria-label="Light mode theme">
+                    {#each lightModeThemes as theme (theme.id)}
+                      <option value={theme.id}>{theme.label}</option>
+                    {/each}
+                  </select>
+                </div>
+              {:else}
+                <select class="w-full rounded-2xl border border-slate-500/35 bg-[oklch(11%_0.025_255_/_0.86)] px-3 py-2 text-sm text-slate-50 outline-none" value={themePreferences.manual} onchange={(event) => updateThemePreferences({ manual: event.currentTarget.value as ThemeId })} aria-label="Theme">
+                  {#each THEMES as theme (theme.id)}
+                    <option value={theme.id}>{theme.label}</option>
+                  {/each}
+                </select>
+              {/if}
             </div>
           </div>
         {/if}
