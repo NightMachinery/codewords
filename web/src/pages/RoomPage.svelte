@@ -476,8 +476,19 @@
         error = 'Board layout options were updated by a moderator.';
       }
     }
+    if (message.type === 'themeForced') {
+      // Session-only: applied via the theme $effect, never written to localStorage.
+      sessionThemeOverride = message.theme;
+      if (message.by === viewer?.userId) {
+        forceThemePending = false;
+        showToast('Theme pushed to all players.');
+      } else {
+        showToast('A moderator set the room theme for this session.');
+      }
+    }
     if (message.type === 'error') {
       forceBoardLayoutPending = false;
+      forceThemePending = false;
       error = message.message;
       appendSystemMessage(`Server rejected action: ${message.message}`, message.code || 'server-error');
     }

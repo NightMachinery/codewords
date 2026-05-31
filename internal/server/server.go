@@ -613,6 +613,15 @@ func (a *app) handleWSMessage(ctx context.Context, roomID string, rt *roomRuntim
 		rt.broadcastLocked(map[string]any{"type": "boardLayoutForced", "preferences": preferences, "by": viewerID})
 		return
 	}
+	if t == "forceTheme" {
+		if !rt.state.CanManage(viewerID) {
+			_ = conn.WriteJSON(errorMessage("command_rejected", "moderator only"))
+			return
+		}
+		theme := sanitizeThemeID(msg["theme"])
+		rt.broadcastLocked(map[string]any{"type": "themeForced", "theme": theme, "by": viewerID})
+		return
+	}
 	cmd, err := commandFromMessage(t, msg)
 	if err != nil {
 		_ = conn.WriteJSON(errorMessage("invalid_command", err.Error()))
@@ -774,6 +783,15 @@ func clampImageCardScale(v any) int {
 func boolValue(v any) bool {
 	b, _ := v.(bool)
 	return b
+}
+
+func sanitizeThemeID(v any) string {
+	switch v {
+	case "dark", "light", "matrix":
+		return v.(string)
+	default:
+		return "dark"
+	}
 }
 
 func commandFromMessage(t string, msg map[string]any) (game.Command, error) {

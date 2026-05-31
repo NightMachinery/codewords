@@ -1,5 +1,6 @@
 import type { ChatMessage, RoomSnapshot } from './api';
 import type { ImageCardScale } from './gameplay';
+import type { ThemeId } from './theme';
 
 export interface BoardLayoutPreferences {
   boardColumnsMobile: number;
@@ -14,6 +15,7 @@ export type RoomSocketMessage =
   | { type: 'error'; code: string; message: string }
   | { type: 'chatMessage'; message: ChatMessage }
   | { type: 'boardLayoutForced'; preferences: BoardLayoutPreferences; by: string }
+  | { type: 'themeForced'; theme: ThemeId; by: string }
   | { type: 'pong' };
 
 export interface RoomSocketHandlers {
