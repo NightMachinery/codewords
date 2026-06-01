@@ -49,7 +49,11 @@ Preferences are stored in `localStorage` under `codewords.themePreferences` via
 - **Room → Local Settings panel** (`web/src/pages/RoomPage.svelte`): an "auto" checkbox plus either a
   single theme select (auto off) or separate dark-mode / light-mode selects (auto on).
 - **Home page** (`web/src/pages/HomePage.svelte`): a compact version of the same picker so the theme
-  can be chosen before entering a room.
+  can be chosen before entering a room. The landing hero is theme-aware: its room-entry card and
+  controls use theme tokens, and the animated aurora background is recolored per theme. The aurora
+  shader's sky/ribbon colors are uniforms fed from a per-theme `AuroraPalette` in `theme.ts`
+  (`AuroraBackground` takes a `theme` prop and updates the uniforms reactively); the CSS fallback and
+  base color mirror those palettes via `[data-theme]` selectors.
 
 ## Moderator push (session only)
 
