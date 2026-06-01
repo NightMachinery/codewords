@@ -51,6 +51,15 @@
   --color-emerald-300: oklch(64% 0.16 164.978);
   --color-emerald-200: oklch(72% 0.13 164.15);
   --color-emerald-100: oklch(58% 0.15 163.051);
+
+  /* Cyan/teal are used for the Join button and accents; darken the low shades so
+     they stay legible on light surfaces (default cyan-200/300 are near-white). */
+  --color-cyan-300: oklch(62% 0.13 220);
+  --color-cyan-200: oklch(56% 0.12 220);
+  --color-cyan-100: oklch(50% 0.12 220);
+  --color-teal-300: oklch(62% 0.12 182);
+  --color-teal-200: oklch(56% 0.11 182);
+  --color-teal-100: oklch(50% 0.11 182);
 }
 
 /*
@@ -88,6 +97,114 @@
 
   --color-teal-300: oklch(85% 0.2 165);
   --color-cyan-300: oklch(85% 0.18 175);
+}
+
+/*
+ * Solarized Dark: Ethan Schoonover's base03→base3 teal-grey ramp with a
+ * Solarized green accent.
+ */
+[data-theme='solarized-dark'] {
+  color-scheme: dark;
+
+  --color-slate-950: oklch(21% 0.035 195); /* base03 */
+  --color-slate-900: oklch(26% 0.04 200);  /* base02 */
+  --color-slate-800: oklch(33% 0.035 205);
+  --color-slate-700: oklch(50% 0.025 215); /* base01 */
+  --color-slate-600: oklch(55% 0.022 220); /* base00 */
+  --color-slate-500: oklch(60% 0.02 215);
+  --color-slate-400: oklch(65% 0.018 210); /* base0 */
+  --color-slate-300: oklch(72% 0.015 200); /* base1 */
+  --color-slate-200: oklch(82% 0.02 120);
+  --color-slate-100: oklch(90% 0.025 95);  /* base2 */
+  --color-slate-50: oklch(96% 0.025 90);   /* base3 */
+
+  --color-zinc-950: oklch(21% 0.035 195);
+  --color-zinc-300: oklch(72% 0.015 200);
+  --color-zinc-100: oklch(90% 0.025 95);
+  --color-zinc-50: oklch(96% 0.025 90);
+
+  /* Accent: Solarized green. */
+  --color-emerald-300: oklch(63% 0.14 122);
+  --color-emerald-200: oklch(70% 0.12 122);
+  --color-emerald-100: oklch(76% 0.1 122);
+  --color-emerald-400: oklch(57% 0.15 122);
+
+  --color-cyan-300: oklch(64% 0.1 192);
+  --color-teal-300: oklch(64% 0.1 182);
+}
+
+/*
+ * Solarized Light: the same palette inverted — base3 surfaces, base03 text —
+ * with a darkened Solarized green accent.
+ */
+[data-theme='solarized-light'] {
+  color-scheme: light;
+
+  --color-slate-950: oklch(97% 0.025 90);  /* base3 */
+  --color-slate-900: oklch(92% 0.025 95);  /* base2 */
+  --color-slate-800: oklch(86% 0.025 95);
+  --color-slate-700: oklch(70% 0.012 200); /* base1 */
+  --color-slate-600: oklch(65% 0.018 210); /* base0 */
+  --color-slate-500: oklch(55% 0.022 220); /* base00 */
+  --color-slate-400: oklch(50% 0.025 215); /* base01 */
+  --color-slate-300: oklch(45% 0.03 210);
+  --color-slate-200: oklch(40% 0.035 205);
+  --color-slate-100: oklch(26% 0.04 200);  /* base02 */
+  --color-slate-50: oklch(21% 0.035 195);  /* base03 */
+
+  --color-zinc-950: oklch(97% 0.025 90);
+  --color-zinc-300: oklch(45% 0.03 210);
+  --color-zinc-100: oklch(26% 0.04 200);
+  --color-zinc-50: oklch(21% 0.035 195);
+
+  /* Accent: Solarized green, darkened for contrast on light surfaces. */
+  --color-emerald-300: oklch(55% 0.13 122);
+  --color-emerald-200: oklch(62% 0.12 122);
+  --color-emerald-100: oklch(48% 0.13 122);
+
+  --color-cyan-300: oklch(55% 0.1 192);
+  --color-cyan-200: oklch(50% 0.1 192);
+  --color-cyan-100: oklch(45% 0.1 192);
+  --color-teal-300: oklch(55% 0.1 182);
+  --color-teal-200: oklch(50% 0.1 182);
+  --color-teal-100: oklch(45% 0.1 182);
+}
+
+/*
+ * Spider-Man: deep navy-blue surfaces with a bright Spidey-red accent and
+ * web-blue secondary accents.
+ */
+[data-theme='spiderman'] {
+  color-scheme: dark;
+
+  --color-slate-950: oklch(15% 0.06 265);
+  --color-slate-900: oklch(19% 0.08 265);
+  --color-slate-800: oklch(26% 0.1 265);
+  --color-slate-700: oklch(34% 0.1 265);
+  --color-slate-600: oklch(44% 0.1 265);
+  --color-slate-500: oklch(55% 0.09 265);
+  --color-slate-400: oklch(68% 0.08 265);
+  --color-slate-300: oklch(80% 0.06 265);
+  --color-slate-200: oklch(88% 0.04 265);
+  --color-slate-100: oklch(93% 0.03 265);
+  --color-slate-50: oklch(97% 0.02 265);
+
+  --color-zinc-950: oklch(15% 0.06 265);
+  --color-zinc-300: oklch(80% 0.06 265);
+  --color-zinc-100: oklch(93% 0.03 265);
+  --color-zinc-50: oklch(97% 0.02 265);
+
+  /* Accent: Spidey red. */
+  --color-emerald-50: oklch(95% 0.05 25);
+  --color-emerald-100: oklch(70% 0.18 25);
+  --color-emerald-200: oklch(64% 0.2 25);
+  --color-emerald-300: oklch(58% 0.23 25);
+  --color-emerald-400: oklch(52% 0.24 25);
+  --color-emerald-950: oklch(28% 0.12 25);
+
+  /* Secondary: web blue. */
+  --color-cyan-300: oklch(55% 0.2 265);
+  --color-teal-300: oklch(55% 0.2 265);
 }
 
 body {

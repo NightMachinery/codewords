@@ -5,6 +5,7 @@ import {
   readThemePreferences,
   resolveTheme,
   themePreferencesStorageKey,
+  THEMES,
   writeThemePreferences,
   type ThemePreferences,
   type ThemeStorage,
@@ -31,6 +32,13 @@ describe('theme preferences', () => {
   it('round-trips written preferences', () => {
     const storage = new MemoryStorage();
     const prefs: ThemePreferences = { auto: true, manual: 'matrix', darkTheme: 'matrix', lightTheme: 'light' };
+    writeThemePreferences(storage, prefs);
+    expect(readThemePreferences(storage)).toEqual(prefs);
+  });
+
+  it('accepts the Solarized and Spider-Man theme ids', () => {
+    const storage = new MemoryStorage();
+    const prefs: ThemePreferences = { auto: true, manual: 'spiderman', darkTheme: 'solarized-dark', lightTheme: 'solarized-light' };
     writeThemePreferences(storage, prefs);
     expect(readThemePreferences(storage)).toEqual(prefs);
   });
@@ -71,5 +79,27 @@ describe('resolveTheme', () => {
   it('picks the light theme when auto is on and the OS prefers light', () => {
     const prefs: ThemePreferences = { auto: true, manual: 'matrix', darkTheme: 'matrix', lightTheme: 'light' };
     expect(resolveTheme(prefs, false)).toBe('light');
+  });
+
+  it('resolves to the chosen Solarized themes per OS preference', () => {
+    const prefs: ThemePreferences = { auto: true, manual: 'dark', darkTheme: 'solarized-dark', lightTheme: 'solarized-light' };
+    expect(resolveTheme(prefs, true)).toBe('solarized-dark');
+    expect(resolveTheme(prefs, false)).toBe('solarized-light');
+  });
+});
+
+describe('THEMES catalog', () => {
+  it('exposes the six themes with valid modes', () => {
+    expect(THEMES.map((t) => t.id)).toEqual([
+      'dark',
+      'light',
+      'matrix',
+      'solarized-dark',
+      'solarized-light',
+      'spiderman',
+    ]);
+    for (const theme of THEMES) {
+      expect(['dark', 'light']).toContain(theme.mode);
+    }
   });
 });

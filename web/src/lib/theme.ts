@@ -1,4 +1,4 @@
-export type ThemeId = 'dark' | 'light' | 'matrix';
+export type ThemeId = 'dark' | 'light' | 'matrix' | 'solarized-light' | 'solarized-dark' | 'spiderman';
 
 export interface ThemeDescriptor {
   id: ThemeId;
@@ -10,6 +10,9 @@ export const THEMES: ThemeDescriptor[] = [
   { id: 'dark', label: 'Dark', mode: 'dark' },
   { id: 'light', label: 'Light', mode: 'light' },
   { id: 'matrix', label: 'Matrix', mode: 'dark' },
+  { id: 'solarized-dark', label: 'Solarized Dark', mode: 'dark' },
+  { id: 'solarized-light', label: 'Solarized Light', mode: 'light' },
+  { id: 'spiderman', label: 'Spider-Man', mode: 'dark' },
 ];
 
 export const themeIds: ThemeId[] = THEMES.map((theme) => theme.id);
@@ -61,6 +64,33 @@ export const auroraPalettes: Record<ThemeId, AuroraPalette> = {
     ribbonA: [0.18, 0.98, 0.42],
     ribbonB: [0.3, 0.85, 0.3],
     ribbonC: [0.1, 0.7, 0.32],
+  },
+  // Solarized Dark: base03 teal-grey sky with solarized blue/cyan/violet ribbons.
+  'solarized-dark': {
+    skyTop: [0.0, 0.12, 0.15],
+    skyMid: [0.0, 0.17, 0.21],
+    skyLow: [0.03, 0.21, 0.26],
+    ribbonA: [0.15, 0.55, 0.82],
+    ribbonB: [0.16, 0.63, 0.6],
+    ribbonC: [0.42, 0.44, 0.77],
+  },
+  // Solarized Light: warm cream sky with blended solarized blue/green/magenta ribbons.
+  'solarized-light': {
+    skyTop: [0.99, 0.96, 0.89],
+    skyMid: [0.93, 0.91, 0.83],
+    skyLow: [0.88, 0.86, 0.78],
+    ribbonA: [0.15, 0.55, 0.82],
+    ribbonB: [0.52, 0.6, 0.0],
+    ribbonC: [0.83, 0.21, 0.51],
+  },
+  // Spider-Man: dark navy sky with red/blue/white hero-color ribbons.
+  spiderman: {
+    skyTop: [0.02, 0.02, 0.08],
+    skyMid: [0.04, 0.04, 0.13],
+    skyLow: [0.07, 0.06, 0.16],
+    ribbonA: [0.86, 0.13, 0.16],
+    ribbonB: [0.16, 0.32, 0.85],
+    ribbonC: [0.95, 0.95, 0.98],
   },
 };
 
