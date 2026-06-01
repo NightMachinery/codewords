@@ -491,7 +491,7 @@ export function unityTurnBudgetOptionsClasses(): string {
 }
 
 export function roomMainClasses(): string {
-  return 'min-h-screen w-full overflow-x-hidden bg-[oklch(14%_0.018_255)] pb-32 font-sans text-slate-100';
+  return 'min-h-screen w-full overflow-x-hidden bg-slate-950 pb-32 font-sans text-slate-100';
 }
 
 export function lobbyStartPanelClasses(): string {
