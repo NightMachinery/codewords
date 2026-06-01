@@ -3,7 +3,7 @@
   import * as THREE from 'three';
 
   import { auroraFragmentShader, auroraVertexShader } from './auroraShaders';
-  import { auroraPaletteFor, type ThemeId } from '../theme';
+  import { auroraPaletteFor, themeMode, type ThemeId } from '../theme';
 
   type Props = {
     intensity?: number;
@@ -25,6 +25,7 @@
     uRibbonA: { value: new THREE.Vector3() },
     uRibbonB: { value: new THREE.Vector3() },
     uRibbonC: { value: new THREE.Vector3() },
+    uLight: { value: 0 },
   };
 
   $effect(() => {
@@ -35,6 +36,7 @@
     colorUniforms.uRibbonA.value.set(...palette.ribbonA);
     colorUniforms.uRibbonB.value.set(...palette.ribbonB);
     colorUniforms.uRibbonC.value.set(...palette.ribbonC);
+    colorUniforms.uLight.value = themeMode(theme) === 'light' ? 1 : 0;
   });
 
   onMount(() => {

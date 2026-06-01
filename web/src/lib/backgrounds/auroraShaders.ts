@@ -21,6 +21,7 @@ export const auroraFragmentShader = /* glsl */ `
   uniform vec3 uRibbonA;
   uniform vec3 uRibbonB;
   uniform vec3 uRibbonC;
+  uniform float uLight; // 0 = dark (additive glow), 1 = light (blend ribbons onto a bright sky)
 
   varying vec2 vUv;
 
@@ -84,13 +85,27 @@ export const auroraFragmentShader = /* glsl */ `
     float b = curtain(uv + vec2(-0.05, 0.06), 1.45, 4.2, time * 0.82);
     float c = curtain(uv + vec2(0.11, -0.04), 2.65, 5.2, time * 0.62);
 
-    vec3 aurora = uRibbonA * a + uRibbonB * b * 0.72 + uRibbonC * c * 0.48;
     float softMask = smoothstep(1.0, 0.05, uv.y) * smoothstep(-0.08, 0.38, uv.y);
     float shimmer = 0.82 + 0.18 * fbm(vec2(uv.x * 8.0 + time * 0.16, uv.y * 2.5 - time * 0.1));
 
-    color += aurora * softMask * shimmer * uIntensity;
-    color += vec3(0.03, 0.11, 0.14) * horizon * vignette * 0.34;
-    color *= 0.56 + vignette * 0.64;
+    // Dark themes: additive glow (ribbons add light to a deep sky).
+    vec3 darkAurora = uRibbonA * a + uRibbonB * b * 0.72 + uRibbonC * c * 0.48;
+    vec3 darkColor = color + darkAurora * softMask * shimmer * uIntensity;
+    darkColor += vec3(0.03, 0.11, 0.14) * horizon * vignette * 0.34;
+    darkColor *= 0.56 + vignette * 0.64;
+
+    // Light theme: blend ribbon colors over the bright sky so they stay visible
+    // (adding light to a near-white sky would wash out to nothing).
+    float wa = clamp(a * softMask * shimmer * uIntensity, 0.0, 1.0);
+    float wb = clamp(b * 0.72 * softMask * shimmer * uIntensity, 0.0, 1.0);
+    float wc = clamp(c * 0.48 * softMask * shimmer * uIntensity, 0.0, 1.0);
+    vec3 lightColor = color;
+    lightColor = mix(lightColor, uRibbonA, wa * 0.85);
+    lightColor = mix(lightColor, uRibbonB, wb * 0.7);
+    lightColor = mix(lightColor, uRibbonC, wc * 0.55);
+    lightColor *= 0.9 + vignette * 0.12;
+
+    color = mix(darkColor, lightColor, uLight);
 
     gl_FragColor = vec4(color, 1.0);
   }

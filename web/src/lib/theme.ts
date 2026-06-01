@@ -42,15 +42,16 @@ export const auroraPalettes: Record<ThemeId, AuroraPalette> = {
     ribbonB: [0.2, 0.7, 0.96],
     ribbonC: [0.48, 0.3, 0.82],
   },
-  // Light: a bright, pale sky so the hero reads as light; softer, slightly
-  // deeper ribbons that stay visible against the bright base.
+  // Light: a bright, pale sky so the hero reads as light. Ribbons are saturated
+  // mid-tones that are *blended* over the sky (see uLight in the shader), so they
+  // read as soft colored aurora bands rather than washing out to white.
   light: {
-    skyTop: [0.93, 0.95, 0.99],
-    skyMid: [0.88, 0.92, 0.98],
-    skyLow: [0.82, 0.88, 0.96],
-    ribbonA: [0.12, 0.62, 0.42],
-    ribbonB: [0.16, 0.5, 0.78],
-    ribbonC: [0.42, 0.3, 0.74],
+    skyTop: [0.9, 0.94, 0.99],
+    skyMid: [0.84, 0.91, 0.99],
+    skyLow: [0.78, 0.88, 0.98],
+    ribbonA: [0.27, 0.78, 0.62],
+    ribbonB: [0.36, 0.66, 0.92],
+    ribbonC: [0.62, 0.5, 0.92],
   },
   // Matrix: near-black green sky with phosphor-green ribbons.
   matrix: {
@@ -65,6 +66,10 @@ export const auroraPalettes: Record<ThemeId, AuroraPalette> = {
 
 export function auroraPaletteFor(id: ThemeId): AuroraPalette {
   return auroraPalettes[id] ?? auroraPalettes.dark;
+}
+
+export function themeMode(id: ThemeId): 'dark' | 'light' {
+  return THEMES.find((theme) => theme.id === id)?.mode ?? 'dark';
 }
 
 export function isThemeId(value: unknown): value is ThemeId {

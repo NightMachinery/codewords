@@ -124,7 +124,7 @@
 
   <div class="hero-shell relative z-10 flex min-h-screen flex-col px-5 py-7 sm:px-8 lg:px-12">
     <nav class="flex items-center justify-center sm:justify-start">
-      <a class="rounded-full border border-emerald-300/25 bg-slate-950/35 px-5 py-2 text-sm font-black uppercase tracking-[0.32em] text-emerald-200 shadow-2xl shadow-cyan-950/30 outline-none backdrop-blur-md transition hover:border-emerald-300/50 focus-visible:ring-2 focus-visible:ring-emerald-300" href="/">
+      <a class="rounded-full bg-emerald-300 px-5 py-2 text-sm font-black uppercase tracking-[0.32em] text-slate-950 shadow-lg shadow-emerald-950/30 outline-none transition hover:bg-emerald-200 focus-visible:ring-2 focus-visible:ring-emerald-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950" href="/">
         CODEWORDS
       </a>
     </nav>
