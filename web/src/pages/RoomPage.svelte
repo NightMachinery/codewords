@@ -4,10 +4,6 @@
   import Power from 'lucide-svelte/icons/power';
   import RefreshCw from 'lucide-svelte/icons/refresh-cw';
   import Smartphone from 'lucide-svelte/icons/smartphone';
-  import Sun from 'lucide-svelte/icons/sun';
-  import Moon from 'lucide-svelte/icons/moon';
-  import Terminal from 'lucide-svelte/icons/terminal';
-  import SunMoon from 'lucide-svelte/icons/sun-moon';
 
   import { api, defaultSettings, type ChatMessage, type PictureAsset, type Settings, type Viewer, type Wordpack } from '../lib/api';
   import { copyText } from '../lib/clipboard';
@@ -77,7 +73,8 @@
   import { getOrCreateAuthToken, resolveSessionCredential, type SessionCredential } from '../lib/identity';
   import { canManageLobby, startReadiness, type LobbyPlayer } from '../lib/lobby';
   import { RoomSocket, type BoardLayoutPreferences, type RoomSocketMessage } from '../lib/realtime';
-  import { applyTheme, darkModeThemes, lightModeThemes, prefersDarkScheme, readThemePreferences, resolveTheme, THEMES, watchColorScheme, writeThemePreferences, type ThemeId, type ThemePreferences } from '../lib/theme';
+  import ThemeMenu from '../lib/ThemeMenu.svelte';
+  import type { ThemeId } from '../lib/theme';
   import { applySettingsProfile, exportSettingsProfileJson5, parseSettingsProfileJson5, profileFromSettings, readSavedProfiles, writeSavedProfiles, type SettingsProfile } from '../lib/settingsProfiles';
   import vanillaProfileText from '../../../assets/profiles/vanilla.json5?raw';
   import mildlyMixedProfileText from '../../../assets/profiles/mildly-mixed.json5?raw';
@@ -153,13 +150,11 @@
   let captureStatus = $state('');
   let captureBusy = $state(false);
   let forceBoardLayoutPending = $state(false);
-  let themePreferences = $state<ThemePreferences>(readThemePreferences(localStorage));
-  let systemPrefersDark = $state(prefersDarkScheme());
-  // A theme pushed by a moderator: applied for this session only, never persisted. Cleared
-  // when the user changes their own theme settings.
+  // Owned by <ThemeMenu>; bound here so the mod "push theme" action can read the
+  // applied theme and a moderator push can be injected as a session override.
+  let effectiveThemeId = $state<ThemeId>('dark');
   let sessionThemeOverride = $state<ThemeId | null>(null);
   let forceThemePending = $state(false);
-  let themeMenuOpen = $state(false);
   let socket: RoomSocket | null = null;
   let sawSnapshot = false;
   let previousCardsForCue: GameplayCard[] = [];
@@ -204,10 +199,6 @@
   let canRandomizeTeams = $derived(players.filter((player) => player.team !== 'observers').length >= 2);
   let startState = $derived(mode === 'unity' ? unityStartReadiness(players) : startReadiness(players));
   let hostControls = $derived(canManageLobby(viewer));
-  let effectiveThemeId = $derived(sessionThemeOverride ?? resolveTheme(themePreferences, systemPrefersDark));
-  let effectiveThemeLabel = $derived(THEMES.find((t) => t.id === effectiveThemeId)?.label ?? 'Dark');
-  let ThemeIcon = $derived(themePreferences.auto ? SunMoon : effectiveThemeId === 'light' ? Sun : effectiveThemeId === 'matrix' ? Terminal : Moon);
-  let themeButtonTitle = $derived(`Theme: ${effectiveThemeLabel}${themePreferences.auto ? ' (auto)' : ''} — click to change`);
   let currentPlayer = $derived(findViewerPlayer(players, viewer));
   let needsName = $derived(Boolean(credentialMode === 'auth' && !displayName && (roomStatus === 'lobby' || !currentPlayer)));
   let role = $derived(viewerRole(players, viewer, currentTeam as any, phase, activeBoardOwner, unityProgress?.temporaryRepresentativeId ?? ''));
@@ -243,21 +234,12 @@
     window.addEventListener('resize', updateBoardFit);
     window.addEventListener('codewords:layout-change', updateBoardFitSoon);
     bottomPanelObserver = new ResizeObserver(updateBoardFit);
-    const unwatchColorScheme = watchColorScheme((prefersDark) => {
-      systemPrefersDark = prefersDark;
-    });
     return () => {
       window.removeEventListener('resize', updateBoardFit);
       window.removeEventListener('codewords:layout-change', updateBoardFitSoon);
       bottomPanelObserver?.disconnect();
-      unwatchColorScheme();
       socket?.close();
     };
-  });
-
-  // Keep the document theme in sync with the resolved theme (saved prefs, OS, or mod push).
-  $effect(() => {
-    applyTheme(effectiveThemeId);
   });
 
   onDestroy(() => socket?.close());
@@ -693,13 +675,6 @@
     writePanelPreferences(localStorage, panelPreferences);
   }
 
-  function updateThemePreferences(next: Partial<ThemePreferences>) {
-    themePreferences = { ...themePreferences, ...next };
-    writeThemePreferences(localStorage, themePreferences);
-    // The user is taking control of their own theme; drop any moderator-pushed override.
-    sessionThemeOverride = null;
-  }
-
   function forceThemeForRoom() {
     if (!hostControls) {
       error = 'Only moderators can push the theme.';
@@ -1073,8 +1048,6 @@
   }
 </script>
 
-<svelte:window onkeydown={(event) => { if (event.key === 'Escape' && themeMenuOpen) themeMenuOpen = false; }} />
-
 <main class={roomMainClasses()}>
   <div class="mx-auto w-full max-w-7xl px-2 py-4 sm:px-8 sm:py-6">
     <nav class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-full border border-slate-700/70 bg-slate-900/75 px-4 py-3 shadow-2xl shadow-slate-950/40 sm:px-5">
@@ -1086,63 +1059,7 @@
           <Copy class="h-4 w-4" />
           <span class="hidden sm:inline">Copy</span>
         </button>
-        <div class="relative">
-          <button
-            class={pressableButtonClasses('grid h-9 w-9 place-items-center rounded-full border border-slate-700 bg-slate-950/70 text-slate-100 hover:border-emerald-300/60 hover:text-emerald-100')}
-            type="button"
-            onclick={() => (themeMenuOpen = !themeMenuOpen)}
-            title={themeButtonTitle}
-            aria-label={themeButtonTitle}
-            aria-haspopup="menu"
-            aria-expanded={themeMenuOpen}
-          >
-            <ThemeIcon class="h-4 w-4" />
-          </button>
-          {#if themeMenuOpen}
-            <!-- Click-away backdrop -->
-            <button type="button" class="fixed inset-0 z-40 cursor-default" aria-label="Close theme menu" onclick={() => (themeMenuOpen = false)}></button>
-            <div class="absolute right-0 z-50 mt-2 w-60 rounded-2xl border border-slate-700 bg-slate-900 p-3 text-left shadow-2xl shadow-slate-950/50" role="menu">
-              <p class="px-1 pb-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400">Theme</p>
-              <label class="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2 text-xs text-slate-300 cursor-pointer">
-                <input type="checkbox" checked={themePreferences.auto} onchange={(event) => updateThemePreferences({ auto: event.currentTarget.checked })} />
-                Match system dark mode
-              </label>
-              {#if themePreferences.auto}
-                <label class="mt-2 block text-xs text-slate-400">
-                  Dark mode theme
-                  <select class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-50" value={themePreferences.darkTheme} onchange={(event) => updateThemePreferences({ darkTheme: event.currentTarget.value as ThemeId })}>
-                    {#each darkModeThemes as theme (theme.id)}
-                      <option value={theme.id}>{theme.label}</option>
-                    {/each}
-                  </select>
-                </label>
-                <label class="mt-2 block text-xs text-slate-400">
-                  Light mode theme
-                  <select class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-50" value={themePreferences.lightTheme} onchange={(event) => updateThemePreferences({ lightTheme: event.currentTarget.value as ThemeId })}>
-                    {#each lightModeThemes as theme (theme.id)}
-                      <option value={theme.id}>{theme.label}</option>
-                    {/each}
-                  </select>
-                </label>
-              {:else}
-                <div class="mt-2 grid gap-1.5" role="group" aria-label="Theme">
-                  {#each THEMES as theme (theme.id)}
-                    <button
-                      type="button"
-                      role="menuitemradio"
-                      aria-checked={effectiveThemeId === theme.id}
-                      class={['flex items-center justify-between rounded-xl border px-3 py-2 text-sm font-bold transition', effectiveThemeId === theme.id ? 'border-emerald-300/60 bg-emerald-300/10 text-emerald-100' : 'border-slate-700 bg-slate-950/60 text-slate-200 hover:border-emerald-300/40 hover:text-emerald-100'].join(' ')}
-                      onclick={() => updateThemePreferences({ manual: theme.id })}
-                    >
-                      {theme.label}
-                      {#if effectiveThemeId === theme.id}<span class="text-emerald-300">●</span>{/if}
-                    </button>
-                  {/each}
-                </div>
-              {/if}
-            </div>
-          {/if}
-        </div>
+        <ThemeMenu bind:effectiveThemeId bind:sessionOverride={sessionThemeOverride} />
         {#if currentPlayer}
           <button class={pressableButtonClasses('inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-950/70 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-slate-100 hover:border-emerald-300/60 hover:text-emerald-100')} type="button" onclick={() => copyMigrateLink()} title="Copy migrate-device link" aria-label="Copy migrate-device link">
             <Smartphone class="h-4 w-4" />
@@ -1501,40 +1418,10 @@
                 </span>
               </button>
               {#if panelPreferences.localOptionsOpen}
-                <div class="mt-4 grid gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
-                  <span class="text-sm font-bold text-slate-200">Theme</span>
-                  <label class="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs text-slate-300 cursor-pointer">
-                    <input type="checkbox" checked={themePreferences.auto} onchange={(event) => updateThemePreferences({ auto: event.currentTarget.checked })} />
-                    Match system dark mode automatically
-                  </label>
-                  {#if themePreferences.auto}
-                    <label class="block text-xs text-slate-400">
-                      Dark mode theme
-                      <select class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" value={themePreferences.darkTheme} onchange={(event) => updateThemePreferences({ darkTheme: event.currentTarget.value as ThemeId })}>
-                        {#each darkModeThemes as theme (theme.id)}
-                          <option value={theme.id}>{theme.label}</option>
-                        {/each}
-                      </select>
-                    </label>
-                    <label class="block text-xs text-slate-400">
-                      Light mode theme
-                      <select class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" value={themePreferences.lightTheme} onchange={(event) => updateThemePreferences({ lightTheme: event.currentTarget.value as ThemeId })}>
-                        {#each lightModeThemes as theme (theme.id)}
-                          <option value={theme.id}>{theme.label}</option>
-                        {/each}
-                      </select>
-                    </label>
-                  {:else}
-                    <label class="block text-xs text-slate-400">
-                      Theme
-                      <select class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" value={themePreferences.manual} onchange={(event) => updateThemePreferences({ manual: event.currentTarget.value as ThemeId })}>
-                        {#each THEMES as theme (theme.id)}
-                          <option value={theme.id}>{theme.label}</option>
-                        {/each}
-                      </select>
-                    </label>
-                  {/if}
-                  {#if hostControls}
+                {#if hostControls}
+                  <div class="mt-4 grid gap-2 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
+                    <span class="text-sm font-bold text-slate-200">Theme</span>
+                    <p class="text-xs text-slate-400">Change your theme from the palette button in the top bar.</p>
                     <button
                       class={['rounded-xl border px-3 py-2 text-left text-xs font-black uppercase tracking-[0.16em] transition active:translate-y-px disabled:cursor-wait', forceThemePending ? 'border-emerald-200 bg-emerald-300 text-slate-950' : 'border-emerald-300/40 bg-emerald-300/10 text-emerald-100 hover:border-emerald-200 hover:bg-emerald-300/20'].join(' ')}
                       type="button"
@@ -1544,8 +1431,8 @@
                     >
                       {forceThemePending ? 'Pushing theme…' : 'Push current theme to everyone (this session)'}
                     </button>
-                  {/if}
-                </div>
+                  </div>
+                {/if}
                 <label class="mt-3 flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
                   <input type="checkbox" checked={preferences.confirmGuesses} onchange={(event) => updatePreferences({ confirmGuesses: event.currentTarget.checked })} />
                   <span class="text-sm text-slate-200">Confirm before revealing a card</span>
