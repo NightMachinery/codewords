@@ -15,6 +15,12 @@ export const auroraFragmentShader = /* glsl */ `
   uniform float uIntensity;
   uniform float uSpeed;
   uniform vec2 uMouse;
+  uniform vec3 uSkyTop;
+  uniform vec3 uSkyMid;
+  uniform vec3 uSkyLow;
+  uniform vec3 uRibbonA;
+  uniform vec3 uRibbonB;
+  uniform vec3 uRibbonC;
 
   varying vec2 vUv;
 
@@ -68,11 +74,8 @@ export const auroraFragmentShader = /* glsl */ `
     vec2 pixel = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
     float time = uTime * uSpeed;
 
-    vec3 skyTop = vec3(0.004, 0.010, 0.026);
-    vec3 skyMid = vec3(0.010, 0.022, 0.052);
-    vec3 skyLow = vec3(0.015, 0.030, 0.060);
-    vec3 color = mix(skyLow, skyMid, smoothstep(0.0, 0.72, uv.y));
-    color = mix(color, skyTop, smoothstep(0.44, 1.0, uv.y));
+    vec3 color = mix(uSkyLow, uSkyMid, smoothstep(0.0, 0.72, uv.y));
+    color = mix(color, uSkyTop, smoothstep(0.44, 1.0, uv.y));
 
     float vignette = smoothstep(1.08, 0.18, length(pixel * vec2(0.84, 1.12)));
     float horizon = smoothstep(0.0, 0.72, 1.0 - uv.y);
@@ -81,11 +84,7 @@ export const auroraFragmentShader = /* glsl */ `
     float b = curtain(uv + vec2(-0.05, 0.06), 1.45, 4.2, time * 0.82);
     float c = curtain(uv + vec2(0.11, -0.04), 2.65, 5.2, time * 0.62);
 
-    vec3 emerald = vec3(0.22, 0.92, 0.62);
-    vec3 cyan = vec3(0.20, 0.70, 0.96);
-    vec3 violet = vec3(0.48, 0.30, 0.82);
-
-    vec3 aurora = emerald * a + cyan * b * 0.72 + violet * c * 0.48;
+    vec3 aurora = uRibbonA * a + uRibbonB * b * 0.72 + uRibbonC * c * 0.48;
     float softMask = smoothstep(1.0, 0.05, uv.y) * smoothstep(-0.08, 0.38, uv.y);
     float shimmer = 0.82 + 0.18 * fbm(vec2(uv.x * 8.0 + time * 0.16, uv.y * 2.5 - time * 0.1));
 

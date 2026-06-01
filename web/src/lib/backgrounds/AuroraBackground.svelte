@@ -3,18 +3,39 @@
   import * as THREE from 'three';
 
   import { auroraFragmentShader, auroraVertexShader } from './auroraShaders';
+  import { auroraPaletteFor, type ThemeId } from '../theme';
 
   type Props = {
     intensity?: number;
     speed?: number;
+    theme?: ThemeId;
     class?: string;
   };
 
-  let { intensity = 0.74, speed = 0.16, class: className = '' }: Props = $props();
+  let { intensity = 0.74, speed = 0.16, theme = 'dark', class: className = '' }: Props = $props();
 
   let host: HTMLDivElement;
   let canvas: HTMLCanvasElement;
   let webglSupported = $state(false);
+  // Color uniforms are updated reactively by the $effect below when `theme` changes.
+  const colorUniforms = {
+    uSkyTop: { value: new THREE.Vector3() },
+    uSkyMid: { value: new THREE.Vector3() },
+    uSkyLow: { value: new THREE.Vector3() },
+    uRibbonA: { value: new THREE.Vector3() },
+    uRibbonB: { value: new THREE.Vector3() },
+    uRibbonC: { value: new THREE.Vector3() },
+  };
+
+  $effect(() => {
+    const palette = auroraPaletteFor(theme);
+    colorUniforms.uSkyTop.value.set(...palette.skyTop);
+    colorUniforms.uSkyMid.value.set(...palette.skyMid);
+    colorUniforms.uSkyLow.value.set(...palette.skyLow);
+    colorUniforms.uRibbonA.value.set(...palette.ribbonA);
+    colorUniforms.uRibbonB.value.set(...palette.ribbonB);
+    colorUniforms.uRibbonC.value.set(...palette.ribbonC);
+  });
 
   onMount(() => {
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -26,6 +47,7 @@
       uIntensity: { value: intensity },
       uSpeed: { value: speed },
       uMouse: { value: new THREE.Vector2(0.5, 0.5) },
+      ...colorUniforms,
     };
 
     let renderer: THREE.WebGLRenderer;
@@ -160,6 +182,7 @@
     inset: 0;
     overflow: hidden;
     pointer-events: none;
+    /* Base color while the WebGL canvas fades in; overridden per theme below. */
     background: oklch(7% 0.026 260);
     isolation: isolate;
   }
@@ -172,6 +195,10 @@
     height: 100%;
   }
 
+  /*
+   * The CSS fallback (and base color) mirror the shader palettes so the hero stays
+   * cohesive before/without WebGL. Keyed off [data-theme] on <html>.
+   */
   .aurora-fallback {
     background:
       radial-gradient(circle at 50% 118%, oklch(21% 0.035 258 / 0.78), transparent 46%),
@@ -186,6 +213,39 @@
     position: absolute;
     inset: 0;
     background: linear-gradient(180deg, transparent, oklch(5% 0.024 260 / 0.58) 78%);
+  }
+
+  :global([data-theme='light']) .aurora-background {
+    background: oklch(95% 0.012 250);
+  }
+
+  :global([data-theme='light']) .aurora-fallback {
+    background:
+      radial-gradient(circle at 50% 118%, oklch(82% 0.04 240 / 0.7), transparent 46%),
+      radial-gradient(ellipse at 28% 18%, oklch(74% 0.13 160 / 0.16), transparent 34%),
+      radial-gradient(ellipse at 74% 24%, oklch(70% 0.1 220 / 0.14), transparent 36%),
+      radial-gradient(ellipse at 52% 4%, oklch(66% 0.1 304 / 0.1), transparent 30%),
+      linear-gradient(180deg, oklch(97% 0.01 250), oklch(92% 0.018 240) 58%, oklch(95% 0.012 255));
+  }
+
+  :global([data-theme='light']) .aurora-fallback::after {
+    background: linear-gradient(180deg, transparent, oklch(90% 0.02 250 / 0.5) 78%);
+  }
+
+  :global([data-theme='matrix']) .aurora-background {
+    background: oklch(8% 0.04 152);
+  }
+
+  :global([data-theme='matrix']) .aurora-fallback {
+    background:
+      radial-gradient(circle at 50% 118%, oklch(24% 0.08 152 / 0.78), transparent 46%),
+      radial-gradient(ellipse at 28% 18%, oklch(80% 0.2 152 / 0.18), transparent 34%),
+      radial-gradient(ellipse at 74% 24%, oklch(70% 0.18 158 / 0.15), transparent 36%),
+      linear-gradient(180deg, oklch(8% 0.04 152), oklch(13% 0.06 152) 58%, oklch(7% 0.035 152));
+  }
+
+  :global([data-theme='matrix']) .aurora-fallback::after {
+    background: linear-gradient(180deg, transparent, oklch(6% 0.03 152 / 0.58) 78%);
   }
 
   canvas {

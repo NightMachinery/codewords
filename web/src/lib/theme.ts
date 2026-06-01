@@ -16,6 +16,57 @@ export const themeIds: ThemeId[] = THEMES.map((theme) => theme.id);
 export const darkModeThemes: ThemeDescriptor[] = THEMES.filter((theme) => theme.mode === 'dark');
 export const lightModeThemes: ThemeDescriptor[] = THEMES.filter((theme) => theme.mode === 'light');
 
+/** A linear-RGB triple (each component 0..1) for the aurora WebGL shader. */
+export type Rgb = readonly [number, number, number];
+
+/**
+ * Per-theme palette for the landing-hero aurora shader. `sky*` are the vertical
+ * background gradient stops; `ribbon*` are the three animated aurora colors.
+ */
+export interface AuroraPalette {
+  skyTop: Rgb;
+  skyMid: Rgb;
+  skyLow: Rgb;
+  ribbonA: Rgb;
+  ribbonB: Rgb;
+  ribbonC: Rgb;
+}
+
+export const auroraPalettes: Record<ThemeId, AuroraPalette> = {
+  // Dark: the original deep-navy sky with emerald/cyan/violet ribbons.
+  dark: {
+    skyTop: [0.004, 0.01, 0.026],
+    skyMid: [0.01, 0.022, 0.052],
+    skyLow: [0.015, 0.03, 0.06],
+    ribbonA: [0.22, 0.92, 0.62],
+    ribbonB: [0.2, 0.7, 0.96],
+    ribbonC: [0.48, 0.3, 0.82],
+  },
+  // Light: a bright, pale sky so the hero reads as light; softer, slightly
+  // deeper ribbons that stay visible against the bright base.
+  light: {
+    skyTop: [0.93, 0.95, 0.99],
+    skyMid: [0.88, 0.92, 0.98],
+    skyLow: [0.82, 0.88, 0.96],
+    ribbonA: [0.12, 0.62, 0.42],
+    ribbonB: [0.16, 0.5, 0.78],
+    ribbonC: [0.42, 0.3, 0.74],
+  },
+  // Matrix: near-black green sky with phosphor-green ribbons.
+  matrix: {
+    skyTop: [0.004, 0.03, 0.012],
+    skyMid: [0.01, 0.05, 0.022],
+    skyLow: [0.012, 0.07, 0.03],
+    ribbonA: [0.18, 0.98, 0.42],
+    ribbonB: [0.3, 0.85, 0.3],
+    ribbonC: [0.1, 0.7, 0.32],
+  },
+};
+
+export function auroraPaletteFor(id: ThemeId): AuroraPalette {
+  return auroraPalettes[id] ?? auroraPalettes.dark;
+}
+
 export function isThemeId(value: unknown): value is ThemeId {
   return typeof value === 'string' && themeIds.includes(value as ThemeId);
 }
