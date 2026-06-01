@@ -2,10 +2,11 @@
   import { onMount } from 'svelte';
 
   import AuroraBackground from '../lib/backgrounds/AuroraBackground.svelte';
+  import ThemeMenu from '../lib/ThemeMenu.svelte';
   import { api, defaultSettings } from '../lib/api';
   import { getOrCreateAuthToken } from '../lib/identity';
   import { roomPath } from '../lib/routes';
-  import { applyTheme, darkModeThemes, lightModeThemes, prefersDarkScheme, readThemePreferences, resolveTheme, THEMES, watchColorScheme, writeThemePreferences, type ThemeId, type ThemePreferences } from '../lib/theme';
+  import type { ThemeId } from '../lib/theme';
 
   let authToken = '';
   let displayName = $state('');
@@ -14,25 +15,13 @@
   let roomDraft = $state('');
   let loading = $state(true);
   let creating = $state(false);
+  let joining = $state(false);
   let error = $state('');
-  let themePreferences = $state<ThemePreferences>(readThemePreferences(localStorage));
-  let systemPrefersDark = $state(prefersDarkScheme());
-  let effectiveThemeId = $derived(resolveTheme(themePreferences, systemPrefersDark));
-
-  $effect(() => {
-    applyTheme(effectiveThemeId);
-  });
-
-  function updateThemePreferences(next: Partial<ThemePreferences>) {
-    themePreferences = { ...themePreferences, ...next };
-    writeThemePreferences(localStorage, themePreferences);
-  }
+  // Owned by <ThemeMenu>; bound here so the aurora background can follow the theme.
+  let effectiveThemeId = $state<ThemeId>('dark');
 
   onMount(() => {
     authToken = getOrCreateAuthToken(localStorage);
-    const unwatchColorScheme = watchColorScheme((prefersDark) => {
-      systemPrefersDark = prefersDark;
-    });
     api
       .bootstrap(authToken)
       .then((identity) => {
@@ -46,7 +35,6 @@
       .finally(() => {
         loading = false;
       });
-    return () => unwatchColorScheme();
   });
 
   async function saveName() {
@@ -80,6 +68,7 @@
 
   async function joinRoom() {
     error = '';
+    joining = true;
     try {
       if (!displayName || displayName !== nameDraft.trim()) {
         if (!(await saveName())) return;
@@ -89,9 +78,14 @@
         error = 'Paste a room link or enter a room id.';
         return;
       }
+      // Verify the room exists before navigating, so a bad id shows an error here
+      // instead of dead-ending on a blank room page.
+      await api.getRoom(id, { authToken });
       window.location.href = roomPath(id);
     } catch (err) {
       error = err instanceof Error ? err.message : 'Could not join the room.';
+    } finally {
+      joining = false;
     }
   }
 
@@ -123,10 +117,11 @@
   <AuroraBackground intensity={1.0} speed={1.0} theme={effectiveThemeId} />
 
   <div class="hero-shell relative z-10 flex min-h-screen flex-col px-5 py-7 sm:px-8 lg:px-12">
-    <nav class="flex items-center justify-center sm:justify-start">
+    <nav class="flex items-center justify-between gap-3">
       <a class="rounded-full bg-emerald-300 px-5 py-2 text-sm font-black uppercase tracking-[0.32em] text-slate-950 shadow-lg shadow-emerald-950/30 outline-none transition hover:bg-emerald-200 focus-visible:ring-2 focus-visible:ring-emerald-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950" href="/">
         CODEWORDS
       </a>
+      <ThemeMenu bind:effectiveThemeId />
     </nav>
 
     <section class="grid flex-1 place-items-center py-12">
@@ -160,38 +155,13 @@
                 placeholder="Paste room link or id"
               />
               <button
-                class="rounded-2xl border border-cyan-300/35 bg-cyan-300/10 px-5 py-3 font-black text-cyan-200 transition hover:border-cyan-300/70 hover:bg-cyan-300/20 disabled:opacity-60"
+                class="rounded-2xl border border-cyan-300/35 bg-cyan-300/10 px-5 py-3 font-black text-cyan-200 transition hover:border-cyan-300/70 hover:bg-cyan-300/20 disabled:opacity-60 disabled:cursor-wait"
+                disabled={joining}
+                aria-busy={joining}
                 onclick={joinRoom}
               >
-                Join
+                {joining ? 'Joining…' : 'Join'}
               </button>
-            </div>
-
-            <div class="grid gap-2">
-              <label class="flex items-center gap-2 text-xs font-bold text-emerald-200">
-                <input type="checkbox" checked={themePreferences.auto} onchange={(event) => updateThemePreferences({ auto: event.currentTarget.checked })} />
-                Match system dark mode
-              </label>
-              {#if themePreferences.auto}
-                <div class="grid grid-cols-2 gap-2">
-                  <select class="min-w-0 rounded-2xl border border-slate-600/40 bg-slate-950/70 px-3 py-2 text-sm text-slate-50 outline-none" value={themePreferences.darkTheme} onchange={(event) => updateThemePreferences({ darkTheme: event.currentTarget.value as ThemeId })} aria-label="Dark mode theme">
-                    {#each darkModeThemes as theme (theme.id)}
-                      <option value={theme.id}>{theme.label}</option>
-                    {/each}
-                  </select>
-                  <select class="min-w-0 rounded-2xl border border-slate-600/40 bg-slate-950/70 px-3 py-2 text-sm text-slate-50 outline-none" value={themePreferences.lightTheme} onchange={(event) => updateThemePreferences({ lightTheme: event.currentTarget.value as ThemeId })} aria-label="Light mode theme">
-                    {#each lightModeThemes as theme (theme.id)}
-                      <option value={theme.id}>{theme.label}</option>
-                    {/each}
-                  </select>
-                </div>
-              {:else}
-                <select class="w-full rounded-2xl border border-slate-600/40 bg-slate-950/70 px-3 py-2 text-sm text-slate-50 outline-none" value={themePreferences.manual} onchange={(event) => updateThemePreferences({ manual: event.currentTarget.value as ThemeId })} aria-label="Theme">
-                  {#each THEMES as theme (theme.id)}
-                    <option value={theme.id}>{theme.label}</option>
-                  {/each}
-                </select>
-              {/if}
             </div>
           </div>
         {/if}
