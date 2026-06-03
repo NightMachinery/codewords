@@ -53,6 +53,32 @@ describe('memory capture canvas helpers', () => {
     expect(urls).toEqual(['created', 'revoked:blob:memory']);
   });
 
+  it('forwards the themed background color to the exporter', async () => {
+    const node = {} as unknown as HTMLElement;
+    const blob = { size: 1, type: 'image/png' } as Blob;
+    const doc = {
+      createElement: () => ({ click() {}, remove() {}, setAttribute() {} }) as unknown as HTMLAnchorElement,
+      body: { appendChild() {} },
+    } as unknown as Document;
+    const previousUrl = (globalThis as { URL?: unknown }).URL;
+    Object.defineProperty(globalThis, 'URL', {
+      configurable: true,
+      value: { createObjectURL: () => 'blob:memory', revokeObjectURL: () => {} },
+    });
+
+    let receivedBackground = '';
+    try {
+      await downloadMemoryCapture({ roomId: 'r' }, node, doc, async (_n, backgroundColor) => {
+        receivedBackground = backgroundColor;
+        return blob;
+      }, '#fdf6e3');
+    } finally {
+      Object.defineProperty(globalThis, 'URL', { configurable: true, value: previousUrl });
+    }
+
+    expect(receivedBackground).toBe('#fdf6e3');
+  });
+
   it('uses a fixed desktop export width for memory captures', () => {
     expect(memoryCaptureDesktopWidth).toBe(1400);
   });

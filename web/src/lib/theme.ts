@@ -98,6 +98,54 @@ export function auroraPaletteFor(id: ThemeId): AuroraPalette {
   return auroraPalettes[id] ?? auroraPalettes.dark;
 }
 
+/**
+ * Background for the end-game memory-capture image. `gradient` is the CSS background
+ * painted on the capture element; `solid` is the flat matte color handed to
+ * html-to-image (used behind any transparency). Card colors stay team-semantic
+ * (see cardCaptureColors in memoryCapture.ts) and are intentionally not themed.
+ */
+export interface CaptureBackground {
+  solid: string;
+  gradient: string;
+}
+
+export const captureBackgrounds: Record<ThemeId, CaptureBackground> = {
+  dark: {
+    solid: '#07111f',
+    gradient:
+      'radial-gradient(circle at 15% 8%, rgba(16,185,129,0.24), transparent 32%), radial-gradient(circle at 82% 16%, rgba(59,130,246,0.2), transparent 34%), linear-gradient(135deg, #07111f, #0f172a 52%, #07101a)',
+  },
+  light: {
+    solid: '#eef2f8',
+    gradient:
+      'radial-gradient(circle at 15% 8%, rgba(16,185,129,0.16), transparent 32%), radial-gradient(circle at 82% 16%, rgba(59,130,246,0.14), transparent 34%), linear-gradient(135deg, #f3f6fb, #e7edf6 52%, #eef2f8)',
+  },
+  matrix: {
+    solid: '#04140b',
+    gradient:
+      'radial-gradient(circle at 15% 8%, rgba(34,200,90,0.28), transparent 32%), radial-gradient(circle at 82% 16%, rgba(34,160,70,0.2), transparent 34%), linear-gradient(135deg, #04140b, #07210f 52%, #03100a)',
+  },
+  'solarized-dark': {
+    solid: '#04222b',
+    gradient:
+      'radial-gradient(circle at 15% 8%, rgba(38,139,210,0.24), transparent 32%), radial-gradient(circle at 82% 16%, rgba(42,161,152,0.2), transparent 34%), linear-gradient(135deg, #04222b, #073642 52%, #032029)',
+  },
+  'solarized-light': {
+    solid: '#fdf6e3',
+    gradient:
+      'radial-gradient(circle at 15% 8%, rgba(133,153,0,0.16), transparent 32%), radial-gradient(circle at 82% 16%, rgba(38,139,210,0.14), transparent 34%), linear-gradient(135deg, #fdf6e3, #eee8d5 52%, #fdf6e3)',
+  },
+  spiderman: {
+    solid: '#0a0a18',
+    gradient:
+      'radial-gradient(circle at 15% 8%, rgba(220,38,38,0.28), transparent 32%), radial-gradient(circle at 82% 16%, rgba(37,99,235,0.24), transparent 34%), linear-gradient(135deg, #0a0a18, #12122a 52%, #08081a)',
+  },
+};
+
+export function captureBackgroundFor(id: ThemeId): CaptureBackground {
+  return captureBackgrounds[id] ?? captureBackgrounds.dark;
+}
+
 export function themeMode(id: ThemeId): 'dark' | 'light' {
   return THEMES.find((theme) => theme.id === id)?.mode ?? 'dark';
 }

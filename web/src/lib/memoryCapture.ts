@@ -1,8 +1,9 @@
 import type { MemoryCaptureModel } from './gameplay';
 
 export type MemoryCaptureColorName = 'blue' | 'red' | 'civilian' | 'black' | 'hidden';
-export type MemoryCaptureExporter = (node: HTMLElement) => Promise<Blob | null>;
+export type MemoryCaptureExporter = (node: HTMLElement, backgroundColor: string) => Promise<Blob | null>;
 export const memoryCaptureDesktopWidth = 1400;
+export const defaultMemoryCaptureBackground = '#07111f';
 
 interface CapturePalette {
   fill: string;
@@ -29,9 +30,10 @@ export async function downloadMemoryCapture(
   model: Pick<MemoryCaptureModel, 'roomId'>,
   node: HTMLElement,
   doc: Document = document,
-  exporter: MemoryCaptureExporter = exportMemoryNodeBlob
+  exporter: MemoryCaptureExporter = exportMemoryNodeBlob,
+  backgroundColor: string = defaultMemoryCaptureBackground
 ): Promise<void> {
-  const blob = await exporter(node);
+  const blob = await exporter(node, backgroundColor);
   if (!blob) throw new Error('Could not export the memory image.');
   const url = URL.createObjectURL(blob);
   try {
@@ -47,13 +49,13 @@ export async function downloadMemoryCapture(
   }
 }
 
-async function exportMemoryNodeBlob(node: HTMLElement): Promise<Blob | null> {
+async function exportMemoryNodeBlob(node: HTMLElement, backgroundColor: string = defaultMemoryCaptureBackground): Promise<Blob | null> {
   await waitForMemoryCaptureReady(node);
   const { toBlob } = await import('html-to-image');
   return toBlob(node, {
     cacheBust: true,
     pixelRatio: 1,
-    backgroundColor: '#07111f',
+    backgroundColor,
     width: node.scrollWidth,
     height: node.scrollHeight,
     style: {
