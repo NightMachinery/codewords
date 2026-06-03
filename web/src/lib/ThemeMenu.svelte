@@ -74,9 +74,9 @@
 
 <svelte:window onkeydown={(event) => { if (event.key === 'Escape' && menuOpen) menuOpen = false; }} />
 
-<div class={['relative', className].filter(Boolean).join(' ')}>
+<div class={['relative shrink-0', className].filter(Boolean).join(' ')}>
   <button
-    class={pressableButtonClasses('grid h-9 w-9 place-items-center rounded-full border border-slate-700 bg-slate-950/70 text-slate-100 hover:border-emerald-300/60 hover:text-emerald-100')}
+    class={pressableButtonClasses('grid h-9 w-9 shrink-0 place-items-center rounded-full border border-slate-700 bg-slate-950/70 text-slate-100 hover:border-emerald-300/60 hover:text-emerald-100')}
     type="button"
     onclick={() => (menuOpen = !menuOpen)}
     title={buttonTitle}

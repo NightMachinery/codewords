@@ -1069,7 +1069,7 @@
           </button>
         {/if}
         {#if hostControls && phase !== 'lobby'}
-          <button class={pressableButtonClasses('grid h-9 w-9 place-items-center rounded-full border border-red-400/50 bg-red-400/10 text-red-100 hover:bg-red-400/20')} type="button" onclick={restartMatch} title="Restart match" aria-label="Restart match">
+          <button class={pressableButtonClasses('grid h-9 w-9 shrink-0 place-items-center rounded-full border border-red-400/50 bg-red-400/10 text-red-100 hover:bg-red-400/20')} type="button" onclick={restartMatch} title="Restart match" aria-label="Restart match">
             <Power class="h-4 w-4" />
           </button>
         {/if}
