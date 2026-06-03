@@ -60,6 +60,11 @@
   --color-teal-300: oklch(62% 0.12 182);
   --color-teal-200: oklch(56% 0.11 182);
   --color-teal-100: oklch(50% 0.11 182);
+
+  /* Amber text (roast line, civilian/warning labels) is near-white at low shades;
+     darken so it stays a readable warm tone on light surfaces. */
+  --color-amber-100: oklch(58% 0.13 79);
+  --color-amber-200: oklch(64% 0.14 79);
 }
 
 /*
@@ -168,6 +173,10 @@
   --color-teal-300: oklch(55% 0.1 182);
   --color-teal-200: oklch(50% 0.1 182);
   --color-teal-100: oklch(45% 0.1 182);
+
+  /* Darken amber text so it stays a readable warm tone on the cream surface. */
+  --color-amber-100: oklch(52% 0.12 70);
+  --color-amber-200: oklch(58% 0.13 70);
 }
 
 /*

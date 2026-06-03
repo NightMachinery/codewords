@@ -569,9 +569,12 @@ export function cardChromePaddingStyle(card: Pick<DisplayCard, 'contentType'>): 
 
 export function cardChromeStyle(card: Pick<DisplayCard, 'contentType'>, visibleColor: VisibleCardColor, customColor: string, isLastSelected: boolean): string {
   if (visibleColor === 'hidden' || !customColor) return '';
+  // Image cards are a mostly-opaque team color, so white stays legible. Word cards
+  // are a low-alpha tint over the themed surface, so their label follows the theme
+  // (var(--color-slate-50) is light on dark themes, dark on light themes).
   if (card.contentType === 'image') return `background-color: ${hexWithAlpha(customColor, 'B3')}; color: white`;
   const borderColor = isLastSelected ? 'transparent' : hexWithAlpha(customColor, 'B3');
-  return `border-color: ${borderColor}; background-color: ${hexWithAlpha(customColor, '40')}; color: white`;
+  return `border-color: ${borderColor}; background-color: ${hexWithAlpha(customColor, '40')}; color: var(--color-slate-50)`;
 }
 
 export function cardDisabledStateClasses(input: { disabled: boolean; revealed?: boolean; revealedStyle: 'normal' | 'greyed' | 'invisible' | 'omitted' }): string {
@@ -1004,13 +1007,16 @@ export function cardViewState(
 } {
   const visibleColor: VisibleCardColor = card.revealed || showHiddenColor ? (card.color ?? 'hidden') : 'hidden';
   const isLastSelected = lastSelected?.index === index;
+  // Card backgrounds are low-alpha team tints over the themed surface, so the label
+  // tracks the surface contrast via text-slate-50 (themed: light on dark, dark on
+  // light) instead of a fixed near-white that is unreadable on light themes.
   const colorClass = {
     hidden: 'border-slate-700 bg-slate-900 text-slate-100 hover:border-emerald-200',
-    unity: 'border-teal-200/70 bg-teal-500/25 text-teal-50',
-    blue: 'border-blue-300/70 bg-blue-500/25 text-blue-50',
-    red: 'border-red-300/70 bg-red-500/25 text-red-50',
+    unity: 'border-teal-200/70 bg-teal-500/25 text-slate-50',
+    blue: 'border-blue-300/70 bg-blue-500/25 text-slate-50',
+    red: 'border-red-300/70 bg-red-500/25 text-slate-50',
     black: 'border-zinc-300/60 bg-zinc-950 text-zinc-50',
-    civilian: 'border-amber-100/60 bg-amber-100/20 text-amber-50',
+    civilian: 'border-amber-100/60 bg-amber-100/20 text-slate-50',
   }[visibleColor];
 
   let styleClasses = '';

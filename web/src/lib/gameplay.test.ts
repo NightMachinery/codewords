@@ -615,7 +615,10 @@ describe('regression helpers', () => {
     const view = cardViewState({ contentType: 'word', word: 'castle', revealed: true, color: 'red' }, 0, true, null, 'greyed');
     expect(view.classes).toContain('opacity-30');
     expect(view.classes).not.toContain('bg-slate');
-    expect(view.classes).not.toContain('text-slate');
+    // The label uses the theme-aware text-slate-50 token for readability, but the card
+    // must keep its red identity rather than the hidden card's grey look (text-slate-100).
+    expect(view.classes).toContain('bg-red-500/25');
+    expect(view.classes).not.toContain('text-slate-100');
     expect(view.classes).not.toContain('grayscale');
     expect(view.classes).not.toContain('after:bg-current');
     expect(cardDisabledStateClasses({ disabled: true, revealed: true, revealedStyle: 'greyed' })).toBe('disabled:opacity-30');
