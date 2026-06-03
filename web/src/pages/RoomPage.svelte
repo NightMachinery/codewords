@@ -1051,12 +1051,15 @@
 
 <main class={roomMainClasses()}>
   <div class="mx-auto w-full max-w-7xl px-2 py-4 sm:px-8 sm:py-6">
-    <nav class="mb-5 flex items-center gap-3 rounded-full border border-slate-700/70 bg-slate-900/75 px-4 py-3 shadow-2xl shadow-slate-950/40 sm:px-5">
-      <a class="min-w-0 shrink overflow-hidden text-ellipsis whitespace-nowrap text-lg font-black tracking-tight text-slate-50" href="/">Codewords</a>
-      <div class="flex min-w-0 flex-1 items-center gap-2 text-sm text-slate-300">
+    <nav class="mb-5 flex items-center gap-3 overflow-hidden rounded-full border border-slate-700/70 bg-slate-900/75 px-4 py-3 shadow-2xl shadow-slate-950/40 sm:px-5">
+      <!-- Left region: label (collapses first when tight) + connection status. -->
+      <div class="flex min-w-0 flex-1 items-center gap-3 text-sm text-slate-300">
+        <a class="hidden min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-lg font-black tracking-tight text-slate-50 min-[480px]:block" href="/">Codewords</a>
         <span class={['h-2.5 w-2.5 shrink-0 rounded-full', connection === 'connected' ? 'bg-emerald-300' : 'bg-amber-300']}></span>
-        <span class="hidden min-[380px]:inline">{connection}</span>
-        <span class="flex-1"></span>
+        <span class="truncate">{connection}</span>
+      </div>
+      <!-- Right region: action buttons, never shrink, pushed right. -->
+      <div class="flex shrink-0 items-center gap-2">
         <button class={pressableButtonClasses('inline-flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-950/70 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-slate-100 hover:border-emerald-300/60 hover:text-emerald-100')} type="button" onclick={copyRoomLink} title="Copy room link" aria-label="Copy room link">
           <Copy class="h-4 w-4" />
           <span class="hidden sm:inline">Copy</span>
