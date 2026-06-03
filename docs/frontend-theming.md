@@ -78,3 +78,12 @@ Changing the local theme settings clears the moderator override and returns cont
 
 This deliberately mirrors the older `forceBoardLayout` / `boardLayoutForced` flow, but is
 session-only rather than persisted.
+
+## Memory capture
+
+The end-game shareable PNG follows the active theme. `html-to-image` inlines computed styles, so the
+themed `var(--color-*)` utilities inside the capture (panels, text) are captured correctly; only the
+backdrop needed wiring. `captureBackgrounds` in `theme.ts` provides a per-theme `{ solid, gradient }`
+— the gradient paints the capture element and the solid is the matte handed to `html-to-image`'s
+`backgroundColor` (threaded through `downloadMemoryCapture`). Card colors stay team-semantic
+(`cardCaptureColors` in `memoryCapture.ts`) and are deliberately not themed.
