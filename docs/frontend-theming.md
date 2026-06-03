@@ -25,7 +25,11 @@ just a matter of overriding those variables — no component edits are required.
   accents; `color-scheme: dark`.
 
 Team colors (`blue` = Libertarians, `red` = Monarchists) and warning `amber` are intentionally left
-at their Tailwind defaults so they stay recognizable in every theme.
+at their Tailwind defaults so they stay recognizable in every theme. The exception: card/accent
+**text** must not be a fixed near-white, because labels sit on low-alpha team tints over the themed
+surface. Such labels use the theme-aware `text-slate-50` token (light on dark themes, dark on light),
+and the light themes darken the low `amber` text shades so warm labels stay readable; image cards
+keep white since their fill is mostly opaque.
 
 The active theme is selected by setting `data-theme` on `<html>` via `applyTheme()` in
 `web/src/lib/theme.ts`. It is applied in `web/src/main.ts` before the app mounts so the correct
