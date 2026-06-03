@@ -94,16 +94,20 @@ export const auroraFragmentShader = /* glsl */ `
     darkColor += vec3(0.03, 0.11, 0.14) * horizon * vignette * 0.34;
     darkColor *= 0.56 + vignette * 0.64;
 
-    // Light theme: blend ribbon colors over the bright sky so they stay visible
-    // (adding light to a near-white sky would wash out to nothing).
-    float wa = clamp(a * softMask * shimmer * uIntensity, 0.0, 1.0);
-    float wb = clamp(b * 0.72 * softMask * shimmer * uIntensity, 0.0, 1.0);
-    float wc = clamp(c * 0.48 * softMask * shimmer * uIntensity, 0.0, 1.0);
-    vec3 lightColor = color;
-    lightColor = mix(lightColor, uRibbonA, wa * 0.85);
-    lightColor = mix(lightColor, uRibbonB, wb * 0.7);
-    lightColor = mix(lightColor, uRibbonC, wc * 0.55);
-    lightColor *= 0.9 + vignette * 0.12;
+    // Light theme: keep the same soft curtain falloff as the dark path, but render the
+    // aurora as a gentle tint that *darkens* the bright sky toward the ribbon colors
+    // (adding light to a near-white sky would wash out; over-blending makes harsh blobs).
+    // Each ribbon contributes a small, falloff-shaped amount so the bands stay wispy.
+    float la = a * softMask * shimmer * uIntensity;
+    float lb = b * softMask * shimmer * uIntensity;
+    float lc = c * softMask * shimmer * uIntensity;
+    // Weighted average hue of the aurora at this pixel, then a soft overall strength.
+    float wsum = la + lb * 0.72 + lc * 0.48 + 1e-4;
+    vec3 ribbonHue = (uRibbonA * la + uRibbonB * (lb * 0.72) + uRibbonC * (lc * 0.48)) / wsum;
+    float strength = clamp((la + lb * 0.72 + lc * 0.48) * 0.5, 0.0, 0.55);
+    // Multiply blend: tints and darkens the sky toward the ribbon color without saturating.
+    vec3 lightColor = color * mix(vec3(1.0), ribbonHue, strength);
+    lightColor *= 0.94 + vignette * 0.08;
 
     color = mix(darkColor, lightColor, uLight);
 
