@@ -113,6 +113,8 @@
     });
   });
   let canActNow = $derived(Boolean(phase === 'active' && isYourTeam && (role.activeGuesser || (role.kind === 'spymaster' && cluePermission.allowed))));
+  let showClueInput = $derived(role.kind === 'spymaster' && phase === 'active' && cluePermission.allowed);
+  let showPass = $derived(role.activeGuesser && phase === 'active');
   let shortcutItems = $derived(filteredBottomShortcutItems(hostControls));
   let showUnityBoardSwitch = $derived(mode === 'unity' && Boolean(role.player));
   let turnColor = $derived(teamColor(currentTeam, settings));
@@ -269,8 +271,9 @@
     {/if}
 
     <!-- Controls -->
-    <div class="flex min-w-0 flex-[1_1_18rem] items-center justify-center gap-3 md:max-w-2xl">
-      {#if role.kind === 'spymaster' && phase === 'active' && cluePermission.allowed}
+    {#if showClueInput || showPass}
+    <div class={['flex min-w-0 items-center gap-3', showClueInput ? 'flex-[1_1_18rem] justify-center md:max-w-2xl' : 'flex-[0_0_auto] justify-end'].join(' ')}>
+      {#if showClueInput}
         <div class="flex w-full flex-wrap gap-2">
           <input
             class="min-w-0 flex-[1_1_10rem] rounded-xl border border-slate-700 bg-slate-950 px-3 py-1.5 text-sm font-semibold text-slate-50 outline-none ring-emerald-300 transition focus:ring-2 disabled:opacity-50"
@@ -299,21 +302,20 @@
             <span class="hidden min-[520px]:inline">Submit</span>
           </button>
         </div>
-      {:else if role.activeGuesser && phase === 'active'}
-        <div class="flex items-center justify-end">
-          <button
-            class={pressableButtonClasses('inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-500 px-2.5 py-1.5 text-sm font-black text-slate-100 hover:border-emerald-300 hover:text-emerald-200 disabled:opacity-50 min-[440px]:px-4')}
-            disabled={Boolean(passProblem)}
-            onclick={onPassTurn}
-            title="Pass"
-            aria-label="Pass turn"
-          >
-            <SkipForward class="h-4 w-4" />
-            <span class="hidden min-[440px]:inline">Pass</span>
-          </button>
-        </div>
+      {:else}
+        <button
+          class={pressableButtonClasses('inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-500 px-2.5 py-1.5 text-sm font-black text-slate-100 hover:border-emerald-300 hover:text-emerald-200 disabled:opacity-50 min-[440px]:px-4')}
+          disabled={Boolean(passProblem)}
+          onclick={onPassTurn}
+          title="Pass"
+          aria-label="Pass turn"
+        >
+          <SkipForward class="h-4 w-4" />
+          <span class="hidden min-[440px]:inline">Pass</span>
+        </button>
       {/if}
     </div>
+    {/if}
 
     <!-- Actions -->
     <div class="flex min-w-0 flex-[0_1_auto] items-center justify-end gap-2">
