@@ -64,13 +64,16 @@ off). It owns the theme state, persistence, OS-preference watching, and `applyTh
 bindable `effectiveThemeId` / `sessionOverride` / `themePreferences` props.
 
 - **Room** (`web/src/pages/RoomPage.svelte`): `<ThemeMenu>` sits in the top status row. The Local
-  Settings panel keeps only the moderator "push theme to everyone" button.
+  Settings panel keeps only the moderator "push theme to everyone" button. Destructive icon-only
+  controls such as the active-match restart button use local theme-aware styling for their red
+  foregrounds, because global red token remapping would interfere with team/error semantics.
 - **Home page** (`web/src/pages/HomePage.svelte`): `<ThemeMenu>` sits top-right in the nav. The
   landing hero is theme-aware — its room-entry card and controls use theme tokens, and the animated
-  aurora background is recolored per theme. The aurora shader's sky/ribbon colors are uniforms fed
-  from a per-theme `AuroraPalette` in `theme.ts` (`AuroraBackground` takes a `theme` prop and updates
-  the uniforms reactively); the CSS fallback and base color mirror those palettes via `[data-theme]`
-  selectors.
+  background changes by mode. Dark themes render cool aurora curtains. Light themes render a warm
+  procedural fire path with rising flame tongues, white-hot cores, and ember wisps. The shader's
+  sky/ribbon colors are uniforms fed from a per-theme `AuroraPalette` in `theme.ts`
+  (`AuroraBackground` takes a `theme` prop and updates the uniforms reactively); the CSS fallback and
+  base color mirror those palettes via `[data-theme]` selectors.
 
 ## Moderator push (session only)
 

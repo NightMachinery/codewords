@@ -16,14 +16,14 @@ It renders one decorative Three.js WebGL canvas behind the hero content and keep
 
 The component exposes these props on the landing page:
 
-- `intensity` controls aurora brightness and presence. Current landing value: `0.74`.
-- `speed` controls shader time flow. Current landing value: `0.16` for slow, premium motion.
+- `intensity` controls aurora/fire brightness and presence. Current landing value: `1.0`.
+- `speed` controls shader time flow. Current landing value: `1.0`.
 
 Shader-level tuning lives in `web/src/lib/backgrounds/auroraShaders.ts`:
 
-- `emerald`, `cyan`, and `violet` set the restrained aurora palette.
-- `curtain(...)` controls the height, softness, strand density, and drift of each aurora band.
-- `skyTop`, `skyMid`, and `skyLow` define the deep navy night-sky gradient.
-- `vignette`, `softMask`, and horizon glow keep the effect behind the form and away from loud neon/demo visuals.
+- Dark themes use `curtain(...)` to control the height, softness, strand density, and drift of each aurora band.
+- Light themes use a separate fire branch: `flameTongue(...)` shapes rising flame licks and `renderLightFire(...)` composites warm orange/gold/coral flame color plus white-hot cores and small rising embers over the pale sky.
+- Per-theme `sky*` and `ribbon*` colors live in `auroraPalettes` in `web/src/lib/theme.ts`. Light and Solarized Light intentionally use warm fire palettes; dark themes keep the cooler aurora palettes.
+- `vignette`, `softMask`, and horizon glow keep the dark aurora restrained, while the light fire branch avoids dark multiply-style blending so it does not collapse into a shadow blob.
 
 Do not add images, videos, GIFs, particles, or texture dependencies for this background; it is intentionally procedural.

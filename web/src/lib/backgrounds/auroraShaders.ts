@@ -21,7 +21,7 @@ export const auroraFragmentShader = /* glsl */ `
   uniform vec3 uRibbonA;
   uniform vec3 uRibbonB;
   uniform vec3 uRibbonC;
-  uniform float uLight; // 0 = dark (additive glow), 1 = light (blend ribbons onto a bright sky)
+  uniform float uLight; // 0 = dark aurora, 1 = light-theme fire
 
   varying vec2 vUv;
 
@@ -70,6 +70,44 @@ export const auroraFragmentShader = /* glsl */ `
     return veil * verticalFade * (0.45 + strand * 0.8);
   }
 
+  float flameTongue(vec2 uv, float offset, float width, float height, float time) {
+    float lift = uv.y / max(height, 0.001);
+    float gust = fbm(vec2(uv.x * 2.6 + offset, uv.y * 2.0 - time * 0.42));
+    float lick = sin((uv.x + offset) * 9.0 + time * 1.7 + gust * 2.2) * 0.06;
+    lick += sin((uv.x - offset) * 16.0 - time * 1.15) * 0.025;
+    float center = 0.5 + offset * 0.18 + lick * (0.4 + lift);
+    float taper = mix(width, width * 0.16, smoothstep(0.05, 1.0, lift));
+    float body = 1.0 - smoothstep(0.0, taper, abs(uv.x - center));
+    float vertical = smoothstep(0.0, 0.18, uv.y) * (1.0 - smoothstep(height * 0.58, height, uv.y));
+    float raggedTop = smoothstep(0.24, 0.82, gust + (1.0 - lift) * 0.38);
+
+    return clamp(body * vertical * raggedTop, 0.0, 1.0);
+  }
+
+  vec3 renderLightFire(vec2 uv, vec3 sky, float time, float vignette) {
+    vec2 fireUv = vec2(uv.x, uv.y + 0.05);
+    float left = flameTongue(fireUv, -1.15, 0.34, 0.92, time);
+    float center = flameTongue(fireUv + vec2(0.0, -0.03), 0.0, 0.42, 1.05, time * 1.08);
+    float right = flameTongue(fireUv + vec2(0.0, 0.02), 1.08, 0.32, 0.86, time * 0.92);
+    float small = flameTongue(fireUv + vec2(0.08, -0.08), 0.62, 0.2, 0.66, time * 1.32);
+    float fire = clamp(left * 0.76 + center + right * 0.72 + small * 0.62, 0.0, 1.0);
+    float heat = fbm(vec2(uv.x * 4.8 + time * 0.18, uv.y * 5.6 - time * 0.68));
+    float whiteHotCore = pow(clamp(fire * smoothstep(0.48, 0.0, abs(uv.x - 0.5)) * (1.08 - uv.y), 0.0, 1.0), 2.1);
+    float risingEmbers = pow(smoothstep(0.58, 1.0, fbm(vec2(uv.x * 18.0 + time * 0.45, uv.y * 12.0 - time * 1.35))), 6.0);
+    risingEmbers *= smoothstep(0.08, 0.64, uv.y) * smoothstep(0.98, 0.35, uv.y) * 0.38;
+
+    vec3 ember = mix(uRibbonA, uRibbonB, smoothstep(0.16, 0.78, uv.y));
+    ember = mix(ember, uRibbonC, smoothstep(0.46, 0.92, heat));
+    vec3 fireColor = sky;
+    fireColor = mix(fireColor, ember, fire * (0.62 + heat * 0.24) * uIntensity);
+    fireColor += uRibbonA * fire * 0.28 * uIntensity;
+    fireColor += vec3(1.0, 0.92, 0.68) * whiteHotCore * 0.65 * uIntensity;
+    fireColor += uRibbonB * risingEmbers * uIntensity;
+    fireColor *= 0.97 + vignette * 0.05;
+
+    return clamp(fireColor, 0.0, 1.0);
+  }
+
   void main() {
     vec2 uv = vUv;
     vec2 pixel = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
@@ -94,25 +132,7 @@ export const auroraFragmentShader = /* glsl */ `
     darkColor += vec3(0.03, 0.11, 0.14) * horizon * vignette * 0.34;
     darkColor *= 0.56 + vignette * 0.64;
 
-    // Light theme: render the aurora as flowing colored *light* (not a dark tint).
-    // Each curtain keeps its own hue and is composited with a screen-style blend
-    // 1-(1-sky)(1-ribbon*w), which adds saturated color while keeping the sky bright
-    // (multiplying would darken it into a dull shadow). The per-curtain animation and
-    // shimmer drive clearly visible motion despite the bright base.
-    float la = clamp(a * softMask * shimmer * uIntensity * 1.15, 0.0, 1.0);
-    float lb = clamp(b * softMask * shimmer * uIntensity * 1.05, 0.0, 1.0);
-    float lc = clamp(c * softMask * shimmer * uIntensity * 0.95, 0.0, 1.0);
-    // Screen each ribbon's color onto the sky in turn (order-independent enough here).
-    vec3 lightColor = color;
-    lightColor = 1.0 - (1.0 - lightColor) * (1.0 - uRibbonA * (la * 0.85));
-    lightColor = 1.0 - (1.0 - lightColor) * (1.0 - uRibbonB * (lb * 0.7));
-    lightColor = 1.0 - (1.0 - lightColor) * (1.0 - uRibbonC * (lc * 0.6));
-    // A faint moving sheen so the motion reads even in calm areas.
-    float sheen = fbm(vec2(uv.x * 3.0 - time * 0.22, uv.y * 4.0 + time * 0.16));
-    lightColor = mix(lightColor, lightColor * (0.97 + 0.06 * sheen), 0.6);
-    lightColor *= 0.95 + vignette * 0.07;
-
-    color = mix(darkColor, lightColor, uLight);
+    color = mix(darkColor, renderLightFire(uv, color, time, vignette), uLight);
 
     gl_FragColor = vec4(color, 1.0);
   }

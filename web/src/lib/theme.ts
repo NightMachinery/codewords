@@ -45,16 +45,14 @@ export const auroraPalettes: Record<ThemeId, AuroraPalette> = {
     ribbonB: [0.2, 0.7, 0.96],
     ribbonC: [0.48, 0.3, 0.82],
   },
-  // Light: a bright, pale sky so the hero reads as light. Ribbons are vivid,
-  // saturated hues screen-blended over the sky (see uLight in the shader), so they
-  // read as flowing colored light rather than a dull tint.
+  // Light: a pale warm sky with literal flame colors for the light-theme shader path.
   light: {
-    skyTop: [0.9, 0.94, 0.99],
-    skyMid: [0.84, 0.91, 0.99],
-    skyLow: [0.78, 0.88, 0.98],
-    ribbonA: [0.0, 0.78, 0.5],
-    ribbonB: [0.0, 0.5, 0.95],
-    ribbonC: [0.55, 0.2, 0.92],
+    skyTop: [0.99, 0.94, 0.84],
+    skyMid: [0.98, 0.86, 0.68],
+    skyLow: [0.93, 0.72, 0.46],
+    ribbonA: [1.0, 0.82, 0.22],
+    ribbonB: [1.0, 0.42, 0.08],
+    ribbonC: [0.9, 0.14, 0.18],
   },
   // Matrix: near-black green sky with phosphor-green ribbons.
   matrix: {
@@ -74,15 +72,14 @@ export const auroraPalettes: Record<ThemeId, AuroraPalette> = {
     ribbonB: [0.16, 0.63, 0.6],
     ribbonC: [0.42, 0.44, 0.77],
   },
-  // Solarized Light: warm cream sky with vivid solarized blue/green/magenta ribbons
-  // screen-blended as flowing colored light.
+  // Solarized Light: cream sky with Solarized-compatible amber/orange fire accents.
   'solarized-light': {
     skyTop: [0.99, 0.96, 0.89],
-    skyMid: [0.93, 0.91, 0.83],
-    skyLow: [0.88, 0.86, 0.78],
-    ribbonA: [0.0, 0.52, 0.86],
-    ribbonB: [0.45, 0.62, 0.0],
-    ribbonC: [0.85, 0.12, 0.5],
+    skyMid: [0.96, 0.88, 0.7],
+    skyLow: [0.9, 0.76, 0.48],
+    ribbonA: [0.98, 0.72, 0.18],
+    ribbonB: [0.9, 0.38, 0.06],
+    ribbonC: [0.78, 0.12, 0.22],
   },
   // Spider-Man: dark navy sky with red/blue/white hero-color ribbons.
   spiderman: {

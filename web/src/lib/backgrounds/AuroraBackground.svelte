@@ -223,15 +223,15 @@
 
   :global([data-theme='light']) .aurora-fallback {
     background:
-      radial-gradient(circle at 50% 118%, oklch(82% 0.04 240 / 0.7), transparent 46%),
-      radial-gradient(ellipse at 28% 18%, oklch(74% 0.13 160 / 0.16), transparent 34%),
-      radial-gradient(ellipse at 74% 24%, oklch(70% 0.1 220 / 0.14), transparent 36%),
-      radial-gradient(ellipse at 52% 4%, oklch(66% 0.1 304 / 0.1), transparent 30%),
-      linear-gradient(180deg, oklch(97% 0.01 250), oklch(92% 0.018 240) 58%, oklch(95% 0.012 255));
+      radial-gradient(ellipse at 50% 92%, oklch(92% 0.16 72 / 0.58), transparent 42%),
+      radial-gradient(ellipse at 40% 74%, oklch(78% 0.22 42 / 0.34), transparent 30%),
+      radial-gradient(ellipse at 62% 68%, oklch(72% 0.22 25 / 0.28), transparent 28%),
+      radial-gradient(ellipse at 52% 50%, oklch(98% 0.08 88 / 0.24), transparent 25%),
+      linear-gradient(180deg, oklch(97% 0.025 78), oklch(94% 0.04 72) 58%, oklch(90% 0.07 58));
   }
 
   :global([data-theme='light']) .aurora-fallback::after {
-    background: linear-gradient(180deg, transparent, oklch(90% 0.02 250 / 0.5) 78%);
+    background: linear-gradient(180deg, transparent 42%, oklch(88% 0.12 52 / 0.44) 88%);
   }
 
   :global([data-theme='solarized-light']) .aurora-background {
@@ -240,15 +240,15 @@
 
   :global([data-theme='solarized-light']) .aurora-fallback {
     background:
-      radial-gradient(circle at 50% 118%, oklch(88% 0.04 90 / 0.7), transparent 46%),
-      radial-gradient(ellipse at 28% 18%, oklch(80% 0.09 122 / 0.16), transparent 34%),
-      radial-gradient(ellipse at 74% 24%, oklch(74% 0.1 220 / 0.14), transparent 36%),
-      radial-gradient(ellipse at 52% 4%, oklch(76% 0.12 330 / 0.1), transparent 30%),
-      linear-gradient(180deg, oklch(98% 0.02 90), oklch(93% 0.03 92) 58%, oklch(96% 0.025 90));
+      radial-gradient(ellipse at 50% 92%, oklch(88% 0.15 76 / 0.58), transparent 42%),
+      radial-gradient(ellipse at 40% 74%, oklch(74% 0.2 42 / 0.32), transparent 30%),
+      radial-gradient(ellipse at 62% 68%, oklch(66% 0.19 22 / 0.26), transparent 28%),
+      radial-gradient(ellipse at 52% 50%, oklch(97% 0.07 88 / 0.2), transparent 25%),
+      linear-gradient(180deg, oklch(98% 0.02 90), oklch(94% 0.04 82) 58%, oklch(90% 0.06 64));
   }
 
   :global([data-theme='solarized-light']) .aurora-fallback::after {
-    background: linear-gradient(180deg, transparent, oklch(91% 0.03 90 / 0.5) 78%);
+    background: linear-gradient(180deg, transparent 42%, oklch(86% 0.11 52 / 0.42) 88%);
   }
 
   :global([data-theme='matrix']) .aurora-background {

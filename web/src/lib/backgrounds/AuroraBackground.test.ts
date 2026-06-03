@@ -41,4 +41,12 @@ describe('AuroraBackground WebGL component contract', () => {
     expect(componentSource).toContain('aurora-fallback');
     expect(componentSource).toContain('webgl-supported');
   });
+
+  it('renders light themes through a dedicated animated flame branch', () => {
+    expect(shaderSource).toContain('float flameTongue');
+    expect(shaderSource).toContain('vec3 renderLightFire');
+    expect(shaderSource).toContain('whiteHotCore');
+    expect(shaderSource).toContain('risingEmbers');
+    expect(shaderSource).toContain('color = mix(darkColor, renderLightFire');
+  });
 });

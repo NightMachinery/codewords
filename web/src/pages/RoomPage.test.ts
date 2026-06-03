@@ -12,4 +12,12 @@ describe('RoomPage confirmation contract', () => {
     expect(source).toContain('buildPassConfirmation');
     expect(source).toContain('buildRestartConfirmation');
   });
+
+  it('keeps the Power restart icon visible on light themes with local styling', () => {
+    expect(source).toContain("import Power from 'lucide-svelte/icons/power'");
+    expect(source).toContain('<Power class="h-4 w-4" />');
+    expect(source).toContain('restart-match-button');
+    expect(source).toContain(":global([data-theme='light']) .restart-match-button");
+    expect(source).toContain(":global([data-theme='solarized-light']) .restart-match-button");
+  });
 });

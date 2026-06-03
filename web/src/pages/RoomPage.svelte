@@ -1072,7 +1072,7 @@
           </button>
         {/if}
         {#if hostControls && phase !== 'lobby'}
-          <button class={pressableButtonClasses('grid h-9 w-9 shrink-0 place-items-center rounded-full border border-red-400/50 bg-red-400/10 text-red-100 hover:bg-red-400/20')} type="button" onclick={restartMatch} title="Restart match" aria-label="Restart match">
+          <button class={pressableButtonClasses('restart-match-button grid h-9 w-9 shrink-0 place-items-center rounded-full border border-red-400/50 bg-red-400/10 text-red-100 hover:bg-red-400/20')} type="button" onclick={restartMatch} title="Restart match" aria-label="Restart match">
             <Power class="h-4 w-4" />
           </button>
         {/if}
@@ -1628,12 +1628,29 @@
     100% { opacity: 0; }
 	  }
 
-	  @keyframes unity-unified {
-	    0% { opacity: 0; transform: scale(0.95); filter: saturate(0.8); }
-	    14% { opacity: 1; transform: scale(1); filter: saturate(1.2); }
-	    72% { opacity: 1; transform: scale(1.01); }
-	    100% { opacity: 0; transform: scale(1.05); }
-	  }
+  @keyframes unity-unified {
+    0% { opacity: 0; transform: scale(0.95); filter: saturate(0.8); }
+    14% { opacity: 1; transform: scale(1); filter: saturate(1.2); }
+    72% { opacity: 1; transform: scale(1.01); }
+    100% { opacity: 0; transform: scale(1.05); }
+  }
+
+  .restart-match-button {
+    color: rgb(254 226 226);
+  }
+
+  :global([data-theme='light']) .restart-match-button,
+  :global([data-theme='solarized-light']) .restart-match-button {
+    border-color: oklch(55% 0.2 25 / 0.58);
+    background-color: oklch(62% 0.2 25 / 0.12);
+    color: oklch(44% 0.18 25);
+  }
+
+  :global([data-theme='light']) .restart-match-button:hover,
+  :global([data-theme='solarized-light']) .restart-match-button:hover {
+    background-color: oklch(62% 0.2 25 / 0.2);
+    color: oklch(38% 0.18 25);
+  }
 
 	  @media (prefers-reduced-motion: reduce) {
 	    :global(.animate-\[endgame-pop_4s_ease-out_forwards\]),
