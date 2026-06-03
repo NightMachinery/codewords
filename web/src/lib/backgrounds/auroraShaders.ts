@@ -1,3 +1,5 @@
+import type { AuroraShaderVariant } from '../theme';
+
 export const auroraVertexShader = /* glsl */ `
   varying vec2 vUv;
 
@@ -7,7 +9,7 @@ export const auroraVertexShader = /* glsl */ `
   }
 `;
 
-export const auroraFragmentShader = /* glsl */ `
+const commonFragmentPrelude = /* glsl */ `
   precision highp float;
 
   uniform float uTime;
@@ -21,7 +23,6 @@ export const auroraFragmentShader = /* glsl */ `
   uniform vec3 uRibbonA;
   uniform vec3 uRibbonB;
   uniform vec3 uRibbonC;
-  uniform float uShaderVariant; // 0 = aurora, 1 = clean fire, 2 = campfire
 
   varying vec2 vUv;
 
@@ -57,6 +58,19 @@ export const auroraFragmentShader = /* glsl */ `
     return value;
   }
 
+  vec3 skyColor(vec2 uv) {
+    vec3 color = mix(uSkyLow, uSkyMid, smoothstep(0.0, 0.72, uv.y));
+    return mix(color, uSkyTop, smoothstep(0.44, 1.0, uv.y));
+  }
+
+  float vignetteFor(vec2 pixel) {
+    return smoothstep(1.08, 0.18, length(pixel * vec2(0.84, 1.12)));
+  }
+`;
+
+export const auroraFragmentShader = /* glsl */ `
+${commonFragmentPrelude}
+
   float curtain(vec2 uv, float offset, float scale, float time) {
     float wave = sin((uv.x + offset) * 3.2 + time * 0.55) * 0.08;
     wave += sin((uv.x * 6.4 - offset) + time * 0.24) * 0.04;
@@ -69,6 +83,32 @@ export const auroraFragmentShader = /* glsl */ `
 
     return veil * verticalFade * (0.45 + strand * 0.8);
   }
+
+  void main() {
+    vec2 uv = vUv;
+    vec2 pixel = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
+    float time = uTime * uSpeed;
+    vec3 color = skyColor(uv);
+    float vignette = vignetteFor(pixel);
+    float horizon = smoothstep(0.0, 0.72, 1.0 - uv.y);
+
+    float a = curtain(uv + vec2(uMouse.x * 0.018, 0.0), 0.10, 3.4, time);
+    float b = curtain(uv + vec2(-0.05, 0.06), 1.45, 4.2, time * 0.82);
+    float c = curtain(uv + vec2(0.11, -0.04), 2.65, 5.2, time * 0.62);
+
+    float softMask = smoothstep(1.0, 0.05, uv.y) * smoothstep(-0.08, 0.38, uv.y);
+    float shimmer = 0.82 + 0.18 * fbm(vec2(uv.x * 8.0 + time * 0.16, uv.y * 2.5 - time * 0.1));
+    vec3 darkAurora = uRibbonA * a + uRibbonB * b * 0.72 + uRibbonC * c * 0.48;
+    color += darkAurora * softMask * shimmer * uIntensity;
+    color += vec3(0.03, 0.11, 0.14) * horizon * vignette * 0.34;
+    color *= 0.56 + vignette * 0.64;
+
+    gl_FragColor = vec4(color, 1.0);
+  }
+`;
+
+export const cleanFireFragmentShader = /* glsl */ `
+${commonFragmentPrelude}
 
   float flameTongue(vec2 uv, float offset, float width, float height, float time) {
     float lift = uv.y / max(height, 0.001);
@@ -84,7 +124,13 @@ export const auroraFragmentShader = /* glsl */ `
     return clamp(body * vertical * raggedTop, 0.0, 1.0);
   }
 
-  vec3 renderCleanFire(vec2 uv, vec3 sky, float time, float vignette) {
+  void main() {
+    vec2 uv = vUv;
+    vec2 pixel = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
+    float time = uTime * uSpeed;
+    vec3 sky = skyColor(uv);
+    float vignette = vignetteFor(pixel);
+
     vec2 fireUv = vec2(uv.x, uv.y + 0.05);
     float left = flameTongue(fireUv, -1.15, 0.34, 0.92, time);
     float center = flameTongue(fireUv + vec2(0.0, -0.03), 0.0, 0.42, 1.05, time * 1.08);
@@ -98,15 +144,19 @@ export const auroraFragmentShader = /* glsl */ `
 
     vec3 ember = mix(uRibbonA, uRibbonB, smoothstep(0.16, 0.78, uv.y));
     ember = mix(ember, uRibbonC, smoothstep(0.46, 0.92, heat));
-    vec3 fireColor = sky;
-    fireColor = mix(fireColor, ember, fire * (0.62 + heat * 0.24) * uIntensity);
-    fireColor += uRibbonA * fire * 0.28 * uIntensity;
-    fireColor += vec3(1.0, 0.92, 0.68) * whiteHotCore * 0.65 * uIntensity;
-    fireColor += uRibbonB * risingEmbers * uIntensity;
-    fireColor *= 0.97 + vignette * 0.05;
+    vec3 color = sky;
+    color = mix(color, ember, fire * (0.62 + heat * 0.24) * uIntensity);
+    color += uRibbonA * fire * 0.28 * uIntensity;
+    color += vec3(1.0, 0.92, 0.68) * whiteHotCore * 0.65 * uIntensity;
+    color += uRibbonB * risingEmbers * uIntensity;
+    color *= 0.97 + vignette * 0.05;
 
-    return clamp(fireColor, 0.0, 1.0);
+    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
   }
+`;
+
+export const campfireFragmentShader = /* glsl */ `
+${commonFragmentPrelude}
 
   float campfireBody(vec2 uv, float center, float width, float height, float time) {
     float lift = uv.y / max(height, 0.001);
@@ -140,22 +190,29 @@ export const auroraFragmentShader = /* glsl */ `
     vec2 cell = floor(grid);
     vec2 local = fract(grid) - 0.5;
     float seed = hash(cell);
-    float spark = 1.0 - smoothstep(0.0, 0.09, length(local + vec2(seed - 0.5, hash(cell + 13.7) - 0.5) * 0.28));
+    vec2 jitter = vec2(seed - 0.5, hash(cell + vec2(13.7, 13.7)) - 0.5) * 0.28;
+    float spark = 1.0 - smoothstep(0.0, 0.09, length(local + jitter));
     float active = step(0.965, seed);
-    float heightFade = smoothstep(0.22, 0.78, uv.y) * smoothstep(1.0, 0.46, uv.y);
+    float heightFade = smoothstep(0.22, 0.78, uv.y) * (1.0 - smoothstep(0.46, 1.0, uv.y));
 
     return spark * active * heightFade;
   }
 
   float smokeVeil(vec2 uv, float time) {
     float smoke = fbm(vec2(uv.x * 2.4 + time * 0.08, uv.y * 2.7 - time * 0.32));
-    float plume = smoothstep(0.34, 0.82, uv.y) * smoothstep(1.02, 0.46, uv.y);
-    float centerFade = smoothstep(0.62, 0.12, abs(uv.x - 0.54));
+    float plume = smoothstep(0.34, 0.82, uv.y) * (1.0 - smoothstep(0.46, 1.02, uv.y));
+    float centerFade = 1.0 - smoothstep(0.12, 0.62, abs(uv.x - 0.54));
 
     return smoothstep(0.44, 0.82, smoke) * plume * centerFade;
   }
 
-  vec3 renderCampfire(vec2 uv, vec3 sky, float time, float vignette) {
+  void main() {
+    vec2 uv = vUv;
+    vec2 pixel = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
+    float time = uTime * uSpeed;
+    vec3 sky = skyColor(uv);
+    float vignette = vignetteFor(pixel);
+
     vec2 fireUv = vec2(uv.x, uv.y + 0.03);
     float leftBody = campfireBody(fireUv, 0.38, 0.28, 0.78, time);
     float centerBody = campfireBody(fireUv + vec2(0.0, -0.04), 0.52, 0.34, 0.96, time * 1.07);
@@ -168,8 +225,8 @@ export const auroraFragmentShader = /* glsl */ `
     float licks = clamp(lickA * 0.74 + lickB + lickC * 0.56, 0.0, 1.0);
     float flame = clamp(bodies + licks, 0.0, 1.0);
     float heat = fbm(vec2(uv.x * 7.0 + time * 0.2, uv.y * 6.8 - time * 0.86));
-    float emberBase = bodies * smoothstep(0.42, 0.02, uv.y);
-    float whiteHotCore = pow(clamp(flame * smoothstep(0.34, 0.0, abs(uv.x - 0.52)) * smoothstep(0.76, 0.1, uv.y), 0.0, 1.0), 2.35);
+    float emberBase = bodies * (1.0 - smoothstep(0.02, 0.42, uv.y));
+    float whiteHotCore = pow(clamp(flame * (1.0 - smoothstep(0.0, 0.34, abs(uv.x - 0.52))) * (1.0 - smoothstep(0.1, 0.76, uv.y)), 0.0, 1.0), 2.35);
     float sparks = sparkField(uv, time) * uIntensity;
     float smoke = smokeVeil(uv, time);
 
@@ -182,49 +239,24 @@ export const auroraFragmentShader = /* glsl */ `
     vec3 flameRamp = mix(deepOrange, golden, smoothstep(0.18, 0.82, heat + uv.y * 0.36));
     flameRamp = mix(emberRed, flameRamp, smoothstep(0.04, 0.38, uv.y));
 
-    vec3 fireColor = sky;
-    fireColor = mix(fireColor, flameRamp, flame * (0.76 + heat * 0.18) * uIntensity);
-    fireColor += emberRed * emberBase * 0.46 * uIntensity;
-    fireColor += hotCore * whiteHotCore * 0.72 * uIntensity;
-    fireColor += golden * sparks * 0.55;
-    fireColor = mix(fireColor, smokeTint, smoke * 0.1);
-    fireColor *= 0.95 + vignette * 0.07;
+    vec3 color = sky;
+    color = mix(color, flameRamp, flame * (0.76 + heat * 0.18) * uIntensity);
+    color += emberRed * emberBase * 0.46 * uIntensity;
+    color += hotCore * whiteHotCore * 0.72 * uIntensity;
+    color += golden * sparks * 0.55;
+    color = mix(color, smokeTint, smoke * 0.1);
+    color *= 0.95 + vignette * 0.07;
 
-    return clamp(fireColor, 0.0, 1.0);
-  }
-
-  void main() {
-    vec2 uv = vUv;
-    vec2 pixel = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
-    float time = uTime * uSpeed;
-
-    vec3 color = mix(uSkyLow, uSkyMid, smoothstep(0.0, 0.72, uv.y));
-    color = mix(color, uSkyTop, smoothstep(0.44, 1.0, uv.y));
-
-    float vignette = smoothstep(1.08, 0.18, length(pixel * vec2(0.84, 1.12)));
-    float horizon = smoothstep(0.0, 0.72, 1.0 - uv.y);
-
-    float a = curtain(uv + vec2(uMouse.x * 0.018, 0.0), 0.10, 3.4, time);
-    float b = curtain(uv + vec2(-0.05, 0.06), 1.45, 4.2, time * 0.82);
-    float c = curtain(uv + vec2(0.11, -0.04), 2.65, 5.2, time * 0.62);
-
-    float softMask = smoothstep(1.0, 0.05, uv.y) * smoothstep(-0.08, 0.38, uv.y);
-    float shimmer = 0.82 + 0.18 * fbm(vec2(uv.x * 8.0 + time * 0.16, uv.y * 2.5 - time * 0.1));
-
-    // Dark themes: additive glow (ribbons add light to a deep sky).
-    vec3 darkAurora = uRibbonA * a + uRibbonB * b * 0.72 + uRibbonC * c * 0.48;
-    vec3 darkColor = color + darkAurora * softMask * shimmer * uIntensity;
-    darkColor += vec3(0.03, 0.11, 0.14) * horizon * vignette * 0.34;
-    darkColor *= 0.56 + vignette * 0.64;
-
-    if (uShaderVariant < 0.5) {
-      color = darkColor;
-    } else if (uShaderVariant < 1.5) {
-      color = renderCleanFire(uv, color, time, vignette);
-    } else {
-      color = renderCampfire(uv, color, time, vignette);
-    }
-
-    gl_FragColor = vec4(color, 1.0);
+    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
   }
 `;
+
+export const auroraFragmentShaders: Record<AuroraShaderVariant, string> = {
+  aurora: auroraFragmentShader,
+  'clean-fire': cleanFireFragmentShader,
+  campfire: campfireFragmentShader,
+};
+
+export function auroraFragmentShaderFor(variant: AuroraShaderVariant): string {
+  return auroraFragmentShaders[variant] ?? auroraFragmentShader;
+}

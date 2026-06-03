@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import * as THREE from 'three';
 
-  import { auroraFragmentShader, auroraVertexShader } from './auroraShaders';
+  import { auroraFragmentShaderFor, auroraVertexShader } from './auroraShaders';
   import { auroraPaletteFor, type AuroraShaderVariant, type ThemeId } from '../theme';
 
   type Props = {
@@ -17,12 +17,8 @@
   let host: HTMLDivElement;
   let canvas: HTMLCanvasElement;
   let webglSupported = $state(false);
-
-  function shaderVariantUniformFor(shader: AuroraShaderVariant) {
-    if (shader === 'clean-fire') return 1;
-    if (shader === 'campfire') return 2;
-    return 0;
-  }
+  let shaderMaterial: THREE.ShaderMaterial | null = null;
+  let activeShaderVariant: AuroraShaderVariant = 'aurora';
 
   // Color uniforms are updated reactively by the $effect below when `theme` changes.
   const colorUniforms = {
@@ -32,7 +28,6 @@
     uRibbonA: { value: new THREE.Vector3() },
     uRibbonB: { value: new THREE.Vector3() },
     uRibbonC: { value: new THREE.Vector3() },
-    uShaderVariant: { value: 0 },
   };
 
   $effect(() => {
@@ -43,7 +38,14 @@
     colorUniforms.uRibbonA.value.set(...palette.ribbonA);
     colorUniforms.uRibbonB.value.set(...palette.ribbonB);
     colorUniforms.uRibbonC.value.set(...palette.ribbonC);
-    colorUniforms.uShaderVariant.value = shaderVariantUniformFor(palette.shader);
+
+    if (palette.shader !== activeShaderVariant) {
+      activeShaderVariant = palette.shader;
+      if (shaderMaterial) {
+        shaderMaterial.fragmentShader = auroraFragmentShaderFor(activeShaderVariant);
+        shaderMaterial.needsUpdate = true;
+      }
+    }
   });
 
   onMount(() => {
@@ -81,11 +83,12 @@
     const geometry = new THREE.PlaneGeometry(2, 2);
     const material = new THREE.ShaderMaterial({
       vertexShader: auroraVertexShader,
-      fragmentShader: auroraFragmentShader,
+      fragmentShader: auroraFragmentShaderFor(activeShaderVariant),
       uniforms,
       depthWrite: false,
       depthTest: false,
     });
+    shaderMaterial = material;
     const mesh = new THREE.Mesh(geometry, material);
     scene.add(mesh);
 
@@ -171,6 +174,7 @@
       scene.remove(mesh);
       geometry.dispose();
       material.dispose();
+      shaderMaterial = null;
       renderer.dispose();
     };
   });

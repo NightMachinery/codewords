@@ -51,7 +51,7 @@ export const auroraPalettes: Record<ThemeId, AuroraPalette> = {
   },
   // Light: a pale warm sky with literal flame colors for the light-theme shader path.
   light: {
-    shader: 'campfire',
+    shader: 'clean-fire',
     skyTop: [0.99, 0.94, 0.84],
     skyMid: [0.98, 0.86, 0.68],
     skyLow: [0.93, 0.72, 0.46],

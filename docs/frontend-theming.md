@@ -63,18 +63,22 @@ The theme picker is a single shared component, `web/src/lib/ThemeMenu.svelte` â€
 off). It owns the theme state, persistence, OS-preference watching, and `applyTheme`, and exposes
 bindable `effectiveThemeId` / `sessionOverride` / `themePreferences` props.
 
-- **Room** (`web/src/pages/RoomPage.svelte`): `<ThemeMenu>` sits in the top status row. The Local
-  Settings panel keeps only the moderator "push theme to everyone" button. Destructive icon-only
-  controls such as the active-match restart button use local theme-aware styling for their red
-  foregrounds, because global red token remapping would interfere with team/error semantics.
+- **Room** (`web/src/pages/RoomPage.svelte`): `<ThemeMenu>` sits in the top status row and renders
+  its popover as a fixed, frontmost overlay so the nav row cannot clip it. The Local Settings panel
+  mirrors the same theme preferences as dropdown controls; changing either surface persists the
+  local preference and clears any session-only moderator override. Moderators also see the "push
+  theme to everyone" button there. Destructive icon-only controls such as the active-match restart
+  button use local theme-aware styling for their red foregrounds, because global red token remapping
+  would interfere with team/error semantics.
 - **Home page** (`web/src/pages/HomePage.svelte`): `<ThemeMenu>` sits top-right in the nav. The
   landing hero is theme-aware â€” its room-entry card and controls use theme tokens, and the animated
   background changes by theme-selected shader variant. Dark themes render cool aurora curtains.
-  Light uses a campfire variant with uneven lower flame mass, torn rising licks, sparse sparks, and
-  faint smoke/haze. Solarized Light keeps the cleaner existing fire variant with smoother flame
-  tongues and ember wisps. The shader's sky/ribbon colors and `shader` variant are fed from a
-  per-theme `AuroraPalette` in `theme.ts` (`AuroraBackground` takes a `theme` prop and updates the
-  uniforms reactively); the CSS fallback and base color mirror those palettes via `[data-theme]`
+  Light and Solarized Light use the cleaner existing fire variant with smoother flame tongues and
+  ember wisps. The more detailed `campfire` variant remains available as a separate shader option,
+  but it is not the default light-theme assignment. The shader's sky/ribbon colors and `shader`
+  variant are fed from a per-theme `AuroraPalette` in `theme.ts` (`AuroraBackground` takes a `theme`
+  prop, updates uniforms reactively, and swaps complete fragment shader sources when the selected
+  variant changes); the CSS fallback and base color mirror those palettes via `[data-theme]`
   selectors.
 
 ## Moderator push (session only)

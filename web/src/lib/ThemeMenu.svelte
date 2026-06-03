@@ -88,8 +88,8 @@
   </button>
   {#if menuOpen}
     <!-- Click-away backdrop -->
-    <button type="button" class="fixed inset-0 z-40 cursor-default" aria-label="Close theme menu" onclick={() => (menuOpen = false)}></button>
-    <div class="absolute right-0 z-50 mt-2 w-60 rounded-2xl border border-slate-700 bg-slate-900 p-3 text-left shadow-2xl shadow-slate-950/50" role="menu">
+    <button type="button" class="fixed inset-0 z-[80] cursor-default" aria-label="Close theme menu" onclick={() => (menuOpen = false)}></button>
+    <div class="fixed right-3 top-16 z-[90] w-60 rounded-2xl border border-slate-700 bg-slate-900 p-3 text-left shadow-2xl shadow-slate-950/50 sm:right-8" role="menu">
       <p class="px-1 pb-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400">Theme</p>
       <label class="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2 text-xs text-slate-300 cursor-pointer">
         <input type="checkbox" checked={themePreferences.auto} onchange={(event) => updateThemePreferences({ auto: event.currentTarget.checked })} />

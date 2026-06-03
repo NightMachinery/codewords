@@ -74,7 +74,7 @@
   import { canManageLobby, startReadiness, type LobbyPlayer } from '../lib/lobby';
   import { RoomSocket, type BoardLayoutPreferences, type RoomSocketMessage } from '../lib/realtime';
   import ThemeMenu from '../lib/ThemeMenu.svelte';
-  import { captureBackgroundFor, type ThemeId } from '../lib/theme';
+  import { captureBackgroundFor, darkModeThemes, lightModeThemes, readThemePreferences, THEMES, writeThemePreferences, type ThemeId, type ThemePreferences } from '../lib/theme';
   import { applySettingsProfile, exportSettingsProfileJson5, parseSettingsProfileJson5, profileFromSettings, readSavedProfiles, writeSavedProfiles, type SettingsProfile } from '../lib/settingsProfiles';
   import vanillaProfileText from '../../../assets/profiles/vanilla.json5?raw';
   import mildlyMixedProfileText from '../../../assets/profiles/mildly-mixed.json5?raw';
@@ -153,6 +153,7 @@
   // Owned by <ThemeMenu>; bound here so the mod "push theme" action can read the
   // applied theme and a moderator push can be injected as a session override.
   let effectiveThemeId = $state<ThemeId>('dark');
+  let themePreferences = $state<ThemePreferences>(readThemePreferences(localStorage));
   let sessionThemeOverride = $state<ThemeId | null>(null);
   let forceThemePending = $state(false);
   let socket: RoomSocket | null = null;
@@ -1047,6 +1048,12 @@
     settings = normalizeLobbySettingsForSave(settings);
     sendSocketAction('updateSettings', { type: 'updateSettings', settings });
   }
+
+  function updateThemePreferences(next: Partial<ThemePreferences>) {
+    themePreferences = { ...themePreferences, ...next };
+    writeThemePreferences(localStorage, themePreferences);
+    sessionThemeOverride = null;
+  }
 </script>
 
 <main class={roomMainClasses()}>
@@ -1064,7 +1071,7 @@
           <Copy class="h-4 w-4" />
           <span class="hidden sm:inline">Copy</span>
         </button>
-        <ThemeMenu bind:effectiveThemeId bind:sessionOverride={sessionThemeOverride} />
+        <ThemeMenu bind:effectiveThemeId bind:themePreferences bind:sessionOverride={sessionThemeOverride} />
         {#if currentPlayer}
           <button class={pressableButtonClasses('inline-flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-950/70 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-slate-100 hover:border-emerald-300/60 hover:text-emerald-100')} type="button" onclick={() => copyMigrateLink()} title="Copy migrate-device link" aria-label="Copy migrate-device link">
             <Smartphone class="h-4 w-4" />
@@ -1423,10 +1430,40 @@
                 </span>
               </button>
               {#if panelPreferences.localOptionsOpen}
-                {#if hostControls}
-                  <div class="mt-4 grid gap-2 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
-                    <span class="text-sm font-bold text-slate-200">Theme</span>
-                    <p class="text-xs text-slate-400">Change your theme from the palette button in the top bar.</p>
+                <div class="mt-4 grid gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
+                  <span class="text-sm font-bold text-slate-200">Theme</span>
+                  <label class="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs text-slate-300 cursor-pointer">
+                    <input type="checkbox" checked={themePreferences.auto} onchange={(event) => updateThemePreferences({ auto: event.currentTarget.checked })} />
+                    Match system dark mode
+                  </label>
+                  {#if themePreferences.auto}
+                    <label class="block text-xs text-slate-400">
+                      Dark mode theme
+                      <select class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" value={themePreferences.darkTheme} onchange={(event) => updateThemePreferences({ darkTheme: event.currentTarget.value as ThemeId })}>
+                        {#each darkModeThemes as theme (theme.id)}
+                          <option value={theme.id}>{theme.label}</option>
+                        {/each}
+                      </select>
+                    </label>
+                    <label class="block text-xs text-slate-400">
+                      Light mode theme
+                      <select class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" value={themePreferences.lightTheme} onchange={(event) => updateThemePreferences({ lightTheme: event.currentTarget.value as ThemeId })}>
+                        {#each lightModeThemes as theme (theme.id)}
+                          <option value={theme.id}>{theme.label}</option>
+                        {/each}
+                      </select>
+                    </label>
+                  {:else}
+                    <label class="block text-xs text-slate-400">
+                      Theme
+                      <select class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" value={themePreferences.manual} onchange={(event) => updateThemePreferences({ manual: event.currentTarget.value as ThemeId })}>
+                        {#each THEMES as theme (theme.id)}
+                          <option value={theme.id}>{theme.label}</option>
+                        {/each}
+                      </select>
+                    </label>
+                  {/if}
+                  {#if hostControls}
                     <button
                       class={['rounded-xl border px-3 py-2 text-left text-xs font-black uppercase tracking-[0.16em] transition active:translate-y-px disabled:cursor-wait', forceThemePending ? 'border-emerald-200 bg-emerald-300 text-slate-950' : 'border-emerald-300/40 bg-emerald-300/10 text-emerald-100 hover:border-emerald-200 hover:bg-emerald-300/20'].join(' ')}
                       type="button"
@@ -1436,8 +1473,8 @@
                     >
                       {forceThemePending ? 'Pushing theme…' : 'Push current theme to everyone (this session)'}
                     </button>
-                  </div>
-                {/if}
+                  {/if}
+                </div>
                 <label class="mt-3 flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 cursor-pointer">
                   <input type="checkbox" checked={preferences.confirmGuesses} onchange={(event) => updatePreferences({ confirmGuesses: event.currentTarget.checked })} />
                   <span class="text-sm text-slate-200">Confirm before revealing a card</span>
