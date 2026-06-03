@@ -21,12 +21,15 @@ export const lightModeThemes: ThemeDescriptor[] = THEMES.filter((theme) => theme
 
 /** A linear-RGB triple (each component 0..1) for the aurora WebGL shader. */
 export type Rgb = readonly [number, number, number];
+export type AuroraShaderVariant = 'aurora' | 'clean-fire' | 'campfire';
 
 /**
  * Per-theme palette for the landing-hero aurora shader. `sky*` are the vertical
- * background gradient stops; `ribbon*` are the three animated aurora colors.
+ * background gradient stops; `ribbon*` are the three animated aurora/fire colors;
+ * `shader` chooses which procedural background renderer the theme uses.
  */
 export interface AuroraPalette {
+  shader: AuroraShaderVariant;
   skyTop: Rgb;
   skyMid: Rgb;
   skyLow: Rgb;
@@ -38,6 +41,7 @@ export interface AuroraPalette {
 export const auroraPalettes: Record<ThemeId, AuroraPalette> = {
   // Dark: the original deep-navy sky with emerald/cyan/violet ribbons.
   dark: {
+    shader: 'aurora',
     skyTop: [0.004, 0.01, 0.026],
     skyMid: [0.01, 0.022, 0.052],
     skyLow: [0.015, 0.03, 0.06],
@@ -47,6 +51,7 @@ export const auroraPalettes: Record<ThemeId, AuroraPalette> = {
   },
   // Light: a pale warm sky with literal flame colors for the light-theme shader path.
   light: {
+    shader: 'campfire',
     skyTop: [0.99, 0.94, 0.84],
     skyMid: [0.98, 0.86, 0.68],
     skyLow: [0.93, 0.72, 0.46],
@@ -56,6 +61,7 @@ export const auroraPalettes: Record<ThemeId, AuroraPalette> = {
   },
   // Matrix: near-black green sky with phosphor-green ribbons.
   matrix: {
+    shader: 'aurora',
     skyTop: [0.004, 0.03, 0.012],
     skyMid: [0.01, 0.05, 0.022],
     skyLow: [0.012, 0.07, 0.03],
@@ -65,6 +71,7 @@ export const auroraPalettes: Record<ThemeId, AuroraPalette> = {
   },
   // Solarized Dark: base03 teal-grey sky with solarized blue/cyan/violet ribbons.
   'solarized-dark': {
+    shader: 'aurora',
     skyTop: [0.0, 0.12, 0.15],
     skyMid: [0.0, 0.17, 0.21],
     skyLow: [0.03, 0.21, 0.26],
@@ -74,6 +81,7 @@ export const auroraPalettes: Record<ThemeId, AuroraPalette> = {
   },
   // Solarized Light: cream sky with Solarized-compatible amber/orange fire accents.
   'solarized-light': {
+    shader: 'clean-fire',
     skyTop: [0.99, 0.96, 0.89],
     skyMid: [0.96, 0.88, 0.7],
     skyLow: [0.9, 0.76, 0.48],
@@ -83,6 +91,7 @@ export const auroraPalettes: Record<ThemeId, AuroraPalette> = {
   },
   // Spider-Man: dark navy sky with red/blue/white hero-color ribbons.
   spiderman: {
+    shader: 'aurora',
     skyTop: [0.02, 0.02, 0.08],
     skyMid: [0.04, 0.04, 0.13],
     skyLow: [0.07, 0.06, 0.16],

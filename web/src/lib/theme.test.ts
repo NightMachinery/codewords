@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  auroraPalettes,
   defaultThemePreferences,
   readThemePreferences,
   resolveTheme,
@@ -101,5 +102,23 @@ describe('THEMES catalog', () => {
     for (const theme of THEMES) {
       expect(['dark', 'light']).toContain(theme.mode);
     }
+  });
+});
+
+describe('aurora shader variants', () => {
+  it('assigns a valid shader variant to every theme palette', () => {
+    const validVariants = ['aurora', 'clean-fire', 'campfire'];
+    for (const theme of THEMES) {
+      expect(validVariants).toContain(auroraPalettes[theme.id].shader);
+    }
+  });
+
+  it('uses campfire for Light, clean fire for Solarized Light, and aurora for dark themes', () => {
+    expect(auroraPalettes.light.shader).toBe('campfire');
+    expect(auroraPalettes['solarized-light'].shader).toBe('clean-fire');
+    expect(auroraPalettes.dark.shader).toBe('aurora');
+    expect(auroraPalettes.matrix.shader).toBe('aurora');
+    expect(auroraPalettes['solarized-dark'].shader).toBe('aurora');
+    expect(auroraPalettes.spiderman.shader).toBe('aurora');
   });
 });

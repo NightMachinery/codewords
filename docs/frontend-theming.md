@@ -69,11 +69,13 @@ bindable `effectiveThemeId` / `sessionOverride` / `themePreferences` props.
   foregrounds, because global red token remapping would interfere with team/error semantics.
 - **Home page** (`web/src/pages/HomePage.svelte`): `<ThemeMenu>` sits top-right in the nav. The
   landing hero is theme-aware — its room-entry card and controls use theme tokens, and the animated
-  background changes by mode. Dark themes render cool aurora curtains. Light themes render a warm
-  procedural fire path with rising flame tongues, white-hot cores, and ember wisps. The shader's
-  sky/ribbon colors are uniforms fed from a per-theme `AuroraPalette` in `theme.ts`
-  (`AuroraBackground` takes a `theme` prop and updates the uniforms reactively); the CSS fallback and
-  base color mirror those palettes via `[data-theme]` selectors.
+  background changes by theme-selected shader variant. Dark themes render cool aurora curtains.
+  Light uses a campfire variant with uneven lower flame mass, torn rising licks, sparse sparks, and
+  faint smoke/haze. Solarized Light keeps the cleaner existing fire variant with smoother flame
+  tongues and ember wisps. The shader's sky/ribbon colors and `shader` variant are fed from a
+  per-theme `AuroraPalette` in `theme.ts` (`AuroraBackground` takes a `theme` prop and updates the
+  uniforms reactively); the CSS fallback and base color mirror those palettes via `[data-theme]`
+  selectors.
 
 ## Moderator push (session only)
 

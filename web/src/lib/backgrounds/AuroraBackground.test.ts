@@ -17,7 +17,7 @@ describe('AuroraBackground WebGL component contract', () => {
   });
 
   it('declares the aurora shader uniforms required for runtime tuning', () => {
-    for (const uniform of ['uTime', 'uResolution', 'uIntensity', 'uSpeed', 'uMouse']) {
+    for (const uniform of ['uTime', 'uResolution', 'uIntensity', 'uSpeed', 'uMouse', 'uShaderVariant']) {
       expect(componentSource).toContain(uniform);
       expect(shaderSource).toContain(uniform);
     }
@@ -42,11 +42,25 @@ describe('AuroraBackground WebGL component contract', () => {
     expect(componentSource).toContain('webgl-supported');
   });
 
-  it('renders light themes through a dedicated animated flame branch', () => {
+  it('preserves the current clean fire shader as a named variant', () => {
     expect(shaderSource).toContain('float flameTongue');
-    expect(shaderSource).toContain('vec3 renderLightFire');
+    expect(shaderSource).toContain('vec3 renderCleanFire');
     expect(shaderSource).toContain('whiteHotCore');
     expect(shaderSource).toContain('risingEmbers');
-    expect(shaderSource).toContain('color = mix(darkColor, renderLightFire');
+  });
+
+  it('adds a separate realistic campfire shader variant', () => {
+    expect(shaderSource).toContain('float campfireBody');
+    expect(shaderSource).toContain('float flameLick');
+    expect(shaderSource).toContain('float sparkField');
+    expect(shaderSource).toContain('float smokeVeil');
+    expect(shaderSource).toContain('vec3 renderCampfire');
+  });
+
+  it('routes aurora, clean fire, and campfire by the active theme variant', () => {
+    expect(shaderSource).toContain('uShaderVariant < 0.5');
+    expect(shaderSource).toContain('renderCleanFire');
+    expect(shaderSource).toContain('renderCampfire');
+    expect(componentSource).toContain('shaderVariantUniformFor');
   });
 });

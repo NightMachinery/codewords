@@ -21,9 +21,10 @@ The component exposes these props on the landing page:
 
 Shader-level tuning lives in `web/src/lib/backgrounds/auroraShaders.ts`:
 
-- Dark themes use `curtain(...)` to control the height, softness, strand density, and drift of each aurora band.
-- Light themes use a separate fire branch: `flameTongue(...)` shapes rising flame licks and `renderLightFire(...)` composites warm orange/gold/coral flame color plus white-hot cores and small rising embers over the pale sky.
-- Per-theme `sky*` and `ribbon*` colors live in `auroraPalettes` in `web/src/lib/theme.ts`. Light and Solarized Light intentionally use warm fire palettes; dark themes keep the cooler aurora palettes.
-- `vignette`, `softMask`, and horizon glow keep the dark aurora restrained, while the light fire branch avoids dark multiply-style blending so it does not collapse into a shadow blob.
+- Themes choose a procedural shader variant through `auroraPalettes` in `web/src/lib/theme.ts`: `aurora`, `clean-fire`, or `campfire`.
+- Dark themes use the `aurora` variant. `curtain(...)` controls the height, softness, strand density, and drift of each aurora band.
+- Solarized Light uses the preserved `clean-fire` variant. `flameTongue(...)` shapes cleaner rising flame licks and `renderCleanFire(...)` composites warm orange/gold/coral color plus white-hot cores and small rising embers over the pale sky.
+- Light uses the `campfire` variant. `campfireBody(...)`, `flameLick(...)`, `sparkField(...)`, and `smokeVeil(...)` combine uneven lower flame mass, torn rising licks, sparse sparks, and faint smoke/haze.
+- `vignette`, `softMask`, and horizon glow keep the dark aurora restrained, while fire variants avoid dark multiply-style blending so they do not collapse into a shadow blob.
 
 Do not add images, videos, GIFs, particles, or texture dependencies for this background; it is intentionally procedural.

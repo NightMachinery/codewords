@@ -3,7 +3,7 @@
   import * as THREE from 'three';
 
   import { auroraFragmentShader, auroraVertexShader } from './auroraShaders';
-  import { auroraPaletteFor, themeMode, type ThemeId } from '../theme';
+  import { auroraPaletteFor, type AuroraShaderVariant, type ThemeId } from '../theme';
 
   type Props = {
     intensity?: number;
@@ -17,6 +17,13 @@
   let host: HTMLDivElement;
   let canvas: HTMLCanvasElement;
   let webglSupported = $state(false);
+
+  function shaderVariantUniformFor(shader: AuroraShaderVariant) {
+    if (shader === 'clean-fire') return 1;
+    if (shader === 'campfire') return 2;
+    return 0;
+  }
+
   // Color uniforms are updated reactively by the $effect below when `theme` changes.
   const colorUniforms = {
     uSkyTop: { value: new THREE.Vector3() },
@@ -25,7 +32,7 @@
     uRibbonA: { value: new THREE.Vector3() },
     uRibbonB: { value: new THREE.Vector3() },
     uRibbonC: { value: new THREE.Vector3() },
-    uLight: { value: 0 },
+    uShaderVariant: { value: 0 },
   };
 
   $effect(() => {
@@ -36,7 +43,7 @@
     colorUniforms.uRibbonA.value.set(...palette.ribbonA);
     colorUniforms.uRibbonB.value.set(...palette.ribbonB);
     colorUniforms.uRibbonC.value.set(...palette.ribbonC);
-    colorUniforms.uLight.value = themeMode(theme) === 'light' ? 1 : 0;
+    colorUniforms.uShaderVariant.value = shaderVariantUniformFor(palette.shader);
   });
 
   onMount(() => {
@@ -223,15 +230,18 @@
 
   :global([data-theme='light']) .aurora-fallback {
     background:
-      radial-gradient(ellipse at 50% 92%, oklch(92% 0.16 72 / 0.58), transparent 42%),
-      radial-gradient(ellipse at 40% 74%, oklch(78% 0.22 42 / 0.34), transparent 30%),
-      radial-gradient(ellipse at 62% 68%, oklch(72% 0.22 25 / 0.28), transparent 28%),
-      radial-gradient(ellipse at 52% 50%, oklch(98% 0.08 88 / 0.24), transparent 25%),
-      linear-gradient(180deg, oklch(97% 0.025 78), oklch(94% 0.04 72) 58%, oklch(90% 0.07 58));
+      radial-gradient(ellipse at 50% 104%, oklch(45% 0.16 28 / 0.56), transparent 36%),
+      radial-gradient(ellipse at 43% 82%, oklch(66% 0.22 35 / 0.4), transparent 29%),
+      radial-gradient(ellipse at 62% 74%, oklch(78% 0.2 52 / 0.34), transparent 26%),
+      radial-gradient(ellipse at 48% 58%, oklch(96% 0.1 82 / 0.18), transparent 24%),
+      radial-gradient(ellipse at 58% 36%, oklch(62% 0.04 55 / 0.13), transparent 32%),
+      linear-gradient(180deg, oklch(97% 0.025 78), oklch(92% 0.045 70) 58%, oklch(78% 0.11 42));
   }
 
   :global([data-theme='light']) .aurora-fallback::after {
-    background: linear-gradient(180deg, transparent 42%, oklch(88% 0.12 52 / 0.44) 88%);
+    background:
+      radial-gradient(ellipse at 50% 26%, oklch(58% 0.025 55 / 0.16), transparent 34%),
+      linear-gradient(180deg, oklch(72% 0.025 55 / 0.12), transparent 44%, oklch(44% 0.14 28 / 0.34) 90%);
   }
 
   :global([data-theme='solarized-light']) .aurora-background {
