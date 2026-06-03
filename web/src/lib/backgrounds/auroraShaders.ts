@@ -94,20 +94,23 @@ export const auroraFragmentShader = /* glsl */ `
     darkColor += vec3(0.03, 0.11, 0.14) * horizon * vignette * 0.34;
     darkColor *= 0.56 + vignette * 0.64;
 
-    // Light theme: keep the same soft curtain falloff as the dark path, but render the
-    // aurora as a gentle tint that *darkens* the bright sky toward the ribbon colors
-    // (adding light to a near-white sky would wash out; over-blending makes harsh blobs).
-    // Each ribbon contributes a small, falloff-shaped amount so the bands stay wispy.
-    float la = a * softMask * shimmer * uIntensity;
-    float lb = b * softMask * shimmer * uIntensity;
-    float lc = c * softMask * shimmer * uIntensity;
-    // Weighted average hue of the aurora at this pixel, then a soft overall strength.
-    float wsum = la + lb * 0.72 + lc * 0.48 + 1e-4;
-    vec3 ribbonHue = (uRibbonA * la + uRibbonB * (lb * 0.72) + uRibbonC * (lc * 0.48)) / wsum;
-    float strength = clamp((la + lb * 0.72 + lc * 0.48) * 0.5, 0.0, 0.55);
-    // Multiply blend: tints and darkens the sky toward the ribbon color without saturating.
-    vec3 lightColor = color * mix(vec3(1.0), ribbonHue, strength);
-    lightColor *= 0.94 + vignette * 0.08;
+    // Light theme: render the aurora as flowing colored *light* (not a dark tint).
+    // Each curtain keeps its own hue and is composited with a screen-style blend
+    // 1-(1-sky)(1-ribbon*w), which adds saturated color while keeping the sky bright
+    // (multiplying would darken it into a dull shadow). The per-curtain animation and
+    // shimmer drive clearly visible motion despite the bright base.
+    float la = clamp(a * softMask * shimmer * uIntensity * 1.15, 0.0, 1.0);
+    float lb = clamp(b * softMask * shimmer * uIntensity * 1.05, 0.0, 1.0);
+    float lc = clamp(c * softMask * shimmer * uIntensity * 0.95, 0.0, 1.0);
+    // Screen each ribbon's color onto the sky in turn (order-independent enough here).
+    vec3 lightColor = color;
+    lightColor = 1.0 - (1.0 - lightColor) * (1.0 - uRibbonA * (la * 0.85));
+    lightColor = 1.0 - (1.0 - lightColor) * (1.0 - uRibbonB * (lb * 0.7));
+    lightColor = 1.0 - (1.0 - lightColor) * (1.0 - uRibbonC * (lc * 0.6));
+    // A faint moving sheen so the motion reads even in calm areas.
+    float sheen = fbm(vec2(uv.x * 3.0 - time * 0.22, uv.y * 4.0 + time * 0.16));
+    lightColor = mix(lightColor, lightColor * (0.97 + 0.06 * sheen), 0.6);
+    lightColor *= 0.95 + vignette * 0.07;
 
     color = mix(darkColor, lightColor, uLight);
 

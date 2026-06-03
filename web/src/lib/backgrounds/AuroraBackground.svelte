@@ -234,6 +234,23 @@
     background: linear-gradient(180deg, transparent, oklch(90% 0.02 250 / 0.5) 78%);
   }
 
+  :global([data-theme='solarized-light']) .aurora-background {
+    background: oklch(96% 0.025 90);
+  }
+
+  :global([data-theme='solarized-light']) .aurora-fallback {
+    background:
+      radial-gradient(circle at 50% 118%, oklch(88% 0.04 90 / 0.7), transparent 46%),
+      radial-gradient(ellipse at 28% 18%, oklch(80% 0.09 122 / 0.16), transparent 34%),
+      radial-gradient(ellipse at 74% 24%, oklch(74% 0.1 220 / 0.14), transparent 36%),
+      radial-gradient(ellipse at 52% 4%, oklch(76% 0.12 330 / 0.1), transparent 30%),
+      linear-gradient(180deg, oklch(98% 0.02 90), oklch(93% 0.03 92) 58%, oklch(96% 0.025 90));
+  }
+
+  :global([data-theme='solarized-light']) .aurora-fallback::after {
+    background: linear-gradient(180deg, transparent, oklch(91% 0.03 90 / 0.5) 78%);
+  }
+
   :global([data-theme='matrix']) .aurora-background {
     background: oklch(8% 0.04 152);
   }
