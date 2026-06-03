@@ -1052,7 +1052,7 @@
 <main class={roomMainClasses()}>
   <div class="mx-auto w-full max-w-7xl px-2 py-4 sm:px-8 sm:py-6">
     <nav class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-full border border-slate-700/70 bg-slate-900/75 px-4 py-3 shadow-2xl shadow-slate-950/40 sm:px-5">
-      <a class="text-lg font-black tracking-tight text-slate-50" href="/">Codewords</a>
+      <a class="hidden text-lg font-black tracking-tight text-slate-50 sm:inline" href="/">Codewords</a>
       <div class="flex min-w-0 flex-1 items-center justify-center gap-2 text-sm text-slate-300 sm:justify-end">
         <span class={['h-2.5 w-2.5 rounded-full', connection === 'connected' ? 'bg-emerald-300' : 'bg-amber-300']}></span>
         <span class="hidden min-[380px]:inline">{connection}</span>
