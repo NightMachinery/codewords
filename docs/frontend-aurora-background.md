@@ -26,6 +26,10 @@ Shader-level tuning lives in `web/src/lib/backgrounds/auroraShaders.ts`:
 - Each variant is its own fragment shader source. `AuroraBackground` swaps the material's
   `fragmentShader` and sets `needsUpdate` when the active theme changes, so a compile/runtime issue
   in one optional variant cannot disable the other variants.
+- `web/src/lib/backgrounds/auroraShaderCompile.test.ts` uses the lightweight
+  `@webgpu/glslang` WASM compiler to compile the exported shader bodies in CI/test runs. The test
+  adapts WebGL 1 declarations to GLSLang's SPIR-V profile only at test time; runtime shaders remain
+  the WebGL sources consumed by Three.js.
 - Dark themes use the `aurora` variant. `curtain(...)` controls the height, softness, strand density, and drift of each aurora band.
 - Light and Solarized Light use the preserved `clean-fire` variant. `flameTongue(...)` shapes cleaner rising flame licks and composites warm orange/gold/coral color plus white-hot cores and small rising embers over the pale sky.
 - `campfire` remains available as a separate variant. `campfireBody(...)`, `flameLick(...)`, `sparkField(...)`, and `smokeVeil(...)` combine uneven lower flame mass, torn rising licks, sparse sparks, and faint smoke/haze.

@@ -192,10 +192,10 @@ ${commonFragmentPrelude}
     float seed = hash(cell);
     vec2 jitter = vec2(seed - 0.5, hash(cell + vec2(13.7, 13.7)) - 0.5) * 0.28;
     float spark = 1.0 - smoothstep(0.0, 0.09, length(local + jitter));
-    float active = step(0.965, seed);
+    float sparkActive = step(0.965, seed);
     float heightFade = smoothstep(0.22, 0.78, uv.y) * (1.0 - smoothstep(0.46, 1.0, uv.y));
 
-    return spark * active * heightFade;
+    return spark * sparkActive * heightFade;
   }
 
   float smokeVeil(vec2 uv, float time) {

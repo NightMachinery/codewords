@@ -47,6 +47,9 @@ importers:
       '@types/three':
         specifier: ^0.184.0
         version: 0.184.0
+      '@webgpu/glslang':
+        specifier: 0.0.15
+        version: 0.0.15
       svelte-check:
         specifier: 4.3.4
         version: 4.3.4(svelte@5.55.5)(typescript@5.9.3)
@@ -551,6 +554,10 @@ packages:
       '@vitest/pretty-format': 4.1.5
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.0
+    dev: true
+
+  /@webgpu/glslang@0.0.15:
+    resolution: {integrity: sha512-niT+Prh3Aff8Uf1MVBVUsaNjFj9rJAKDXuoHIKiQbB+6IUP/3J3JIhBNyZ7lDhytvXxw6ppgnwKZdDJ08UMj4Q==}
     dev: true
 
   /acorn@8.16.0:
