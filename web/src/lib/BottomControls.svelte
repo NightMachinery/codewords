@@ -300,7 +300,7 @@
           </button>
         </div>
       {:else if role.activeGuesser && phase === 'active'}
-        <div class="flex w-full items-center justify-end">
+        <div class="flex items-center justify-end">
           <button
             class={pressableButtonClasses('inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-500 px-2.5 py-1.5 text-sm font-black text-slate-100 hover:border-emerald-300 hover:text-emerald-200 disabled:opacity-50 min-[440px]:px-4')}
             disabled={Boolean(passProblem)}
