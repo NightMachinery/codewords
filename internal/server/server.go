@@ -788,7 +788,7 @@ func boolValue(v any) bool {
 
 func sanitizeThemeID(v any) string {
 	switch v {
-	case "dark", "light", "matrix", "solarized-dark", "solarized-light", "spiderman", "dracula", "glitch":
+	case "dark", "light", "matrix", "solarized-dark", "solarized-light", "spiderman", "dracula", "glitch", "christmas-cozy", "christmas-snow", "christmas-candy":
 		return v.(string)
 	default:
 		return "dark"

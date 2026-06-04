@@ -1,4 +1,15 @@
-export type ThemeId = 'dark' | 'light' | 'matrix' | 'solarized-light' | 'solarized-dark' | 'spiderman' | 'dracula' | 'glitch';
+export type ThemeId =
+  | 'dark'
+  | 'light'
+  | 'matrix'
+  | 'solarized-light'
+  | 'solarized-dark'
+  | 'spiderman'
+  | 'dracula'
+  | 'glitch'
+  | 'christmas-cozy'
+  | 'christmas-snow'
+  | 'christmas-candy';
 
 export interface ThemeDescriptor {
   id: ThemeId;
@@ -15,6 +26,9 @@ export const THEMES: ThemeDescriptor[] = [
   { id: 'spiderman', label: 'Spider-Man', mode: 'dark' },
   { id: 'dracula', label: 'Dracula', mode: 'dark' },
   { id: 'glitch', label: 'Glitch', mode: 'dark' },
+  { id: 'christmas-cozy', label: 'Christmas Cozy', mode: 'dark' },
+  { id: 'christmas-snow', label: 'Christmas Snow', mode: 'light' },
+  { id: 'christmas-candy', label: 'Christmas Candy', mode: 'light' },
 ];
 
 export const themeIds: ThemeId[] = THEMES.map((theme) => theme.id);
@@ -33,7 +47,16 @@ export type AuroraShaderVariant =
   | 'dracula-card'
   | 'glitch-home'
   | 'glitch-board'
-  | 'glitch-card';
+  | 'glitch-card'
+  | 'christmas-cozy-home'
+  | 'christmas-cozy-board'
+  | 'christmas-cozy-card'
+  | 'christmas-snow-home'
+  | 'christmas-snow-board'
+  | 'christmas-snow-card'
+  | 'christmas-candy-home'
+  | 'christmas-candy-board'
+  | 'christmas-candy-card';
 
 /**
  * Per-theme palette for the landing-hero aurora shader. `sky*` are the vertical
@@ -142,6 +165,51 @@ export const auroraPalettes: Record<ThemeId, AuroraPalette> = {
     ribbonB: [0.48, 1.0, 0.08],
     ribbonC: [1.0, 0.08, 0.72],
   },
+  // Christmas Cozy: evergreen night with warm gold lights, holly red, and soft snow.
+  'christmas-cozy': {
+    shader: 'christmas-cozy-home',
+    surfaceShaders: {
+      home: 'christmas-cozy-home',
+      board: 'christmas-cozy-board',
+      card: 'christmas-cozy-card',
+    },
+    skyTop: [0.006, 0.024, 0.02],
+    skyMid: [0.02, 0.08, 0.055],
+    skyLow: [0.05, 0.12, 0.07],
+    ribbonA: [1.0, 0.78, 0.28],
+    ribbonB: [0.9, 0.08, 0.1],
+    ribbonC: [0.36, 0.9, 0.56],
+  },
+  // Christmas Snow: bright winter sky with frosted blue-white surfaces and holly accents.
+  'christmas-snow': {
+    shader: 'christmas-snow-home',
+    surfaceShaders: {
+      home: 'christmas-snow-home',
+      board: 'christmas-snow-board',
+      card: 'christmas-snow-card',
+    },
+    skyTop: [0.86, 0.94, 1.0],
+    skyMid: [0.94, 0.97, 1.0],
+    skyLow: [0.98, 0.99, 1.0],
+    ribbonA: [0.12, 0.45, 0.24],
+    ribbonB: [0.86, 0.08, 0.12],
+    ribbonC: [0.38, 0.66, 0.95],
+  },
+  // Christmas Candy: mint and cream surfaces with peppermint red/green holiday motion.
+  'christmas-candy': {
+    shader: 'christmas-candy-home',
+    surfaceShaders: {
+      home: 'christmas-candy-home',
+      board: 'christmas-candy-board',
+      card: 'christmas-candy-card',
+    },
+    skyTop: [0.98, 0.99, 0.94],
+    skyMid: [0.95, 1.0, 0.96],
+    skyLow: [1.0, 0.94, 0.9],
+    ribbonA: [0.92, 0.03, 0.08],
+    ribbonB: [0.0, 0.58, 0.25],
+    ribbonC: [1.0, 0.78, 0.82],
+  },
 };
 
 export function auroraPaletteFor(id: ThemeId, surface: ThemeShaderSurface = 'home'): AuroraPalette {
@@ -200,6 +268,21 @@ export const captureBackgrounds: Record<ThemeId, CaptureBackground> = {
     solid: '#03040a',
     gradient:
       'radial-gradient(circle at 12% 10%, rgba(0,240,255,0.24), transparent 30%), radial-gradient(circle at 84% 14%, rgba(255,20,170,0.18), transparent 32%), radial-gradient(circle at 52% 86%, rgba(115,255,24,0.14), transparent 36%), linear-gradient(135deg, #03040a, #07101b 52%, #020308)',
+  },
+  'christmas-cozy': {
+    solid: '#06140d',
+    gradient:
+      'radial-gradient(circle at 14% 10%, rgba(250,204,21,0.22), transparent 30%), radial-gradient(circle at 84% 15%, rgba(220,38,38,0.18), transparent 32%), radial-gradient(circle at 48% 88%, rgba(74,222,128,0.14), transparent 38%), linear-gradient(135deg, #06140d, #0b2417 52%, #08110c)',
+  },
+  'christmas-snow': {
+    solid: '#edf6fb',
+    gradient:
+      'radial-gradient(circle at 12% 10%, rgba(34,197,94,0.16), transparent 30%), radial-gradient(circle at 84% 15%, rgba(220,38,38,0.12), transparent 32%), radial-gradient(circle at 48% 88%, rgba(125,211,252,0.22), transparent 38%), linear-gradient(135deg, #f8fbff, #e9f4fb 52%, #dfeaf5)',
+  },
+  'christmas-candy': {
+    solid: '#fff7f3',
+    gradient:
+      'radial-gradient(circle at 12% 10%, rgba(239,68,68,0.16), transparent 30%), radial-gradient(circle at 84% 15%, rgba(34,197,94,0.16), transparent 32%), radial-gradient(circle at 48% 88%, rgba(251,113,133,0.14), transparent 38%), linear-gradient(135deg, #fffafa, #effdf5 52%, #fff1f2)',
   },
 };
 

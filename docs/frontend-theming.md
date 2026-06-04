@@ -1,8 +1,9 @@
 # Frontend Theming
 
-Codewords ships eight themes — **Dark** (the original look), **Light**, **Matrix**, **Solarized
-Dark**, **Solarized Light**, **Spider-Man**, **Dracula**, and **Glitch** — with optional automatic
-switching that follows the operating system's dark-mode preference.
+Codewords ships eleven themes — **Dark** (the original look), **Light**, **Matrix**, **Solarized
+Dark**, **Solarized Light**, **Spider-Man**, **Dracula**, **Glitch**, **Christmas Cozy**,
+**Christmas Snow**, and **Christmas Candy** — with optional automatic switching that follows the
+operating system's dark-mode preference.
 
 ## How themes are applied
 
@@ -27,6 +28,12 @@ just a matter of overriding those variables — no component edits are required.
   purple, pink, and cyan shader accents; `color-scheme: dark`.
 - **Glitch** — near-black CRT/digital-corruption surfaces with electric cyan, toxic green,
   magenta, and violet signal accents; `color-scheme: dark`.
+- **Christmas Cozy** — evergreen night surfaces with warm gold controls, holly red, and mint snow
+  accents; `color-scheme: dark`.
+- **Christmas Snow** — frosted blue-white surfaces with holly green controls and restrained red
+  accents; `color-scheme: light`.
+- **Christmas Candy** — peppermint cream and mint surfaces with candy-cane red controls and green
+  secondary accents; `color-scheme: light`.
 
 Team colors (`blue` = Libertarians, `red` = Monarchists) and warning `amber` are intentionally left
 at their Tailwind defaults so they stay recognizable in every theme. The exception: card/accent
@@ -82,17 +89,19 @@ bindable `effectiveThemeId` / `sessionOverride` / `themePreferences` props.
   smoother flame tongues and ember wisps. Dracula uses separate `dracula-home`, `dracula-board`,
   and `dracula-card` shader variants, selected through the `surface` prop. Glitch likewise uses
   `glitch-home`, `glitch-board`, and `glitch-card` for CRT scanlines, RGB tearing, broken slices,
-  and intermittent block noise. The shader's sky/ribbon colors and variant are fed from a
+  and intermittent block noise. The Christmas themes each use their own `home`, `board`, and `card`
+  shader variants for cozy string lights and snow, snowy frost veils, or peppermint stripe motion.
+  The shader's sky/ribbon colors and variant are fed from a
   per-theme `AuroraPalette` in `theme.ts` (`AuroraBackground` takes `theme` and `surface` props,
   updates uniforms reactively, and swaps complete fragment shader sources when the selected
   variant changes); the CSS fallback and base color mirror those palettes via `[data-theme]`
   selectors.
 - **Room board** (`web/src/lib/BoardGrid.svelte`): themes that define `surfaceShaders.board` and
   `surfaceShaders.card` render one shared board shader behind the grid and one distinct card-sheen
-  shader overlay above the grid, both decorative and pointer-events-free. Dracula and Glitch use
-  this path. Dracula gives revealed civilian cards a stronger amber surface after its generic card
-  backing so they remain distinct from unrevealed cards. Capture mode omits live shader layers so
-  memory exports stay stable.
+  shader overlay above the grid, both decorative and pointer-events-free. Dracula, Glitch, and the
+  Christmas themes use this path. Dracula gives revealed civilian cards a stronger amber surface
+  after its generic card backing so they remain distinct from unrevealed cards. Capture mode omits
+  live shader layers so memory exports stay stable.
 
 ## Moderator push (session only)
 

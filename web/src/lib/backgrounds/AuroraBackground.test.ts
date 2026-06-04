@@ -47,10 +47,21 @@ describe('AuroraBackground WebGL component contract', () => {
     expect(shaderSource).toContain('export const auroraFragmentShader');
     expect(shaderSource).toContain('export const cleanFireFragmentShader');
     expect(shaderSource).toContain('export const campfireFragmentShader');
+    expect(shaderSource).toContain('export const christmasCozyHomeFragmentShader');
+    expect(shaderSource).toContain('export const christmasSnowHomeFragmentShader');
+    expect(shaderSource).toContain('export const christmasCandyHomeFragmentShader');
     expect(shaderSource).toContain('auroraFragmentShaderFor');
     expect(componentSource).toContain('auroraFragmentShaderFor(activeShaderVariant)');
     expect(componentSource).toContain('shaderMaterial.fragmentShader = auroraFragmentShaderFor(activeShaderVariant)');
     expect(componentSource).toContain('shaderMaterial.needsUpdate = true');
     expect(componentSource).not.toContain('shaderVariantUniformFor');
+  });
+
+  it('defines CSS fallbacks for Christmas home, board, and card surfaces', () => {
+    for (const theme of ['christmas-cozy', 'christmas-snow', 'christmas-candy']) {
+      expect(componentSource).toContain(`:global([data-theme='${theme}']) .aurora-background`);
+      expect(componentSource).toContain(`:global([data-theme='${theme}']) .aurora-background[data-surface='board'] .aurora-fallback`);
+      expect(componentSource).toContain(`:global([data-theme='${theme}']) .aurora-background[data-surface='card'] .aurora-fallback`);
+    }
   });
 });

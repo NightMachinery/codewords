@@ -5,6 +5,7 @@ import {
   auroraPaletteFor,
   defaultThemePreferences,
   darkModeThemes,
+  lightModeThemes,
   readThemePreferences,
   resolveTheme,
   themePreferencesStorageKey,
@@ -39,9 +40,9 @@ describe('theme preferences', () => {
     expect(readThemePreferences(storage)).toEqual(prefs);
   });
 
-  it('accepts the Solarized, Spider-Man, Dracula, and Glitch theme ids', () => {
+  it('accepts the Solarized, Spider-Man, Dracula, Glitch, and Christmas theme ids', () => {
     const storage = new MemoryStorage();
-    const prefs: ThemePreferences = { auto: true, manual: 'glitch', darkTheme: 'glitch', lightTheme: 'solarized-light' };
+    const prefs: ThemePreferences = { auto: true, manual: 'christmas-candy', darkTheme: 'christmas-cozy', lightTheme: 'christmas-snow' };
     writeThemePreferences(storage, prefs);
     expect(readThemePreferences(storage)).toEqual(prefs);
   });
@@ -92,7 +93,7 @@ describe('resolveTheme', () => {
 });
 
 describe('THEMES catalog', () => {
-  it('exposes the eight themes with valid modes', () => {
+  it('exposes the eleven themes with valid modes', () => {
     expect(THEMES.map((t) => t.id)).toEqual([
       'dark',
       'light',
@@ -102,12 +103,17 @@ describe('THEMES catalog', () => {
       'spiderman',
       'dracula',
       'glitch',
+      'christmas-cozy',
+      'christmas-snow',
+      'christmas-candy',
     ]);
     for (const theme of THEMES) {
       expect(['dark', 'light']).toContain(theme.mode);
     }
     expect(darkModeThemes.map((theme) => theme.id)).toContain('dracula');
     expect(darkModeThemes.map((theme) => theme.id)).toContain('glitch');
+    expect(darkModeThemes.map((theme) => theme.id)).toContain('christmas-cozy');
+    expect(lightModeThemes.map((theme) => theme.id)).toEqual(expect.arrayContaining(['christmas-snow', 'christmas-candy']));
   });
 });
 
@@ -123,6 +129,15 @@ describe('aurora shader variants', () => {
       'glitch-home',
       'glitch-board',
       'glitch-card',
+      'christmas-cozy-home',
+      'christmas-cozy-board',
+      'christmas-cozy-card',
+      'christmas-snow-home',
+      'christmas-snow-board',
+      'christmas-snow-card',
+      'christmas-candy-home',
+      'christmas-candy-board',
+      'christmas-candy-card',
     ];
     for (const theme of THEMES) {
       expect(validVariants).toContain(auroraPalettes[theme.id].shader);
@@ -139,6 +154,14 @@ describe('aurora shader variants', () => {
     expect(auroraPaletteFor('glitch', 'home').shader).toBe('glitch-home');
     expect(auroraPaletteFor('glitch', 'board').shader).toBe('glitch-board');
     expect(auroraPaletteFor('glitch', 'card').shader).toBe('glitch-card');
+  });
+
+  it('uses surface-specific Christmas shader variants', () => {
+    for (const id of ['christmas-cozy', 'christmas-snow', 'christmas-candy'] as const) {
+      expect(auroraPaletteFor(id, 'home').shader).toBe(`${id}-home`);
+      expect(auroraPaletteFor(id, 'board').shader).toBe(`${id}-board`);
+      expect(auroraPaletteFor(id, 'card').shader).toBe(`${id}-card`);
+    }
   });
 
   it('uses campfire for Light, clean fire for Solarized Light, and aurora for base dark themes', () => {

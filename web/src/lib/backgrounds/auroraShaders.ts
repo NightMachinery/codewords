@@ -476,6 +476,294 @@ ${commonFragmentPrelude}
   }
 `;
 
+export const christmasCozyHomeFragmentShader = /* glsl */ `
+${commonFragmentPrelude}
+
+  float snowField(vec2 uv, float time, float scale, float speed) {
+    vec2 grid = vec2(uv.x * scale, uv.y * scale * 0.62 + time * speed);
+    vec2 cell = floor(grid);
+    vec2 local = fract(grid) - 0.5;
+    float seed = hash(cell);
+    vec2 drift = vec2(sin(time * 0.42 + seed * 6.28), cos(time * 0.25 + seed * 4.12)) * 0.18;
+    float flake = 1.0 - smoothstep(0.0, 0.075 + seed * 0.035, length(local + drift));
+    return flake * step(0.78, seed);
+  }
+
+  float stringLight(vec2 uv, float time) {
+    float wire = 1.0 - smoothstep(0.0, 0.035, abs(uv.y - (0.66 + sin(uv.x * 7.0 + time * 0.32) * 0.045)));
+    float bulb = pow(smoothstep(0.82, 1.0, sin(uv.x * 38.0 - time * 1.6) * 0.5 + 0.5), 5.0);
+    return wire * bulb;
+  }
+
+  void main() {
+    vec2 uv = vUv;
+    vec2 pixel = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
+    float time = uTime * uSpeed;
+    float vignette = vignetteFor(pixel);
+    float mist = fbm(vec2(uv.x * 2.2 + time * 0.05, uv.y * 2.8 - time * 0.06));
+    float ribbon = 1.0 - smoothstep(0.0, 0.32, abs(uv.y - (0.28 + mist * 0.26 + sin(uv.x * 3.2 + time * 0.22) * 0.08)));
+    float lights = stringLight(uv, time);
+    float snow = snowField(uv, time, 34.0, -0.22) + snowField(uv + vec2(0.11, 0.04), time, 52.0, -0.34) * 0.55;
+
+    vec3 color = skyColor(uv);
+    color += uRibbonC * ribbon * 0.34 * uIntensity;
+    color += uRibbonA * lights * 0.72 * uIntensity;
+    color += uRibbonB * pow(smoothstep(0.7, 1.0, mist), 3.0) * 0.18 * uIntensity;
+    color += vec3(0.92, 0.98, 1.0) * snow * 0.24;
+    color *= 0.56 + vignette * 0.68;
+
+    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+  }
+`;
+
+export const christmasCozyBoardFragmentShader = /* glsl */ `
+${commonFragmentPrelude}
+
+  float rollingGarland(vec2 uv, float time) {
+    float wave = sin(uv.x * 4.2 + time * 0.3) * 0.06 + fbm(vec2(uv.x * 2.8, uv.y * 2.0 - time * 0.08)) * 0.1;
+    float band = 1.0 - smoothstep(0.0, 0.22, abs(uv.y - (0.44 + wave)));
+    return band * smoothstep(0.08, 0.92, uv.y);
+  }
+
+  float emberSpecks(vec2 uv, float time) {
+    vec2 cell = floor(vec2(uv.x * 42.0, uv.y * 24.0));
+    float seed = hash(cell);
+    float pulse = 0.5 + 0.5 * sin(time * 2.2 + seed * 6.28);
+    return step(0.965, seed) * pulse;
+  }
+
+  void main() {
+    vec2 uv = vUv;
+    vec2 pixel = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
+    float time = uTime * uSpeed;
+    float vignette = vignetteFor(pixel);
+    float garland = rollingGarland(uv, time);
+    float specks = emberSpecks(uv, time);
+    float velvet = fbm(vec2(uv.x * 8.0 + time * 0.05, uv.y * 6.0 - time * 0.08));
+
+    vec3 color = mix(uSkyLow * 0.5, uSkyMid * 0.7, smoothstep(0.0, 1.0, uv.y));
+    color += uRibbonC * garland * 0.22 * uIntensity;
+    color += uRibbonA * specks * 0.26 * uIntensity;
+    color += uRibbonB * pow(smoothstep(0.72, 1.0, velvet), 3.0) * 0.1 * uIntensity;
+    color *= 0.56 + vignette * 0.56;
+
+    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+  }
+`;
+
+export const christmasCozyCardFragmentShader = /* glsl */ `
+${commonFragmentPrelude}
+
+  float warmSheen(vec2 uv, float time) {
+    float stripe = uv.x * 1.2 + uv.y * 0.72 + sin(uv.y * 5.0 + time * 0.45) * 0.04;
+    return 1.0 - smoothstep(0.0, 0.11, abs(fract(stripe - time * 0.08) - 0.5));
+  }
+
+  void main() {
+    vec2 uv = vUv;
+    vec2 pixel = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
+    float time = uTime * uSpeed;
+    float vignette = vignetteFor(pixel);
+    float sheen = warmSheen(uv, time);
+    float twinkle = step(0.972, hash(floor(vec2(uv.x * 48.0, uv.y * 28.0)) + floor(time * 5.0)));
+    float edge = 1.0 - smoothstep(0.2, 0.88, length(pixel * vec2(0.82, 1.08)));
+
+    vec3 color = vec3(0.0);
+    color += uRibbonA * sheen * 0.34 * uIntensity;
+    color += uRibbonC * edge * 0.12;
+    color += uRibbonB * twinkle * 0.16 * uIntensity;
+    color *= 0.58 + vignette * 0.62;
+
+    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+  }
+`;
+
+export const christmasSnowHomeFragmentShader = /* glsl */ `
+${commonFragmentPrelude}
+
+  float snowField(vec2 uv, float time, float scale, float speed) {
+    vec2 grid = vec2(uv.x * scale + sin(uv.y * 5.0 + time) * 0.18, uv.y * scale * 0.68 + time * speed);
+    vec2 cell = floor(grid);
+    vec2 local = fract(grid) - 0.5;
+    float seed = hash(cell);
+    float flake = 1.0 - smoothstep(0.0, 0.07 + seed * 0.03, length(local));
+    return flake * step(0.72, seed);
+  }
+
+  float frostRibbon(vec2 uv, float time) {
+    float flow = fbm(vec2(uv.x * 2.0 + time * 0.06, uv.y * 2.4 - time * 0.08));
+    float band = 1.0 - smoothstep(0.0, 0.28, abs(uv.y - (0.34 + flow * 0.22)));
+    return band * smoothstep(1.02, 0.08, uv.y);
+  }
+
+  void main() {
+    vec2 uv = vUv;
+    vec2 pixel = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
+    float time = uTime * uSpeed;
+    float vignette = vignetteFor(pixel);
+    float frost = frostRibbon(uv, time);
+    float snow = snowField(uv, time, 36.0, -0.28) + snowField(uv + vec2(0.09, 0.03), time, 58.0, -0.44) * 0.58;
+    float holly = pow(smoothstep(0.74, 1.0, fbm(vec2(uv.x * 5.0 - time * 0.08, uv.y * 4.0 + time * 0.04))), 3.0);
+
+    vec3 color = skyColor(uv);
+    color += uRibbonC * frost * 0.24 * uIntensity;
+    color += uRibbonA * holly * 0.08 * uIntensity;
+    color += uRibbonB * holly * 0.055 * uIntensity;
+    color += vec3(1.0) * snow * 0.2;
+    color *= 0.92 + vignette * 0.1;
+
+    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+  }
+`;
+
+export const christmasSnowBoardFragmentShader = /* glsl */ `
+${commonFragmentPrelude}
+
+  float iceVeil(vec2 uv, float time) {
+    float flow = fbm(vec2(uv.x * 3.8 + time * 0.04, uv.y * 5.2 - time * 0.06));
+    float roll = 1.0 - smoothstep(0.0, 0.34, abs(uv.y - (0.5 + sin(time * 0.12 + uv.x * 2.0) * 0.1)));
+    return roll * smoothstep(0.34, 0.92, flow);
+  }
+
+  void main() {
+    vec2 uv = vUv;
+    vec2 pixel = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
+    float time = uTime * uSpeed;
+    float vignette = vignetteFor(pixel);
+    float veil = iceVeil(uv, time);
+    float fine = fbm(vec2(uv.x * 18.0 + time * 0.05, uv.y * 10.0 - time * 0.07));
+
+    vec3 color = mix(uSkyLow * 0.92, uSkyMid * 0.98, smoothstep(0.0, 1.0, uv.y));
+    color += uRibbonC * veil * 0.12 * uIntensity;
+    color += uRibbonA * pow(smoothstep(0.76, 1.0, fine), 3.0) * 0.05 * uIntensity;
+    color += uRibbonB * pow(smoothstep(0.84, 1.0, fine), 4.0) * 0.035 * uIntensity;
+    color *= 0.94 + vignette * 0.08;
+
+    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+  }
+`;
+
+export const christmasSnowCardFragmentShader = /* glsl */ `
+${commonFragmentPrelude}
+
+  float frostSheen(vec2 uv, float time) {
+    float stripe = uv.x * 0.9 + uv.y * 1.15 + sin(uv.x * 6.0 + time * 0.28) * 0.035;
+    float sweep = 1.0 - smoothstep(0.0, 0.12, abs(fract(stripe - time * 0.05) - 0.5));
+    float crystal = pow(smoothstep(0.72, 1.0, fbm(vec2(uv.x * 16.0, uv.y * 16.0 - time * 0.08))), 3.0);
+    return sweep * 0.45 + crystal * 0.18;
+  }
+
+  void main() {
+    vec2 uv = vUv;
+    vec2 pixel = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
+    float time = uTime * uSpeed;
+    float vignette = vignetteFor(pixel);
+    float sheen = frostSheen(uv, time);
+    float edge = 1.0 - smoothstep(0.2, 0.88, length(pixel * vec2(0.82, 1.08)));
+
+    vec3 color = vec3(0.0);
+    color += uRibbonC * sheen * 0.22 * uIntensity;
+    color += uRibbonA * edge * 0.06;
+    color += vec3(1.0) * sheen * 0.05;
+    color *= 0.86 + vignette * 0.18;
+
+    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+  }
+`;
+
+export const christmasCandyHomeFragmentShader = /* glsl */ `
+${commonFragmentPrelude}
+
+  float peppermintStripe(vec2 uv, float time, float width) {
+    float diagonal = uv.x * 1.65 + uv.y * 1.05 - time * 0.12;
+    return smoothstep(width, 0.0, abs(fract(diagonal * 5.0) - 0.5));
+  }
+
+  float sugarSparkle(vec2 uv, float time) {
+    vec2 cell = floor(vec2(uv.x * 46.0, uv.y * 30.0));
+    float seed = hash(cell);
+    float pulse = 0.5 + 0.5 * sin(time * 3.0 + seed * 6.28);
+    return step(0.966, seed) * pulse;
+  }
+
+  void main() {
+    vec2 uv = vUv;
+    vec2 pixel = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
+    float time = uTime * uSpeed;
+    float vignette = vignetteFor(pixel);
+    float stripeA = peppermintStripe(uv, time, 0.18);
+    float stripeB = peppermintStripe(uv + vec2(0.16, -0.08), -time * 0.62, 0.12);
+    float mintFlow = fbm(vec2(uv.x * 2.8 - time * 0.08, uv.y * 2.4 + time * 0.06));
+    float sparkle = sugarSparkle(uv, time);
+
+    vec3 color = skyColor(uv);
+    color += uRibbonA * stripeA * 0.14 * uIntensity;
+    color += uRibbonB * stripeB * 0.12 * uIntensity;
+    color += uRibbonC * pow(smoothstep(0.7, 1.0, mintFlow), 2.6) * 0.11 * uIntensity;
+    color += vec3(1.0) * sparkle * 0.12;
+    color *= 0.9 + vignette * 0.12;
+
+    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+  }
+`;
+
+export const christmasCandyBoardFragmentShader = /* glsl */ `
+${commonFragmentPrelude}
+
+  float candyBand(vec2 uv, float time) {
+    float diagonal = uv.x * 1.2 + uv.y * 0.82 - time * 0.05;
+    float stripe = 1.0 - smoothstep(0.0, 0.09, abs(fract(diagonal * 4.0) - 0.5));
+    float mask = smoothstep(0.08, 0.92, uv.y) * smoothstep(1.02, 0.18, uv.y);
+    return stripe * mask;
+  }
+
+  void main() {
+    vec2 uv = vUv;
+    vec2 pixel = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
+    float time = uTime * uSpeed;
+    float vignette = vignetteFor(pixel);
+    float band = candyBand(uv, time);
+    float mint = fbm(vec2(uv.x * 7.0 + time * 0.04, uv.y * 5.0 - time * 0.06));
+
+    vec3 color = mix(uSkyLow * 0.94, uSkyMid * 0.98, smoothstep(0.0, 1.0, uv.y));
+    color += uRibbonA * band * 0.07 * uIntensity;
+    color += uRibbonB * pow(smoothstep(0.72, 1.0, mint), 3.0) * 0.08 * uIntensity;
+    color += uRibbonC * pow(smoothstep(0.82, 1.0, mint), 4.0) * 0.05 * uIntensity;
+    color *= 0.92 + vignette * 0.1;
+
+    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+  }
+`;
+
+export const christmasCandyCardFragmentShader = /* glsl */ `
+${commonFragmentPrelude}
+
+  float diagonalCandy(vec2 uv, float time) {
+    float diagonal = uv.x * 1.45 + uv.y * 0.98 - time * 0.1;
+    float stripe = 1.0 - smoothstep(0.0, 0.08, abs(fract(diagonal * 6.0) - 0.5));
+    float secondary = 1.0 - smoothstep(0.0, 0.045, abs(fract((diagonal + 0.18) * 6.0) - 0.5));
+    return stripe * 0.42 + secondary * 0.22;
+  }
+
+  void main() {
+    vec2 uv = vUv;
+    vec2 pixel = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
+    float time = uTime * uSpeed;
+    float vignette = vignetteFor(pixel);
+    float stripes = diagonalCandy(uv, time);
+    float edge = 1.0 - smoothstep(0.2, 0.88, length(pixel * vec2(0.82, 1.08)));
+    float sparkle = step(0.982, hash(floor(vec2(uv.x * 58.0, uv.y * 34.0)) + floor(time * 7.0)));
+
+    vec3 color = vec3(0.0);
+    color += uRibbonA * stripes * 0.18 * uIntensity;
+    color += uRibbonB * edge * 0.08;
+    color += uRibbonC * sparkle * 0.12 * uIntensity;
+    color *= 0.84 + vignette * 0.18;
+
+    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+  }
+`;
+
 export const auroraFragmentShaders: Record<AuroraShaderVariant, string> = {
   aurora: auroraFragmentShader,
   'clean-fire': cleanFireFragmentShader,
@@ -486,6 +774,15 @@ export const auroraFragmentShaders: Record<AuroraShaderVariant, string> = {
   'glitch-home': glitchHomeFragmentShader,
   'glitch-board': glitchBoardFragmentShader,
   'glitch-card': glitchCardFragmentShader,
+  'christmas-cozy-home': christmasCozyHomeFragmentShader,
+  'christmas-cozy-board': christmasCozyBoardFragmentShader,
+  'christmas-cozy-card': christmasCozyCardFragmentShader,
+  'christmas-snow-home': christmasSnowHomeFragmentShader,
+  'christmas-snow-board': christmasSnowBoardFragmentShader,
+  'christmas-snow-card': christmasSnowCardFragmentShader,
+  'christmas-candy-home': christmasCandyHomeFragmentShader,
+  'christmas-candy-board': christmasCandyBoardFragmentShader,
+  'christmas-candy-card': christmasCandyCardFragmentShader,
 };
 
 export function auroraFragmentShaderFor(variant: AuroraShaderVariant): string {

@@ -24,7 +24,10 @@ Shader-level tuning lives in `web/src/lib/backgrounds/auroraShaders.ts`:
 
 - Themes choose a procedural shader variant through `auroraPalettes` in `web/src/lib/theme.ts`:
   `aurora`, `clean-fire`, `campfire`, `dracula-home`, `dracula-board`, `dracula-card`,
-  `glitch-home`, `glitch-board`, or `glitch-card`.
+  `glitch-home`, `glitch-board`, `glitch-card`, `christmas-cozy-home`,
+  `christmas-cozy-board`, `christmas-cozy-card`, `christmas-snow-home`,
+  `christmas-snow-board`, `christmas-snow-card`, `christmas-candy-home`,
+  `christmas-candy-board`, or `christmas-candy-card`.
 - Each variant is its own fragment shader source. `AuroraBackground` swaps the material's
   `fragmentShader` and sets `needsUpdate` when the active theme changes, so a compile/runtime issue
   in one optional variant cannot disable the other variants.
@@ -43,6 +46,10 @@ Shader-level tuning lives in `web/src/lib/backgrounds/auroraShaders.ts`:
   is a darker board backing with slow rolling interference and broken horizontal slices; and
   `glitch-card` is a sharper chromatic card overlay with thin scanlines and intermittent block
   noise.
+- The Christmas themes also use three variants each. `christmas-cozy-*` combines evergreen night,
+  warm string-light twinkles, garland bands, and soft snow; `christmas-snow-*` uses bright winter
+  sky, falling snow, frosted board veils, and icy card sheen; `christmas-candy-*` uses peppermint
+  diagonal stripe motion, mint flow, and small sugar-like sparkles.
 - `vignette`, `softMask`, and horizon glow keep the dark aurora restrained, while fire variants avoid dark multiply-style blending so they do not collapse into a shadow blob.
 
 Do not add images, videos, GIFs, particles, or texture dependencies for this background; it is intentionally procedural.

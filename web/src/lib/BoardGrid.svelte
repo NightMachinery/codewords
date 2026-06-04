@@ -199,4 +199,33 @@
       inset 0 0 0 1px oklch(88% 0.22 145 / 0.14),
       0 16px 34px oklch(3% 0.02 250 / 0.46);
   }
+
+  :global([data-theme='christmas-cozy']) .surface-shader-board-card {
+    background-color: oklch(13% 0.035 154 / 0.78);
+    border-color: oklch(82% 0.17 88 / 0.18);
+    box-shadow:
+      inset 0 0 0 1px oklch(82% 0.17 88 / 0.05),
+      0 14px 28px oklch(5% 0.025 154 / 0.34);
+  }
+
+  :global([data-theme='christmas-snow']) .surface-board-shader,
+  :global([data-theme='christmas-candy']) .surface-board-shader {
+    opacity: 0.58;
+    filter: saturate(1.02);
+  }
+
+  :global([data-theme='christmas-snow']) .surface-card-shader,
+  :global([data-theme='christmas-candy']) .surface-card-shader {
+    opacity: 0.18;
+    mix-blend-mode: multiply;
+  }
+
+  :global([data-theme='christmas-snow']) .surface-shader-board-card,
+  :global([data-theme='christmas-candy']) .surface-shader-board-card {
+    background-color: oklch(98% 0.01 230 / 0.72);
+    border-color: oklch(44% 0.05 236 / 0.16);
+    box-shadow:
+      inset 0 0 0 1px oklch(100% 0 0 / 0.7),
+      0 12px 24px oklch(28% 0.04 230 / 0.14);
+  }
 </style>

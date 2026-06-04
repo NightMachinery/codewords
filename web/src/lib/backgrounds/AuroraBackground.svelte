@@ -314,6 +314,103 @@
       radial-gradient(ellipse at 52% 45%, oklch(82% 0.11 215 / 0.12), transparent 54%);
   }
 
+  :global([data-theme='christmas-cozy']) .aurora-background {
+    background: oklch(12% 0.035 154);
+  }
+
+  :global([data-theme='christmas-cozy']) .aurora-fallback {
+    background:
+      radial-gradient(ellipse at 24% 18%, oklch(82% 0.17 88 / 0.2), transparent 34%),
+      radial-gradient(ellipse at 76% 24%, oklch(62% 0.2 26 / 0.16), transparent 36%),
+      radial-gradient(ellipse at 50% 98%, oklch(78% 0.14 150 / 0.16), transparent 44%),
+      linear-gradient(180deg, oklch(9% 0.034 154), oklch(17% 0.05 154) 58%, oklch(8% 0.028 154));
+  }
+
+  :global([data-theme='christmas-cozy']) .aurora-fallback::after {
+    background:
+      radial-gradient(circle at 36% 28%, oklch(92% 0.1 90 / 0.12), transparent 12%),
+      linear-gradient(180deg, transparent, oklch(7% 0.026 154 / 0.56) 82%);
+  }
+
+  :global([data-theme='christmas-cozy']) .aurora-background[data-surface='board'] .aurora-fallback {
+    background:
+      radial-gradient(ellipse at 24% 42%, oklch(80% 0.15 88 / 0.18), transparent 44%),
+      radial-gradient(ellipse at 72% 58%, oklch(72% 0.15 150 / 0.14), transparent 44%),
+      linear-gradient(180deg, oklch(9% 0.032 154), oklch(15% 0.044 154));
+  }
+
+  :global([data-theme='christmas-cozy']) .aurora-background[data-surface='card'] .aurora-fallback {
+    background:
+      linear-gradient(118deg, transparent 18%, oklch(82% 0.17 88 / 0.14) 38%, transparent 58%),
+      linear-gradient(142deg, transparent 26%, oklch(62% 0.2 26 / 0.1) 48%, transparent 68%),
+      radial-gradient(ellipse at 52% 45%, oklch(78% 0.14 150 / 0.1), transparent 54%);
+  }
+
+  :global([data-theme='christmas-snow']) .aurora-background {
+    background: oklch(96.5% 0.018 230);
+  }
+
+  :global([data-theme='christmas-snow']) .aurora-fallback {
+    background:
+      radial-gradient(ellipse at 26% 18%, oklch(54% 0.15 150 / 0.14), transparent 34%),
+      radial-gradient(ellipse at 74% 24%, oklch(56% 0.2 28 / 0.1), transparent 36%),
+      radial-gradient(ellipse at 50% 98%, oklch(76% 0.11 225 / 0.22), transparent 44%),
+      linear-gradient(180deg, oklch(98% 0.012 230), oklch(94% 0.026 228) 58%, oklch(88% 0.045 226));
+  }
+
+  :global([data-theme='christmas-snow']) .aurora-fallback::after {
+    background:
+      radial-gradient(circle at 30% 22%, oklch(100% 0 0 / 0.3), transparent 16%),
+      linear-gradient(180deg, oklch(100% 0 0 / 0.1), transparent 48%, oklch(72% 0.07 225 / 0.22) 90%);
+  }
+
+  :global([data-theme='christmas-snow']) .aurora-background[data-surface='board'] .aurora-fallback {
+    background:
+      radial-gradient(ellipse at 24% 42%, oklch(76% 0.11 225 / 0.2), transparent 44%),
+      radial-gradient(ellipse at 72% 58%, oklch(54% 0.15 150 / 0.08), transparent 44%),
+      linear-gradient(180deg, oklch(97% 0.012 230), oklch(91% 0.032 226));
+  }
+
+  :global([data-theme='christmas-snow']) .aurora-background[data-surface='card'] .aurora-fallback {
+    background:
+      linear-gradient(118deg, transparent 18%, oklch(76% 0.11 225 / 0.16) 38%, transparent 58%),
+      linear-gradient(142deg, transparent 26%, oklch(100% 0 0 / 0.22) 48%, transparent 68%),
+      radial-gradient(ellipse at 52% 45%, oklch(54% 0.15 150 / 0.06), transparent 54%);
+  }
+
+  :global([data-theme='christmas-candy']) .aurora-background {
+    background: oklch(96.2% 0.02 150);
+  }
+
+  :global([data-theme='christmas-candy']) .aurora-fallback {
+    background:
+      repeating-linear-gradient(128deg, oklch(60% 0.22 24 / 0.12) 0 18px, transparent 18px 58px),
+      radial-gradient(ellipse at 24% 18%, oklch(60% 0.2 24 / 0.14), transparent 34%),
+      radial-gradient(ellipse at 76% 24%, oklch(56% 0.16 150 / 0.14), transparent 36%),
+      radial-gradient(ellipse at 50% 98%, oklch(82% 0.1 350 / 0.16), transparent 44%),
+      linear-gradient(180deg, oklch(99% 0.01 130), oklch(95% 0.026 150) 58%, oklch(92% 0.04 160));
+  }
+
+  :global([data-theme='christmas-candy']) .aurora-fallback::after {
+    background:
+      repeating-linear-gradient(128deg, transparent 0 46px, oklch(56% 0.16 150 / 0.08) 46px 54px),
+      linear-gradient(180deg, oklch(100% 0 0 / 0.1), transparent 52%, oklch(72% 0.08 24 / 0.18) 90%);
+  }
+
+  :global([data-theme='christmas-candy']) .aurora-background[data-surface='board'] .aurora-fallback {
+    background:
+      repeating-linear-gradient(128deg, oklch(60% 0.22 24 / 0.08) 0 14px, transparent 14px 48px),
+      radial-gradient(ellipse at 72% 58%, oklch(56% 0.16 150 / 0.12), transparent 44%),
+      linear-gradient(180deg, oklch(98% 0.01 130), oklch(93% 0.026 154));
+  }
+
+  :global([data-theme='christmas-candy']) .aurora-background[data-surface='card'] .aurora-fallback {
+    background:
+      repeating-linear-gradient(128deg, oklch(60% 0.22 24 / 0.1) 0 9px, transparent 9px 30px),
+      linear-gradient(118deg, transparent 18%, oklch(56% 0.16 150 / 0.12) 38%, transparent 58%),
+      radial-gradient(ellipse at 52% 45%, oklch(82% 0.1 350 / 0.12), transparent 54%);
+  }
+
   canvas {
     display: block;
     opacity: 0;

@@ -22,6 +22,11 @@ describe('BoardGrid surface shader contract', () => {
     expect(componentSource).toContain('if (captureMode) return null');
   });
 
+  it('has theme-specific light Christmas shader overlay tuning hooks', () => {
+    expect(componentSource).toContain(":global([data-theme='christmas-snow']) .surface-card-shader");
+    expect(componentSource).toContain(":global([data-theme='christmas-candy']) .surface-card-shader");
+  });
+
   it('keeps Dracula revealed civilian cards distinct from unrevealed cards', () => {
     const baseRuleIndex = componentSource.indexOf(":global([data-theme='dracula']) .surface-shader-board-card {");
     const civilianRuleIndex = componentSource.indexOf(":global([data-theme='dracula']) .surface-shader-board-card.revealed-civilian-card");

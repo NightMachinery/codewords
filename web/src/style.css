@@ -295,6 +295,131 @@
   --color-teal-100: oklch(94% 0.1 185);
 }
 
+/*
+ * Christmas Cozy: evergreen night surfaces, warm string-light gold, holly red,
+ * and soft mint accents.
+ */
+[data-theme='christmas-cozy'] {
+  color-scheme: dark;
+
+  --color-slate-950: oklch(12% 0.035 154);
+  --color-slate-900: oklch(16% 0.045 154);
+  --color-slate-800: oklch(23% 0.055 154);
+  --color-slate-700: oklch(32% 0.065 154);
+  --color-slate-600: oklch(44% 0.07 154);
+  --color-slate-500: oklch(56% 0.065 154);
+  --color-slate-400: oklch(70% 0.052 154);
+  --color-slate-300: oklch(82% 0.04 150);
+  --color-slate-200: oklch(90% 0.032 145);
+  --color-slate-100: oklch(96% 0.024 120);
+  --color-slate-50: oklch(98% 0.014 105);
+
+  --color-zinc-950: oklch(11% 0.03 154);
+  --color-zinc-300: oklch(82% 0.04 150);
+  --color-zinc-100: oklch(96% 0.024 120);
+  --color-zinc-50: oklch(98% 0.014 105);
+
+  /* Accent: warm gold controls over deep evergreen chrome. */
+  --color-emerald-50: oklch(98% 0.055 94);
+  --color-emerald-100: oklch(93% 0.11 92);
+  --color-emerald-200: oklch(87% 0.15 90);
+  --color-emerald-300: oklch(80% 0.17 88);
+  --color-emerald-400: oklch(72% 0.18 84);
+  --color-emerald-950: oklch(28% 0.08 92);
+
+  --color-cyan-300: oklch(82% 0.11 170);
+  --color-cyan-200: oklch(88% 0.09 170);
+  --color-cyan-100: oklch(93% 0.065 170);
+  --color-teal-300: oklch(78% 0.15 150);
+  --color-teal-200: oklch(84% 0.12 150);
+  --color-teal-100: oklch(90% 0.085 150);
+}
+
+/*
+ * Christmas Snow: blue-white winter surfaces with holly green controls and
+ * restrained red accents for contrast.
+ */
+[data-theme='christmas-snow'] {
+  color-scheme: light;
+
+  --color-slate-950: oklch(98.6% 0.01 230);
+  --color-slate-900: oklch(96.5% 0.018 230);
+  --color-slate-800: oklch(92% 0.028 230);
+  --color-slate-700: oklch(85% 0.038 230);
+  --color-slate-600: oklch(68% 0.052 232);
+  --color-slate-500: oklch(54% 0.055 234);
+  --color-slate-400: oklch(44% 0.05 236);
+  --color-slate-300: oklch(36% 0.05 238);
+  --color-slate-200: oklch(28% 0.047 240);
+  --color-slate-100: oklch(21% 0.044 242);
+  --color-slate-50: oklch(14% 0.04 244);
+
+  --color-zinc-950: oklch(98.8% 0.006 230);
+  --color-zinc-300: oklch(36% 0.04 238);
+  --color-zinc-100: oklch(21% 0.038 242);
+  --color-zinc-50: oklch(14% 0.036 244);
+
+  --color-emerald-50: oklch(96% 0.04 150);
+  --color-emerald-100: oklch(54% 0.15 150);
+  --color-emerald-200: oklch(60% 0.15 150);
+  --color-emerald-300: oklch(50% 0.15 150);
+  --color-emerald-400: oklch(44% 0.14 150);
+  --color-emerald-950: oklch(24% 0.08 150);
+
+  --color-cyan-300: oklch(52% 0.12 225);
+  --color-cyan-200: oklch(47% 0.11 225);
+  --color-cyan-100: oklch(42% 0.1 225);
+  --color-teal-300: oklch(50% 0.12 170);
+  --color-teal-200: oklch(45% 0.11 170);
+  --color-teal-100: oklch(40% 0.1 170);
+
+  --color-amber-100: oklch(50% 0.13 74);
+  --color-amber-200: oklch(56% 0.14 74);
+}
+
+/*
+ * Christmas Candy: peppermint cream and mint surfaces with crisp red/green
+ * accents. The light ramp stays cool enough to avoid reading as beige.
+ */
+[data-theme='christmas-candy'] {
+  color-scheme: light;
+
+  --color-slate-950: oklch(98.4% 0.012 150);
+  --color-slate-900: oklch(96.2% 0.02 150);
+  --color-slate-800: oklch(92% 0.028 155);
+  --color-slate-700: oklch(85% 0.036 158);
+  --color-slate-600: oklch(68% 0.052 160);
+  --color-slate-500: oklch(54% 0.055 164);
+  --color-slate-400: oklch(44% 0.052 168);
+  --color-slate-300: oklch(36% 0.05 172);
+  --color-slate-200: oklch(28% 0.047 176);
+  --color-slate-100: oklch(21% 0.044 180);
+  --color-slate-50: oklch(14% 0.04 184);
+
+  --color-zinc-950: oklch(98.8% 0.006 150);
+  --color-zinc-300: oklch(36% 0.04 172);
+  --color-zinc-100: oklch(21% 0.038 180);
+  --color-zinc-50: oklch(14% 0.036 184);
+
+  /* Accent: candy-cane red in the existing emerald control slots. */
+  --color-emerald-50: oklch(97% 0.04 24);
+  --color-emerald-100: oklch(58% 0.2 24);
+  --color-emerald-200: oklch(64% 0.21 24);
+  --color-emerald-300: oklch(54% 0.22 24);
+  --color-emerald-400: oklch(48% 0.21 24);
+  --color-emerald-950: oklch(25% 0.1 24);
+
+  --color-cyan-300: oklch(50% 0.13 164);
+  --color-cyan-200: oklch(45% 0.12 164);
+  --color-cyan-100: oklch(40% 0.11 164);
+  --color-teal-300: oklch(52% 0.14 150);
+  --color-teal-200: oklch(46% 0.13 150);
+  --color-teal-100: oklch(41% 0.12 150);
+
+  --color-amber-100: oklch(50% 0.13 74);
+  --color-amber-200: oklch(56% 0.14 74);
+}
+
 body {
   margin: 0;
   min-width: 320px;
