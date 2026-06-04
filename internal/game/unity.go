@@ -470,19 +470,7 @@ func (s *State) endUnityTurn(ownerID string, charge bool, now time.Time) {
 	if charge && !s.chargeUnityTurn(ownerID) {
 		return
 	}
-	if s.Settings.UnityStrictPerBoardTurns && !s.Settings.UnityUnlimitedTurns {
-		board := s.UnityBoards[ownerID]
-		if board.TurnsUsed >= s.Settings.UnityTurnLimit && s.unityRemainingFor(ownerID) > 0 {
-			s.unityLose("turn_limit")
-			return
-		}
-	}
-	if !s.Settings.UnityStrictPerBoardTurns && !s.Settings.UnityUnlimitedTurns && s.UnitySharedTurnsRemaining <= 0 && !s.allActiveUnityBoardsSolved() {
-		if s.hasEligibleUnityGuessers() {
-			s.unityLose("turn_pool_empty")
-		} else {
-			s.UnityWaitingForGuessers = true
-		}
+	if s.resolveUnityBudgetExhausted(ownerID) {
 		return
 	}
 	s.advanceUnityTurnFromAt(s.unityBoardIndex(ownerID), now)
@@ -500,6 +488,9 @@ func (s *State) endCompletedUnityBoardTurn(ownerID string, charge bool, now time
 		s.unityWin("all_unity_found")
 		return
 	}
+	if s.resolveUnityBudgetExhausted(ownerID) {
+		return
+	}
 	startIndex := s.unityBoardIndex(ownerID)
 	for offset := 1; offset <= len(s.UnityBoardOrder); offset++ {
 		idx := (startIndex + offset) % len(s.UnityBoardOrder)
@@ -508,6 +499,9 @@ func (s *State) endCompletedUnityBoardTurn(ownerID string, charge bool, now time
 			continue
 		}
 		s.setUnityActiveBoard(nextOwnerID, now)
+		if s.resolveUnityBudgetExhausted(nextOwnerID) {
+			return
+		}
 		s.UnityWaitingForGuessers = !s.hasEligibleUnityGuessers()
 		if !s.UnityWaitingForGuessers {
 			s.Round = s.startRound(TeamUnity)
@@ -516,6 +510,29 @@ func (s *State) endCompletedUnityBoardTurn(ownerID string, charge bool, now time
 		return
 	}
 	s.UnityWaitingForGuessers = true
+}
+
+func (s *State) resolveUnityBudgetExhausted(ownerID string) bool {
+	if s.Settings.UnityUnlimitedTurns {
+		return false
+	}
+	if s.Settings.UnityStrictPerBoardTurns {
+		board := s.UnityBoards[ownerID]
+		if board.TurnsUsed >= s.Settings.UnityTurnLimit && s.unityRemainingFor(ownerID) > 0 {
+			s.unityLose("turn_limit")
+			return true
+		}
+		return false
+	}
+	if s.UnitySharedTurnsRemaining > 0 || s.allActiveUnityBoardsSolved() {
+		return false
+	}
+	if s.hasEligibleUnityGuessers() {
+		s.unityLose("turn_pool_empty")
+	} else {
+		s.UnityWaitingForGuessers = true
+	}
+	return true
 }
 
 func (c SubmitClueCommand) submitUnityClue(state *State, actorID string) (Event, error) {

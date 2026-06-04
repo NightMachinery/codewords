@@ -458,6 +458,25 @@ func TestUnitySolvingOneBoardAutoRotatesWithoutExtraSharedTurn(t *testing.T) {
 	}
 }
 
+func TestUnityLastSharedTurnLossResolvesImmediatelyAfterBoardCompletion(t *testing.T) {
+	state := unityLobby(t, Settings{Mode: ModeUnity, Seed: 561, UnityTurnLimit: 1})
+	mustApply(t, &state, StartCommand{GameID: "game-shared-empty-complete-board", Words: makeWords(80)}, "host")
+	state.ActiveBoardOwner = "host"
+	state.UnitySharedTurnsRemaining = 1
+	setUnityBoardColors(&state, "host", []Color{ColorUnity})
+	setUnityBoardColors(&state, "p2", []Color{ColorUnity})
+	setUnityBoardColors(&state, "p3", []Color{})
+
+	mustApply(t, &state, GuessCommand{Index: 0}, "p2")
+
+	if state.Phase != PhaseGameOver || state.Winner != TeamObservers {
+		t.Fatalf("last shared turn with unfinished boards should lose immediately, phase=%s winner=%s", state.Phase, state.Winner)
+	}
+	if state.UnityEndStats == nil || state.UnityEndStats.Reason != "turn_pool_empty" {
+		t.Fatalf("expected turn_pool_empty stats, got %#v", state.UnityEndStats)
+	}
+}
+
 func TestUnityStrictPerBoardLimitLosesAfterKthTurnEnds(t *testing.T) {
 	state := unityLobby(t, Settings{Mode: ModeUnity, Seed: 57, UnityTurnLimit: 1, UnityStrictPerBoardTurns: true})
 	mustApply(t, &state, StartCommand{GameID: "game-7", Words: makeWords(80)}, "host")
@@ -468,6 +487,27 @@ func TestUnityStrictPerBoardLimitLosesAfterKthTurnEnds(t *testing.T) {
 	mustApply(t, &state, GuessCommand{Index: 0}, "p2")
 	if state.Phase != PhaseGameOver || state.Winner != TeamObservers {
 		t.Fatalf("strict per-board limit should lose after Kth unfinished turn, phase=%s winner=%s", state.Phase, state.Winner)
+	}
+}
+
+func TestUnityStrictPerBoardLimitLossResolvesImmediatelyAfterBoardCompletion(t *testing.T) {
+	state := unityLobby(t, Settings{Mode: ModeUnity, Seed: 572, UnityTurnLimit: 1, UnityStrictPerBoardTurns: true})
+	mustApply(t, &state, StartCommand{GameID: "game-strict-empty-complete-board", Words: makeWords(80)}, "host")
+	state.ActiveBoardOwner = "host"
+	setUnityBoardColors(&state, "host", []Color{ColorUnity})
+	setUnityBoardColors(&state, "p2", []Color{ColorUnity})
+	setUnityBoardColors(&state, "p3", []Color{})
+	p2Board := state.UnityBoards["p2"]
+	p2Board.TurnsUsed = 1
+	state.UnityBoards["p2"] = p2Board
+
+	mustApply(t, &state, GuessCommand{Index: 0}, "p2")
+
+	if state.Phase != PhaseGameOver || state.Winner != TeamObservers {
+		t.Fatalf("rotating to an unfinished board with no strict turns should lose immediately, phase=%s winner=%s active=%s", state.Phase, state.Winner, state.ActiveBoardOwner)
+	}
+	if state.UnityEndStats == nil || state.UnityEndStats.Reason != "turn_limit" {
+		t.Fatalf("expected turn_limit stats, got %#v", state.UnityEndStats)
 	}
 }
 
