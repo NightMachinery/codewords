@@ -29,7 +29,7 @@
     type LastSelected,
   } from './gameplay';
   import type { Settings } from './api';
-  import type { ThemeId } from './theme';
+  import { auroraPaletteFor, type ThemeId, type ThemeShaderSurface } from './theme';
   import AuroraBackground from './backgrounds/AuroraBackground.svelte';
   import FitCardWord from './FitCardWord.svelte';
 
@@ -65,15 +65,22 @@
     theme?: ThemeId;
   }>();
 
+  function surfaceShaderTheme(theme: ThemeId, surface: ThemeShaderSurface, captureMode: boolean): ThemeId | null {
+    if (captureMode) return null;
+    return auroraPaletteFor(theme, surface).surfaceShaders?.[surface] ? theme : null;
+  }
+
   let activeColumns = $derived(preferences.boardColumnsDesktop);
   let mobileColumns = $derived(preferences.boardColumnsMobile);
-  let draculaShadersActive = $derived(theme === 'dracula' && !captureMode);
+  let boardShaderTheme = $derived(surfaceShaderTheme(theme, 'board', captureMode));
+  let cardShaderTheme = $derived(surfaceShaderTheme(theme, 'card', captureMode));
+  let surfaceShadersActive = $derived(Boolean(boardShaderTheme || cardShaderTheme));
 </script>
 
-<div class={[boardGridContainerClasses(), 'board-grid-shell', draculaShadersActive && 'dracula-board-grid-shell'].filter(Boolean).join(' ')}>
-  {#if draculaShadersActive}
-    <div class="dracula-board-shader">
-      <AuroraBackground theme="dracula" surface="board" intensity={0.78} speed={0.34} />
+<div class={[boardGridContainerClasses(), 'board-grid-shell', surfaceShadersActive && 'surface-shader-board-grid-shell'].filter(Boolean).join(' ')}>
+  {#if boardShaderTheme}
+    <div class="surface-board-shader">
+      <AuroraBackground theme={boardShaderTheme} surface="board" intensity={0.78} speed={0.34} />
     </div>
   {/if}
   <div id={captureMode ? undefined : 'board'} class={[boardGridLayoutClasses(captureMode), 'relative z-10'].join(' ')} style={boardGridStyle(mobileColumns, activeColumns)}>
@@ -84,7 +91,7 @@
       {@const customColor = card.color === 'blue' ? teamColor('blue', settings) : card.color === 'red' ? teamColor('red', settings) : card.color === 'unity' ? teamColor('unity', settings) : ''}
       {@const disabledReason = guessDisabledReason(card)}
       <button
-        class={pressableButtonClasses(['group relative', boardCardSpanClasses(captureMode), 'rounded-xl border text-left duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', draculaShadersActive ? 'dracula-board-card' : '', cardAspectRatioClasses(card, preferences.strictCardAspectRatios), cardChromeClasses(card, view.isLastSelected), view.classes, cardDisabledStateClasses({ disabled: !role.activeGuesser || card.revealed || phase !== 'active', revealed: card.revealed, revealedStyle })].join(' '))}
+        class={pressableButtonClasses(['group relative', boardCardSpanClasses(captureMode), 'rounded-xl border text-left duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', surfaceShadersActive ? 'surface-shader-board-card' : '', cardAspectRatioClasses(card, preferences.strictCardAspectRatios), cardChromeClasses(card, view.isLastSelected), view.classes, cardDisabledStateClasses({ disabled: !role.activeGuesser || card.revealed || phase !== 'active', revealed: card.revealed, revealedStyle })].join(' '))}
         style={`${imageCardGridStyle(card, activeColumns, preferences.imageCardScale, mobileColumns)} ${cardChromePaddingStyle(card)} ${cardChromeStyle(card, view.visibleColor, customColor, view.isLastSelected)}`}
         disabled={Boolean(disabledReason)}
         title={disabledReason || `Reveal ${cardContentLabel(card)}`}
@@ -115,9 +122,9 @@
       <p class="col-span-full rounded-2xl border border-slate-700 bg-slate-950 p-6 text-slate-300">Waiting for the board snapshot...</p>
     {/each}
   </div>
-  {#if draculaShadersActive}
-    <div class="dracula-card-shader">
-      <AuroraBackground theme="dracula" surface="card" intensity={0.64} speed={0.58} />
+  {#if cardShaderTheme}
+    <div class="surface-card-shader">
+      <AuroraBackground theme={cardShaderTheme} surface="card" intensity={0.64} speed={0.58} />
     </div>
   {/if}
 </div>
@@ -128,11 +135,11 @@
     isolation: isolate;
   }
 
-  .dracula-board-grid-shell {
+  .surface-shader-board-grid-shell {
     border-radius: 1.25rem;
   }
 
-  .dracula-board-shader {
+  .surface-board-shader {
     position: absolute;
     inset: -0.75rem;
     z-index: 0;
@@ -140,9 +147,10 @@
     border-radius: 1.5rem;
     opacity: 0.82;
     filter: saturate(1.08);
+    pointer-events: none;
   }
 
-  .dracula-card-shader {
+  .surface-card-shader {
     position: absolute;
     inset: 0;
     z-index: 20;
@@ -153,7 +161,7 @@
     pointer-events: none;
   }
 
-  :global([data-theme='dracula']) .dracula-board-card {
+  :global([data-theme='dracula']) .surface-shader-board-card {
     background-color: oklch(19% 0.035 294 / 0.74);
     border-color: oklch(74% 0.16 306 / 0.2);
     box-shadow:
@@ -161,10 +169,25 @@
       0 14px 28px oklch(8% 0.03 294 / 0.26);
   }
 
-  :global([data-theme='dracula']) .dracula-board-card:hover:not(:disabled) {
+  :global([data-theme='dracula']) .surface-shader-board-card:hover:not(:disabled) {
     border-color: oklch(70% 0.18 342 / 0.38);
     box-shadow:
       inset 0 0 0 1px oklch(74% 0.16 306 / 0.16),
       0 16px 34px oklch(8% 0.03 294 / 0.34);
+  }
+
+  :global([data-theme='glitch']) .surface-shader-board-card {
+    background-color: oklch(13% 0.035 250 / 0.78);
+    border-color: oklch(82% 0.18 210 / 0.18);
+    box-shadow:
+      inset 0 0 0 1px oklch(88% 0.22 145 / 0.045),
+      0 14px 28px oklch(4% 0.02 250 / 0.36);
+  }
+
+  :global([data-theme='glitch']) .surface-shader-board-card:hover:not(:disabled) {
+    border-color: oklch(84% 0.2 210 / 0.34);
+    box-shadow:
+      inset 0 0 0 1px oklch(88% 0.22 145 / 0.14),
+      0 16px 34px oklch(3% 0.02 250 / 0.46);
   }
 </style>

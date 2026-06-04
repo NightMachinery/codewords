@@ -350,6 +350,132 @@ ${commonFragmentPrelude}
   }
 `;
 
+export const glitchHomeFragmentShader = /* glsl */ `
+${commonFragmentPrelude}
+
+  float scanline(vec2 uv) {
+    return 0.78 + 0.22 * sin(uv.y * uResolution.y * 2.15);
+  }
+
+  float signalBand(vec2 uv, float time, float seed) {
+    float drift = fract(time * (0.035 + seed * 0.014) + seed);
+    float wobble = noise(vec2(floor(uv.y * 42.0), seed * 31.0 + floor(time * 6.0)));
+    float center = fract(drift + wobble * 0.12);
+    float band = 1.0 - smoothstep(0.0, 0.045 + seed * 0.018, abs(uv.y - center));
+    float tear = step(0.64, noise(vec2(floor(uv.y * 18.0), floor(time * 9.0) + seed)));
+    return band * (0.35 + tear * 0.9);
+  }
+
+  float blockNoise(vec2 uv, float time) {
+    vec2 cell = floor(vec2(uv.x * 34.0, uv.y * 22.0));
+    float n = hash(cell + floor(time * 12.0));
+    return step(0.972, n) * (0.45 + 0.55 * hash(cell + 11.7));
+  }
+
+  void main() {
+    vec2 uv = vUv;
+    vec2 pixel = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
+    float time = uTime * uSpeed;
+    float vignette = vignetteFor(pixel);
+
+    float slice = floor(uv.y * 72.0);
+    float tearNoise = noise(vec2(slice * 0.37, floor(time * 10.0)));
+    float tearActive = step(0.77, tearNoise);
+    float offset = (tearNoise - 0.5) * 0.07 * tearActive;
+    vec2 signalUv = uv + vec2(offset + sin(uv.y * 38.0 + time * 2.4) * 0.005, 0.0);
+
+    vec3 color = skyColor(signalUv);
+    float lowFuzz = fbm(vec2(signalUv.x * 5.8 + time * 0.26, signalUv.y * 7.0 - time * 0.34));
+    float bandA = signalBand(signalUv, time, 0.12);
+    float bandB = signalBand(signalUv + vec2(0.03, 0.11), time * 1.27, 0.54);
+    float chromaA = 1.0 - smoothstep(0.0, 0.28, abs(signalUv.y - (0.3 + sin(signalUv.x * 4.2 + time) * 0.08)));
+    float chromaB = 1.0 - smoothstep(0.0, 0.22, abs(signalUv.y - (0.56 + sin(signalUv.x * 6.1 - time * 0.7) * 0.06)));
+    float blocks = blockNoise(signalUv, time);
+
+    color += uRibbonA * (bandA * 0.7 + chromaA * 0.26 + blocks * 0.36) * uIntensity;
+    color += uRibbonB * (bandB * 0.52 + lowFuzz * 0.12) * uIntensity;
+    color += uRibbonC * (chromaB * 0.34 + blocks * 0.42) * uIntensity;
+    color += vec3(0.08, 0.18, 0.2) * pow(smoothstep(0.62, 1.0, lowFuzz), 3.0);
+    color *= scanline(uv);
+    color *= 0.48 + vignette * 0.72;
+
+    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+  }
+`;
+
+export const glitchBoardFragmentShader = /* glsl */ `
+${commonFragmentPrelude}
+
+  float rollBand(vec2 uv, float time) {
+    float center = fract(0.92 - time * 0.045);
+    float wide = 1.0 - smoothstep(0.0, 0.18, abs(uv.y - center));
+    float detail = fbm(vec2(uv.x * 8.0 + time * 0.12, uv.y * 16.0 - time * 0.2));
+    return wide * smoothstep(0.28, 0.86, detail);
+  }
+
+  float brokenSlice(vec2 uv, float time) {
+    float row = floor(uv.y * 38.0);
+    float activeFlag = step(0.78, hash(vec2(row, floor(time * 5.0))));
+    float edge = smoothstep(0.0, 0.08, fract(uv.y * 38.0)) * smoothstep(1.0, 0.86, fract(uv.y * 38.0));
+    return activeFlag * edge;
+  }
+
+  void main() {
+    vec2 uv = vUv;
+    vec2 pixel = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
+    float time = uTime * uSpeed;
+    float vignette = vignetteFor(pixel);
+    float slice = brokenSlice(uv, time);
+    float horizontalOffset = (noise(vec2(floor(uv.y * 38.0), floor(time * 5.0))) - 0.5) * 0.045 * slice;
+    vec2 signalUv = uv + vec2(horizontalOffset, 0.0);
+    float interference = rollBand(signalUv, time);
+    float staticField = fbm(vec2(signalUv.x * 18.0 + time * 0.08, signalUv.y * 13.0 - time * 0.18));
+    float thinLines = 0.85 + 0.15 * sin(signalUv.y * uResolution.y * 1.6);
+
+    vec3 color = mix(uSkyLow * 0.44, uSkyMid * 0.58, smoothstep(0.0, 1.0, signalUv.y));
+    color += uRibbonA * interference * 0.22 * uIntensity;
+    color += uRibbonB * pow(smoothstep(0.66, 1.0, staticField), 3.0) * 0.16 * uIntensity;
+    color += uRibbonC * slice * 0.18 * uIntensity;
+    color *= thinLines;
+    color *= 0.54 + vignette * 0.54;
+
+    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+  }
+`;
+
+export const glitchCardFragmentShader = /* glsl */ `
+${commonFragmentPrelude}
+
+  float tinyBlocks(vec2 uv, float time) {
+    vec2 cell = floor(vec2(uv.x * 56.0, uv.y * 34.0));
+    float n = hash(cell + floor(time * 18.0));
+    return step(0.982, n);
+  }
+
+  void main() {
+    vec2 uv = vUv;
+    vec2 pixel = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
+    float time = uTime * uSpeed;
+    float vignette = vignetteFor(pixel);
+    float jitter = (noise(vec2(floor(uv.y * 86.0), floor(time * 16.0))) - 0.5) * 0.026;
+    vec2 signalUv = uv + vec2(jitter, 0.0);
+    float scan = 0.72 + 0.28 * sin(signalUv.y * uResolution.y * 2.8);
+    float line = pow(1.0 - smoothstep(0.0, 0.05, abs(fract(signalUv.y * 22.0 - time * 0.35) - 0.5)), 2.0);
+    float blocks = tinyBlocks(signalUv, time);
+    float edge = 1.0 - smoothstep(0.2, 0.88, length(pixel * vec2(0.82, 1.08)));
+
+    vec3 color = vec3(0.0);
+    color += uRibbonA * (line * 0.26 + blocks * 0.42) * uIntensity;
+    color += uRibbonB * blocks * 0.32 * uIntensity;
+    color += uRibbonC * (line * 0.22 + edge * 0.08) * uIntensity;
+    color += uSkyMid * edge * 0.12;
+    color *= scan;
+    color *= 0.54 + vignette * 0.62;
+
+    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+  }
+`;
+
 export const auroraFragmentShaders: Record<AuroraShaderVariant, string> = {
   aurora: auroraFragmentShader,
   'clean-fire': cleanFireFragmentShader,
@@ -357,6 +483,9 @@ export const auroraFragmentShaders: Record<AuroraShaderVariant, string> = {
   'dracula-home': draculaHomeFragmentShader,
   'dracula-board': draculaBoardFragmentShader,
   'dracula-card': draculaCardFragmentShader,
+  'glitch-home': glitchHomeFragmentShader,
+  'glitch-board': glitchBoardFragmentShader,
+  'glitch-card': glitchCardFragmentShader,
 };
 
 export function auroraFragmentShaderFor(variant: AuroraShaderVariant): string {

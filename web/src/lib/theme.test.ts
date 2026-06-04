@@ -39,9 +39,9 @@ describe('theme preferences', () => {
     expect(readThemePreferences(storage)).toEqual(prefs);
   });
 
-  it('accepts the Solarized, Spider-Man, and Dracula theme ids', () => {
+  it('accepts the Solarized, Spider-Man, Dracula, and Glitch theme ids', () => {
     const storage = new MemoryStorage();
-    const prefs: ThemePreferences = { auto: true, manual: 'dracula', darkTheme: 'dracula', lightTheme: 'solarized-light' };
+    const prefs: ThemePreferences = { auto: true, manual: 'glitch', darkTheme: 'glitch', lightTheme: 'solarized-light' };
     writeThemePreferences(storage, prefs);
     expect(readThemePreferences(storage)).toEqual(prefs);
   });
@@ -92,7 +92,7 @@ describe('resolveTheme', () => {
 });
 
 describe('THEMES catalog', () => {
-  it('exposes the seven themes with valid modes', () => {
+  it('exposes the eight themes with valid modes', () => {
     expect(THEMES.map((t) => t.id)).toEqual([
       'dark',
       'light',
@@ -101,17 +101,29 @@ describe('THEMES catalog', () => {
       'solarized-light',
       'spiderman',
       'dracula',
+      'glitch',
     ]);
     for (const theme of THEMES) {
       expect(['dark', 'light']).toContain(theme.mode);
     }
     expect(darkModeThemes.map((theme) => theme.id)).toContain('dracula');
+    expect(darkModeThemes.map((theme) => theme.id)).toContain('glitch');
   });
 });
 
 describe('aurora shader variants', () => {
   it('assigns a valid shader variant to every theme palette', () => {
-    const validVariants = ['aurora', 'clean-fire', 'campfire', 'dracula-home', 'dracula-board', 'dracula-card'];
+    const validVariants = [
+      'aurora',
+      'clean-fire',
+      'campfire',
+      'dracula-home',
+      'dracula-board',
+      'dracula-card',
+      'glitch-home',
+      'glitch-board',
+      'glitch-card',
+    ];
     for (const theme of THEMES) {
       expect(validVariants).toContain(auroraPalettes[theme.id].shader);
     }
@@ -123,7 +135,13 @@ describe('aurora shader variants', () => {
     expect(auroraPaletteFor('dracula', 'card').shader).toBe('dracula-card');
   });
 
-  it('uses campfire for Light, clean fire for Solarized Light, and aurora for non-Dracula dark themes', () => {
+  it('uses surface-specific Glitch shader variants', () => {
+    expect(auroraPaletteFor('glitch', 'home').shader).toBe('glitch-home');
+    expect(auroraPaletteFor('glitch', 'board').shader).toBe('glitch-board');
+    expect(auroraPaletteFor('glitch', 'card').shader).toBe('glitch-card');
+  });
+
+  it('uses campfire for Light, clean fire for Solarized Light, and aurora for base dark themes', () => {
     expect(auroraPalettes.light.shader).toBe('campfire');
     expect(auroraPalettes['solarized-light'].shader).toBe('clean-fire');
     expect(auroraPalettes.dark.shader).toBe('aurora');

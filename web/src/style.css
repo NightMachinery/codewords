@@ -255,6 +255,46 @@
   --color-teal-100: oklch(90% 0.07 185);
 }
 
+/*
+ * Glitch: near-black CRT surfaces with electric cyan, toxic green, magenta,
+ * and violet accents for digital signal-corruption styling.
+ */
+[data-theme='glitch'] {
+  color-scheme: dark;
+
+  --color-slate-950: oklch(11% 0.035 255);
+  --color-slate-900: oklch(15% 0.045 255);
+  --color-slate-800: oklch(22% 0.055 255);
+  --color-slate-700: oklch(31% 0.065 255);
+  --color-slate-600: oklch(43% 0.07 255);
+  --color-slate-500: oklch(56% 0.065 255);
+  --color-slate-400: oklch(70% 0.055 255);
+  --color-slate-300: oklch(82% 0.045 250);
+  --color-slate-200: oklch(90% 0.036 245);
+  --color-slate-100: oklch(96% 0.026 238);
+  --color-slate-50: oklch(98% 0.018 220);
+
+  --color-zinc-950: oklch(10% 0.03 255);
+  --color-zinc-300: oklch(82% 0.045 250);
+  --color-zinc-100: oklch(96% 0.026 238);
+  --color-zinc-50: oklch(98% 0.018 220);
+
+  /* Accent: toxic phosphor green, with cyan/magenta supporting signal colors. */
+  --color-emerald-50: oklch(98% 0.07 145);
+  --color-emerald-100: oklch(94% 0.14 145);
+  --color-emerald-200: oklch(89% 0.2 145);
+  --color-emerald-300: oklch(84% 0.25 145);
+  --color-emerald-400: oklch(76% 0.25 145);
+  --color-emerald-950: oklch(26% 0.1 145);
+
+  --color-cyan-300: oklch(86% 0.16 210);
+  --color-cyan-200: oklch(91% 0.13 210);
+  --color-cyan-100: oklch(95% 0.095 210);
+  --color-teal-300: oklch(84% 0.18 185);
+  --color-teal-200: oklch(89% 0.14 185);
+  --color-teal-100: oklch(94% 0.1 185);
+}
+
 body {
   margin: 0;
   min-width: 320px;

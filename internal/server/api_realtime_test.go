@@ -648,6 +648,16 @@ func TestWebSocketForceThemeRequiresModAndBroadcastsSanitizedTheme(t *testing.T)
 	if msg["type"] != "themeForced" || msg["theme"] != "dracula" {
 		t.Fatalf("expected dracula theme broadcast, got %#v", msg)
 	}
+
+	if err := hostConn.WriteJSON(map[string]any{"type": "forceTheme", "theme": "glitch"}); err != nil {
+		t.Fatalf("write host force glitch theme: %v", err)
+	}
+	if err := guestConn.ReadJSON(&msg); err != nil {
+		t.Fatalf("read glitch theme broadcast: %v", err)
+	}
+	if msg["type"] != "themeForced" || msg["theme"] != "glitch" {
+		t.Fatalf("expected glitch theme broadcast, got %#v", msg)
+	}
 }
 
 func TestDuplicateDisplayNamesReceiveStableRoomScopedNumbers(t *testing.T) {

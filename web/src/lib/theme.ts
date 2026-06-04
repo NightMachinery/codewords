@@ -1,4 +1,4 @@
-export type ThemeId = 'dark' | 'light' | 'matrix' | 'solarized-light' | 'solarized-dark' | 'spiderman' | 'dracula';
+export type ThemeId = 'dark' | 'light' | 'matrix' | 'solarized-light' | 'solarized-dark' | 'spiderman' | 'dracula' | 'glitch';
 
 export interface ThemeDescriptor {
   id: ThemeId;
@@ -14,6 +14,7 @@ export const THEMES: ThemeDescriptor[] = [
   { id: 'solarized-light', label: 'Solarized Light', mode: 'light' },
   { id: 'spiderman', label: 'Spider-Man', mode: 'dark' },
   { id: 'dracula', label: 'Dracula', mode: 'dark' },
+  { id: 'glitch', label: 'Glitch', mode: 'dark' },
 ];
 
 export const themeIds: ThemeId[] = THEMES.map((theme) => theme.id);
@@ -23,7 +24,16 @@ export const lightModeThemes: ThemeDescriptor[] = THEMES.filter((theme) => theme
 /** A linear-RGB triple (each component 0..1) for the aurora WebGL shader. */
 export type Rgb = readonly [number, number, number];
 export type ThemeShaderSurface = 'home' | 'board' | 'card';
-export type AuroraShaderVariant = 'aurora' | 'clean-fire' | 'campfire' | 'dracula-home' | 'dracula-board' | 'dracula-card';
+export type AuroraShaderVariant =
+  | 'aurora'
+  | 'clean-fire'
+  | 'campfire'
+  | 'dracula-home'
+  | 'dracula-board'
+  | 'dracula-card'
+  | 'glitch-home'
+  | 'glitch-board'
+  | 'glitch-card';
 
 /**
  * Per-theme palette for the landing-hero aurora shader. `sky*` are the vertical
@@ -117,6 +127,21 @@ export const auroraPalettes: Record<ThemeId, AuroraPalette> = {
     ribbonB: [1.0, 0.47, 0.78],
     ribbonC: [0.55, 0.91, 0.99],
   },
+  // Glitch: near-black CRT corruption with cyan/green/magenta signal channels.
+  glitch: {
+    shader: 'glitch-home',
+    surfaceShaders: {
+      home: 'glitch-home',
+      board: 'glitch-board',
+      card: 'glitch-card',
+    },
+    skyTop: [0.002, 0.004, 0.012],
+    skyMid: [0.008, 0.014, 0.03],
+    skyLow: [0.012, 0.018, 0.026],
+    ribbonA: [0.0, 0.94, 1.0],
+    ribbonB: [0.48, 1.0, 0.08],
+    ribbonC: [1.0, 0.08, 0.72],
+  },
 };
 
 export function auroraPaletteFor(id: ThemeId, surface: ThemeShaderSurface = 'home'): AuroraPalette {
@@ -170,6 +195,11 @@ export const captureBackgrounds: Record<ThemeId, CaptureBackground> = {
     solid: '#282a36',
     gradient:
       'radial-gradient(circle at 15% 8%, rgba(189,147,249,0.28), transparent 32%), radial-gradient(circle at 82% 16%, rgba(255,121,198,0.22), transparent 34%), radial-gradient(circle at 48% 88%, rgba(139,233,253,0.18), transparent 38%), linear-gradient(135deg, #282a36, #1f2130 52%, #171923)',
+  },
+  glitch: {
+    solid: '#03040a',
+    gradient:
+      'radial-gradient(circle at 12% 10%, rgba(0,240,255,0.24), transparent 30%), radial-gradient(circle at 84% 14%, rgba(255,20,170,0.18), transparent 32%), radial-gradient(circle at 52% 86%, rgba(115,255,24,0.14), transparent 36%), linear-gradient(135deg, #03040a, #07101b 52%, #020308)',
   },
 };
 

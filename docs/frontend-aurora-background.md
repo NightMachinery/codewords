@@ -23,7 +23,8 @@ The component exposes these props on the landing page:
 Shader-level tuning lives in `web/src/lib/backgrounds/auroraShaders.ts`:
 
 - Themes choose a procedural shader variant through `auroraPalettes` in `web/src/lib/theme.ts`:
-  `aurora`, `clean-fire`, `campfire`, `dracula-home`, `dracula-board`, or `dracula-card`.
+  `aurora`, `clean-fire`, `campfire`, `dracula-home`, `dracula-board`, `dracula-card`,
+  `glitch-home`, `glitch-board`, or `glitch-card`.
 - Each variant is its own fragment shader source. `AuroraBackground` swaps the material's
   `fragmentShader` and sets `needsUpdate` when the active theme changes, so a compile/runtime issue
   in one optional variant cannot disable the other variants.
@@ -37,6 +38,11 @@ Shader-level tuning lives in `web/src/lib/backgrounds/auroraShaders.ts`:
 - Dracula uses three variants selected by the `surface` prop. `dracula-home` is the homepage hero's
   broad purple/pink/cyan atmosphere, `dracula-board` is slower low-contrast board fog behind the
   grid, and `dracula-card` is a tighter spectral sheen overlay for the Dracula board cards.
+- Glitch uses three variants selected by the `surface` prop. `glitch-home` renders the homepage
+  CRT scanlines, RGB channel splits, horizontal tearing, and noisy signal bands; `glitch-board`
+  is a darker board backing with slow rolling interference and broken horizontal slices; and
+  `glitch-card` is a sharper chromatic card overlay with thin scanlines and intermittent block
+  noise.
 - `vignette`, `softMask`, and horizon glow keep the dark aurora restrained, while fire variants avoid dark multiply-style blending so they do not collapse into a shadow blob.
 
 Do not add images, videos, GIFs, particles, or texture dependencies for this background; it is intentionally procedural.

@@ -1,8 +1,8 @@
 # Frontend Theming
 
-Codewords ships seven themes — **Dark** (the original look), **Light**, **Matrix**, **Solarized
-Dark**, **Solarized Light**, **Spider-Man**, and **Dracula** — with optional automatic switching
-that follows the operating system's dark-mode preference.
+Codewords ships eight themes — **Dark** (the original look), **Light**, **Matrix**, **Solarized
+Dark**, **Solarized Light**, **Spider-Man**, **Dracula**, and **Glitch** — with optional automatic
+switching that follows the operating system's dark-mode preference.
 
 ## How themes are applied
 
@@ -25,6 +25,8 @@ just a matter of overriding those variables — no component edits are required.
   accents; `color-scheme: dark`.
 - **Dracula** — editor-purple surfaces based on the Dracula palette, with green controls and
   purple, pink, and cyan shader accents; `color-scheme: dark`.
+- **Glitch** — near-black CRT/digital-corruption surfaces with electric cyan, toxic green,
+  magenta, and violet signal accents; `color-scheme: dark`.
 
 Team colors (`blue` = Libertarians, `red` = Monarchists) and warning `amber` are intentionally left
 at their Tailwind defaults so they stay recognizable in every theme. The exception: card/accent
@@ -78,14 +80,17 @@ bindable `effectiveThemeId` / `sessionOverride` / `themePreferences` props.
   Light uses the detailed `campfire` variant with uneven lower flame mass, torn rising licks,
   sparse sparks, and faint smoke/haze. Solarized Light uses the cleaner existing fire variant with
   smoother flame tongues and ember wisps. Dracula uses separate `dracula-home`, `dracula-board`,
-  and `dracula-card` shader variants, selected through the `surface` prop. The shader's sky/ribbon
-  colors and variant are fed from a per-theme `AuroraPalette` in `theme.ts` (`AuroraBackground`
-  takes `theme` and `surface` props, updates uniforms reactively, and swaps complete fragment
-  shader sources when the selected variant changes); the CSS fallback and base color mirror those
-  palettes via `[data-theme]` selectors.
-- **Room board** (`web/src/lib/BoardGrid.svelte`): Dracula renders one slow board shader behind
-  the grid and one distinct card-sheen shader overlay above the grid, both decorative and
-  pointer-events-free. Capture mode omits live shader layers so memory exports stay stable.
+  and `dracula-card` shader variants, selected through the `surface` prop. Glitch likewise uses
+  `glitch-home`, `glitch-board`, and `glitch-card` for CRT scanlines, RGB tearing, broken slices,
+  and intermittent block noise. The shader's sky/ribbon colors and variant are fed from a
+  per-theme `AuroraPalette` in `theme.ts` (`AuroraBackground` takes `theme` and `surface` props,
+  updates uniforms reactively, and swaps complete fragment shader sources when the selected
+  variant changes); the CSS fallback and base color mirror those palettes via `[data-theme]`
+  selectors.
+- **Room board** (`web/src/lib/BoardGrid.svelte`): themes that define `surfaceShaders.board` and
+  `surfaceShaders.card` render one shared board shader behind the grid and one distinct card-sheen
+  shader overlay above the grid, both decorative and pointer-events-free. Dracula and Glitch use
+  this path. Capture mode omits live shader layers so memory exports stay stable.
 
 ## Moderator push (session only)
 
