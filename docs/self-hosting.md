@@ -24,6 +24,8 @@ Run commands from the repository root:
 ```
 
 The default URL is `https://codewords.pinky.lilf.ir`. Bare hostnames are treated as HTTPS.
+The managed Caddy block sends `Alt-Svc: clear` so browsers discard any cached HTTP/3/QUIC route
+for the site; this keeps clients on TCP TLS/HTTP/2 when the host Caddy config has HTTP/3 disabled.
 
 - `setup` stops existing Codewords tmux sessions, installs locked dependencies, builds frontend and backend, updates the managed Codewords block in `~/Caddyfile` for production, reloads or starts Caddy, and starts production.
 - `redeploy` performs the same build, production Caddy update, and production restart flow for local changes.

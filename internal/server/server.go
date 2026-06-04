@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -1105,9 +1106,16 @@ func (a *app) roomLink(r *http.Request, roomID string) string {
 		if r.TLS != nil {
 			scheme = "https"
 		}
-		base = scheme + "://" + r.Host
+		base = scheme + "://" + canonicalRequestHost(r.Host)
 	}
 	return base + "/rooms/" + roomID
+}
+
+func canonicalRequestHost(host string) string {
+	if h, p, err := net.SplitHostPort(host); err == nil {
+		return strings.TrimRight(h, ".") + ":" + p
+	}
+	return strings.TrimRight(host, ".")
 }
 
 func roomDTO(r storage.Room) map[string]any {

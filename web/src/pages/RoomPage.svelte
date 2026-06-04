@@ -83,7 +83,7 @@
  // import roastPackText from '../../../assets/roast-packs/roast_1.txt?raw';
  import roastPackText from '../../../assets/roast-packs/roast_adult_gem_3.txt?raw';
  ///
-  import { roomIdFromPath, roomPath, websocketRoomUrl } from '../lib/routes';
+  import { canonicalOrigin, roomIdFromPath, roomPath, websocketRoomUrl } from '../lib/routes';
   import {
     buildPassConfirmation,
     buildRestartConfirmation,
@@ -845,7 +845,7 @@
   }
 
   async function copyRoomLink() {
-    const link = `${window.location.origin}${roomPath(roomId)}`;
+    const link = `${canonicalOrigin(new URL(window.location.href))}${roomPath(roomId)}`;
     const result = await copyText(link);
       copyStatus = result.ok ? 'Room link copied.' : link;
       showToast(copyStatus);

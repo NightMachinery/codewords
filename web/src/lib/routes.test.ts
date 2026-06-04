@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { roomPath, websocketRoomUrl } from './routes';
+import { canonicalHost, canonicalOrigin, roomPath, websocketRoomUrl } from './routes';
 
 describe('route helpers', () => {
   it('builds canonical room paths', () => {
@@ -16,6 +16,14 @@ describe('route helpers', () => {
   it('uses wss for https pages and migrate ids', () => {
     expect(websocketRoomUrl(new URL('https://play.test/rooms/abc'), 'abc', { migrateId: 'mig' })).toBe(
       'wss://play.test/ws/rooms/abc?migrateId=mig',
+    );
+  });
+
+  it('strips trailing DNS root dots from generated origins and websocket hosts', () => {
+    expect(canonicalHost('codewords.pinky.lilf.ir.')).toBe('codewords.pinky.lilf.ir');
+    expect(canonicalOrigin(new URL('https://codewords.pinky.lilf.ir./rooms/abc'))).toBe('https://codewords.pinky.lilf.ir');
+    expect(websocketRoomUrl(new URL('https://codewords.pinky.lilf.ir./rooms/abc'), 'abc', { authToken: 'token' })).toBe(
+      'wss://codewords.pinky.lilf.ir/ws/rooms/abc?authToken=token',
     );
   });
 });

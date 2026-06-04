@@ -103,6 +103,7 @@ caddy_url_host() {
   local url="${1%/}"
   url="${url#http://}"
   url="${url#https://}"
+  url="${url%.}"
   echo "$url"
 }
 
@@ -141,8 +142,10 @@ update_caddy() {
 
   local primary_url
   local redirect_url
+  local host
   primary_url="$(caddy_primary_url "$url")"
   redirect_url="$(caddy_redirect_url "$url")"
+  host="$(caddy_url_host "$url")"
 
   local begin="# BEGIN CODEWORDS MANAGED BLOCK"
   local end="# END CODEWORDS MANAGED BLOCK"
@@ -159,7 +162,16 @@ $redirect_url {
   redir $primary_url{uri} permanent
 }
 
+http://$host. {
+  redir $primary_url{uri} permanent
+}
+
+https://$host. {
+  redir $primary_url{uri} permanent
+}
+
 $primary_url {
+  header Alt-Svc "clear"
   encode zstd gzip
 
   handle /api/* {
