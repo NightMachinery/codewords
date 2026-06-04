@@ -31,6 +31,8 @@ import {
   cardChromePaddingStyle,
   cardChromeStyle,
   cardDisabledStateClasses,
+  chatScrollIsNearBottom,
+  chatScrollShouldAutoScroll,
   imageColorFrameClasses,
   filteredBottomShortcutItems,
   shouldResetClueDraft,
@@ -415,6 +417,14 @@ describe('board card state', () => {
     expect(cardViewState(revealedRed, 2, false, { index: 2, team: 'red' }).classes).not.toContain('ring-4');
   });
 
+  it('marks only actually revealed civilian cards for theme-specific contrast', () => {
+    const revealedCivilian = cardViewState({ contentType: 'word', word: 'harbor', revealed: true, color: 'civilian' }, 0, false, null);
+    const spymasterVisibleCivilian = cardViewState({ contentType: 'word', word: 'harbor', revealed: false, color: 'civilian' }, 0, true, null);
+
+    expect(revealedCivilian.classes).toContain('revealed-civilian-card');
+    expect(spymasterVisibleCivilian.classes).not.toContain('revealed-civilian-card');
+  });
+
 
   it('separates selected-card chrome from card color chrome', () => {
     expect(imageCardColorBorderWidthPx).toBe(10);
@@ -609,6 +619,20 @@ describe('regression helpers', () => {
     expect(shouldCueChatMessage({ userId: 'me', playerId: 'me', isHost: false }, { senderUserId: 'me' })).toBe(false);
     expect(shouldCueChatMessage({ userId: 'me', playerId: 'me', isHost: false }, { senderUserId: 'other' })).toBe(true);
     expect(chatCueNotice({ displayName: 'Ada', body: 'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz' })).toBe('Ada: abcdefghijklmnopqrstuvwxyzabcdefghijkl…');
+  });
+
+  it('detects whether chat is already near the bottom', () => {
+    expect(chatScrollIsNearBottom({ scrollTop: 451, clientHeight: 500, scrollHeight: 1000 })).toBe(false);
+    expect(chatScrollIsNearBottom({ scrollTop: 452, clientHeight: 500, scrollHeight: 1000 })).toBe(true);
+    expect(chatScrollIsNearBottom({ scrollTop: 0, clientHeight: 500, scrollHeight: 480 })).toBe(true);
+  });
+
+  it('auto-scrolls chat after own sends or incoming messages only when already near bottom', () => {
+    expect(chatScrollShouldAutoScroll({ expanded: true, messageCountIncreased: true, pendingOwnSend: true, wasNearBottom: false })).toBe(true);
+    expect(chatScrollShouldAutoScroll({ expanded: true, messageCountIncreased: true, pendingOwnSend: false, wasNearBottom: true })).toBe(true);
+    expect(chatScrollShouldAutoScroll({ expanded: true, messageCountIncreased: true, pendingOwnSend: false, wasNearBottom: false })).toBe(false);
+    expect(chatScrollShouldAutoScroll({ expanded: false, messageCountIncreased: true, pendingOwnSend: true, wasNearBottom: true })).toBe(false);
+    expect(chatScrollShouldAutoScroll({ expanded: true, messageCountIncreased: false, pendingOwnSend: true, wasNearBottom: true })).toBe(false);
   });
 
   it('makes greyed spymaster revealed cards transparent instead of grey', () => {

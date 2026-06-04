@@ -582,6 +582,15 @@ export function cardDisabledStateClasses(input: { disabled: boolean; revealed?: 
   return input.revealed && input.revealedStyle === 'greyed' ? 'disabled:opacity-30' : 'disabled:opacity-80';
 }
 
+export function chatScrollIsNearBottom(input: { scrollTop: number; clientHeight: number; scrollHeight: number }, thresholdPx = 48): boolean {
+  return input.scrollHeight - input.clientHeight - input.scrollTop <= thresholdPx;
+}
+
+export function chatScrollShouldAutoScroll(input: { expanded: boolean; messageCountIncreased: boolean; pendingOwnSend: boolean; wasNearBottom: boolean }): boolean {
+  if (!input.expanded || !input.messageCountIncreased) return false;
+  return input.pendingOwnSend || input.wasNearBottom;
+}
+
 export function imageColorFrameClasses(isLastSelected: boolean): string {
   return isLastSelected ? 'pointer-events-none absolute inset-[4px] z-20 rounded-lg border-[12px]' : '';
 }
@@ -1031,7 +1040,12 @@ export function cardViewState(
     visibleColor,
     label: visibleColor === 'hidden' ? 'Unrevealed' : visibleColor[0].toUpperCase() + visibleColor.slice(1),
     isLastSelected,
-    classes: [colorClass, styleClasses, showHiddenColor && !card.revealed ? 'shadow-inner shadow-white/10' : ''].filter(Boolean).join(' '),
+    classes: [
+      colorClass,
+      styleClasses,
+      card.revealed && visibleColor === 'civilian' ? 'revealed-civilian-card' : '',
+      showHiddenColor && !card.revealed ? 'shadow-inner shadow-white/10' : '',
+    ].filter(Boolean).join(' '),
   };
 }
 

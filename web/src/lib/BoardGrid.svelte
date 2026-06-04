@@ -176,6 +176,15 @@
       0 16px 34px oklch(8% 0.03 294 / 0.34);
   }
 
+  :global([data-theme='dracula']) .surface-shader-board-card.revealed-civilian-card {
+    background-color: oklch(31% 0.075 76 / 0.9);
+    border-color: oklch(83% 0.13 82 / 0.72);
+    box-shadow:
+      inset 0 0 0 1px oklch(92% 0.1 84 / 0.22),
+      inset 0 0 24px oklch(76% 0.12 78 / 0.12),
+      0 14px 28px oklch(8% 0.03 294 / 0.28);
+  }
+
   :global([data-theme='glitch']) .surface-shader-board-card {
     background-color: oklch(13% 0.035 250 / 0.78);
     border-color: oklch(82% 0.18 210 / 0.18);

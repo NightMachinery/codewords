@@ -90,7 +90,9 @@ bindable `effectiveThemeId` / `sessionOverride` / `themePreferences` props.
 - **Room board** (`web/src/lib/BoardGrid.svelte`): themes that define `surfaceShaders.board` and
   `surfaceShaders.card` render one shared board shader behind the grid and one distinct card-sheen
   shader overlay above the grid, both decorative and pointer-events-free. Dracula and Glitch use
-  this path. Capture mode omits live shader layers so memory exports stay stable.
+  this path. Dracula gives revealed civilian cards a stronger amber surface after its generic card
+  backing so they remain distinct from unrevealed cards. Capture mode omits live shader layers so
+  memory exports stay stable.
 
 ## Moderator push (session only)
 

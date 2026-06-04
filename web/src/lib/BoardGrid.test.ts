@@ -21,4 +21,14 @@ describe('BoardGrid surface shader contract', () => {
     expect(componentSource).toContain("auroraPaletteFor(theme, surface).surfaceShaders?.[surface]");
     expect(componentSource).toContain('if (captureMode) return null');
   });
+
+  it('keeps Dracula revealed civilian cards distinct from unrevealed cards', () => {
+    const baseRuleIndex = componentSource.indexOf(":global([data-theme='dracula']) .surface-shader-board-card {");
+    const civilianRuleIndex = componentSource.indexOf(":global([data-theme='dracula']) .surface-shader-board-card.revealed-civilian-card");
+
+    expect(baseRuleIndex).toBeGreaterThan(-1);
+    expect(civilianRuleIndex).toBeGreaterThan(baseRuleIndex);
+    expect(componentSource).toContain('background-color: oklch(31% 0.075 76 / 0.9)');
+    expect(componentSource).toContain('border-color: oklch(83% 0.13 82 / 0.72)');
+  });
 });

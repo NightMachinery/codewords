@@ -73,7 +73,7 @@ Reveal, pass, and restart confirmations use a shared styled in-app popup instead
 
 ## Chat and picture cards
 
-Milestone 7 adds room chat to the lobby and gameplay sidebars. Seated players can send messages; observers can send messages only when observer chat is enabled. The room load response includes recent chat history, and live WebSocket `chatMessage` events append new messages.
+Milestone 7 adds room chat to the lobby and gameplay sidebars. Seated players can send messages; observers can send messages only when observer chat is enabled. The room load response includes recent chat history, and live WebSocket `chatMessage` events append new messages. The chat sidebar preserves its scroll position across collapse/reopen, scrolls to the newest accepted message after the local viewer sends, and follows incoming messages only when the viewer was already near the bottom.
 
 Picture mode uses the local server catalog only. Hosts can choose words-only (`imageCardCount=0`), images-only (`imageCardCount=totalCards`), or mixed boards (`1..totalCards-1` image cards). Image cards render with `/api/pictures/{imageId}` URLs; clients never receive local filesystem paths.
 
