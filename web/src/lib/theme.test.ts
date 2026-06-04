@@ -113,8 +113,8 @@ describe('aurora shader variants', () => {
     }
   });
 
-  it('uses clean fire for light themes and aurora for dark themes while keeping campfire valid', () => {
-    expect(auroraPalettes.light.shader).toBe('clean-fire');
+  it('uses campfire for Light, clean fire for Solarized Light, and aurora for dark themes', () => {
+    expect(auroraPalettes.light.shader).toBe('campfire');
     expect(auroraPalettes['solarized-light'].shader).toBe('clean-fire');
     expect(auroraPalettes.dark.shader).toBe('aurora');
     expect(auroraPalettes.matrix.shader).toBe('aurora');

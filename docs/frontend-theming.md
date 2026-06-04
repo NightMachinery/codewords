@@ -73,12 +73,12 @@ bindable `effectiveThemeId` / `sessionOverride` / `themePreferences` props.
 - **Home page** (`web/src/pages/HomePage.svelte`): `<ThemeMenu>` sits top-right in the nav. The
   landing hero is theme-aware — its room-entry card and controls use theme tokens, and the animated
   background changes by theme-selected shader variant. Dark themes render cool aurora curtains.
-  Light and Solarized Light use the cleaner existing fire variant with smoother flame tongues and
-  ember wisps. The more detailed `campfire` variant remains available as a separate shader option,
-  but it is not the default light-theme assignment. The shader's sky/ribbon colors and `shader`
-  variant are fed from a per-theme `AuroraPalette` in `theme.ts` (`AuroraBackground` takes a `theme`
-  prop, updates uniforms reactively, and swaps complete fragment shader sources when the selected
-  variant changes); the CSS fallback and base color mirror those palettes via `[data-theme]`
+  Light uses the detailed `campfire` variant with uneven lower flame mass, torn rising licks,
+  sparse sparks, and faint smoke/haze. Solarized Light uses the cleaner existing fire variant with
+  smoother flame tongues and ember wisps. The shader's sky/ribbon colors and `shader` variant are
+  fed from a per-theme `AuroraPalette` in `theme.ts` (`AuroraBackground` takes a `theme` prop,
+  updates uniforms reactively, and swaps complete fragment shader sources when the selected variant
+  changes); the CSS fallback and base color mirror those palettes via `[data-theme]`
   selectors.
 
 ## Moderator push (session only)

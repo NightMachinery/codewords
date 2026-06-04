@@ -31,8 +31,8 @@ Shader-level tuning lives in `web/src/lib/backgrounds/auroraShaders.ts`:
   adapts WebGL 1 declarations to GLSLang's SPIR-V profile only at test time; runtime shaders remain
   the WebGL sources consumed by Three.js.
 - Dark themes use the `aurora` variant. `curtain(...)` controls the height, softness, strand density, and drift of each aurora band.
-- Light and Solarized Light use the preserved `clean-fire` variant. `flameTongue(...)` shapes cleaner rising flame licks and composites warm orange/gold/coral color plus white-hot cores and small rising embers over the pale sky.
-- `campfire` remains available as a separate variant. `campfireBody(...)`, `flameLick(...)`, `sparkField(...)`, and `smokeVeil(...)` combine uneven lower flame mass, torn rising licks, sparse sparks, and faint smoke/haze.
+- Light uses the `campfire` variant. `campfireBody(...)`, `flameLick(...)`, `sparkField(...)`, and `smokeVeil(...)` combine uneven lower flame mass, torn rising licks, sparse sparks, and faint smoke/haze.
+- Solarized Light uses the preserved `clean-fire` variant. `flameTongue(...)` shapes cleaner rising flame licks and composites warm orange/gold/coral color plus white-hot cores and small rising embers over the pale sky.
 - `vignette`, `softMask`, and horizon glow keep the dark aurora restrained, while fire variants avoid dark multiply-style blending so they do not collapse into a shadow blob.
 
 Do not add images, videos, GIFs, particles, or texture dependencies for this background; it is intentionally procedural.
