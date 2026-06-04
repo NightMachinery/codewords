@@ -216,6 +216,45 @@
   --color-teal-300: oklch(55% 0.2 265);
 }
 
+/*
+ * Dracula: editor-purple surfaces with pink, purple, cyan, and green accents.
+ */
+[data-theme='dracula'] {
+  color-scheme: dark;
+
+  --color-slate-950: oklch(18% 0.035 294);
+  --color-slate-900: oklch(22% 0.04 294);
+  --color-slate-800: oklch(29% 0.045 294);
+  --color-slate-700: oklch(39% 0.05 294);
+  --color-slate-600: oklch(50% 0.045 294);
+  --color-slate-500: oklch(62% 0.04 294);
+  --color-slate-400: oklch(74% 0.032 294);
+  --color-slate-300: oklch(84% 0.024 294);
+  --color-slate-200: oklch(91% 0.018 294);
+  --color-slate-100: oklch(96% 0.012 294);
+  --color-slate-50: oklch(98% 0.008 100);
+
+  --color-zinc-950: oklch(17% 0.032 294);
+  --color-zinc-300: oklch(84% 0.024 294);
+  --color-zinc-100: oklch(96% 0.012 294);
+  --color-zinc-50: oklch(98% 0.008 100);
+
+  /* Accent: Dracula green with purple/cyan supporting accents. */
+  --color-emerald-50: oklch(97% 0.05 145);
+  --color-emerald-100: oklch(91% 0.13 145);
+  --color-emerald-200: oklch(86% 0.17 145);
+  --color-emerald-300: oklch(82% 0.22 145);
+  --color-emerald-400: oklch(75% 0.23 145);
+  --color-emerald-950: oklch(28% 0.09 145);
+
+  --color-cyan-300: oklch(82% 0.11 215);
+  --color-cyan-200: oklch(88% 0.09 215);
+  --color-cyan-100: oklch(93% 0.065 215);
+  --color-teal-300: oklch(78% 0.12 185);
+  --color-teal-200: oklch(84% 0.1 185);
+  --color-teal-100: oklch(90% 0.07 185);
+}
+
 body {
   margin: 0;
   min-width: 320px;

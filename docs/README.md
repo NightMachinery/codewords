@@ -6,7 +6,7 @@
 - `http-and-realtime.md` documents the Milestone 4 backend API/WebSocket wiring.
 - `frontend-lobby-and-identity.md` documents the Milestone 5/6 browser lobby, identity, and gameplay flow.
 - `frontend-aurora-background.md` documents the reusable WebGL landing hero aurora background.
-- `frontend-theming.md` documents the Dark/Light/Matrix themes, auto dark-mode switching, and moderator theme push.
+- `frontend-theming.md` documents the app themes, including Dracula's homepage/board/card shaders, auto dark-mode switching, and moderator theme push.
 - `roast-packs.md` documents end-game memory roast-pack format and placeholders.
 - `room/GC.md` documents current room retention and garbage-collection behavior.
 

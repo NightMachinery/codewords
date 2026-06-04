@@ -251,10 +251,112 @@ ${commonFragmentPrelude}
   }
 `;
 
+export const draculaHomeFragmentShader = /* glsl */ `
+${commonFragmentPrelude}
+
+  float spectralRibbon(vec2 uv, float offset, float scale, float time) {
+    float sweep = sin((uv.x + offset) * 2.8 + time * 0.42) * 0.1;
+    sweep += sin((uv.x * 7.0 - offset) + time * 0.22) * 0.04;
+    float mist = fbm(vec2(uv.x * scale + offset + time * 0.09, uv.y * 2.6 - time * 0.11));
+    float center = 0.24 + sweep + mist * 0.22;
+    float body = 1.0 - smoothstep(0.0, 0.36, abs(uv.y - center));
+    float taper = smoothstep(0.94, 0.08, uv.y) * smoothstep(-0.1, 0.48, uv.y);
+    float strands = pow(smoothstep(0.24, 1.0, mist), 2.4);
+
+    return body * taper * (0.32 + strands * 0.92);
+  }
+
+  void main() {
+    vec2 uv = vUv;
+    vec2 pixel = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
+    float time = uTime * uSpeed;
+    float vignette = vignetteFor(pixel);
+    vec3 color = skyColor(uv);
+
+    float veil = fbm(vec2(uv.x * 2.4 + time * 0.05, uv.y * 2.0 - time * 0.07));
+    float a = spectralRibbon(uv + vec2(uMouse.x * 0.014, 0.0), 0.18, 3.2, time);
+    float b = spectralRibbon(uv + vec2(-0.08, 0.08), 1.44, 4.6, time * 0.74);
+    float c = spectralRibbon(uv + vec2(0.12, -0.03), 2.5, 5.6, time * 0.58);
+    float horizon = smoothstep(0.0, 0.76, 1.0 - uv.y);
+    vec3 ribbons = uRibbonA * a + uRibbonB * b * 0.72 + uRibbonC * c * 0.52;
+
+    color += ribbons * (0.72 + veil * 0.22) * uIntensity;
+    color += uRibbonB * pow(smoothstep(0.68, 1.0, veil), 4.0) * horizon * 0.22 * uIntensity;
+    color += uRibbonC * horizon * vignette * 0.12;
+    color *= 0.5 + vignette * 0.68;
+
+    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+  }
+`;
+
+export const draculaBoardFragmentShader = /* glsl */ `
+${commonFragmentPrelude}
+
+  float lowFog(vec2 uv, float offset, float time) {
+    float roll = fbm(vec2(uv.x * 2.8 + offset + time * 0.06, uv.y * 3.0 - time * 0.08));
+    float band = 1.0 - smoothstep(0.0, 0.42, abs(uv.y - (0.34 + roll * 0.2)));
+    float floorFade = smoothstep(-0.06, 0.54, uv.y) * smoothstep(1.04, 0.1, uv.y);
+    return band * floorFade * smoothstep(0.22, 0.9, roll);
+  }
+
+  void main() {
+    vec2 uv = vUv;
+    vec2 pixel = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
+    float time = uTime * uSpeed;
+    float vignette = vignetteFor(pixel);
+    float gridPulse = fbm(vec2(uv.x * 7.0 + time * 0.08, uv.y * 4.8 - time * 0.12));
+
+    vec3 color = mix(uSkyLow * 0.58, uSkyMid * 0.72, smoothstep(0.0, 1.0, uv.y));
+    float purpleFog = lowFog(uv, 0.2, time);
+    float pinkFog = lowFog(uv + vec2(0.08, 0.06), 1.7, time * 0.82);
+    float cyanLine = pow(smoothstep(0.72, 1.0, gridPulse), 3.0) * smoothstep(0.05, 0.82, uv.y);
+
+    color += uRibbonA * purpleFog * 0.62 * uIntensity;
+    color += uRibbonB * pinkFog * 0.38 * uIntensity;
+    color += uRibbonC * cyanLine * 0.16 * uIntensity;
+    color *= 0.64 + vignette * 0.5;
+
+    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+  }
+`;
+
+export const draculaCardFragmentShader = /* glsl */ `
+${commonFragmentPrelude}
+
+  float diagonalSheen(vec2 uv, float time) {
+    float stripe = uv.x * 1.1 + uv.y * 0.72 + sin(uv.y * 5.0 + time * 0.6) * 0.05;
+    float sweepA = 1.0 - smoothstep(0.0, 0.12, abs(fract(stripe - time * 0.09) - 0.5));
+    float sweepB = 1.0 - smoothstep(0.0, 0.06, abs(fract(stripe * 1.7 + time * 0.07) - 0.5));
+    return sweepA * 0.5 + sweepB * 0.24;
+  }
+
+  void main() {
+    vec2 uv = vUv;
+    vec2 pixel = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
+    float time = uTime * uSpeed;
+    float vignette = vignetteFor(pixel);
+    float noiseVeil = fbm(vec2(uv.x * 9.0 + time * 0.18, uv.y * 7.0 - time * 0.16));
+    float sheen = diagonalSheen(uv, time) * smoothstep(0.2, 0.92, noiseVeil);
+    float edge = 1.0 - smoothstep(0.2, 0.88, length(pixel * vec2(0.82, 1.08)));
+
+    vec3 color = vec3(0.0);
+    color += uRibbonA * sheen * 0.5 * uIntensity;
+    color += uRibbonB * pow(sheen, 1.8) * 0.42 * uIntensity;
+    color += uRibbonC * pow(smoothstep(0.72, 1.0, noiseVeil), 4.0) * 0.18 * uIntensity;
+    color += uSkyMid * edge * 0.18;
+    color *= 0.55 + vignette * 0.62;
+
+    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+  }
+`;
+
 export const auroraFragmentShaders: Record<AuroraShaderVariant, string> = {
   aurora: auroraFragmentShader,
   'clean-fire': cleanFireFragmentShader,
   campfire: campfireFragmentShader,
+  'dracula-home': draculaHomeFragmentShader,
+  'dracula-board': draculaBoardFragmentShader,
+  'dracula-card': draculaCardFragmentShader,
 };
 
 export function auroraFragmentShaderFor(variant: AuroraShaderVariant): string {

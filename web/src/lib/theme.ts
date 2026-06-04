@@ -1,4 +1,4 @@
-export type ThemeId = 'dark' | 'light' | 'matrix' | 'solarized-light' | 'solarized-dark' | 'spiderman';
+export type ThemeId = 'dark' | 'light' | 'matrix' | 'solarized-light' | 'solarized-dark' | 'spiderman' | 'dracula';
 
 export interface ThemeDescriptor {
   id: ThemeId;
@@ -13,6 +13,7 @@ export const THEMES: ThemeDescriptor[] = [
   { id: 'solarized-dark', label: 'Solarized Dark', mode: 'dark' },
   { id: 'solarized-light', label: 'Solarized Light', mode: 'light' },
   { id: 'spiderman', label: 'Spider-Man', mode: 'dark' },
+  { id: 'dracula', label: 'Dracula', mode: 'dark' },
 ];
 
 export const themeIds: ThemeId[] = THEMES.map((theme) => theme.id);
@@ -21,7 +22,8 @@ export const lightModeThemes: ThemeDescriptor[] = THEMES.filter((theme) => theme
 
 /** A linear-RGB triple (each component 0..1) for the aurora WebGL shader. */
 export type Rgb = readonly [number, number, number];
-export type AuroraShaderVariant = 'aurora' | 'clean-fire' | 'campfire';
+export type ThemeShaderSurface = 'home' | 'board' | 'card';
+export type AuroraShaderVariant = 'aurora' | 'clean-fire' | 'campfire' | 'dracula-home' | 'dracula-board' | 'dracula-card';
 
 /**
  * Per-theme palette for the landing-hero aurora shader. `sky*` are the vertical
@@ -30,6 +32,7 @@ export type AuroraShaderVariant = 'aurora' | 'clean-fire' | 'campfire';
  */
 export interface AuroraPalette {
   shader: AuroraShaderVariant;
+  surfaceShaders?: Partial<Record<ThemeShaderSurface, AuroraShaderVariant>>;
   skyTop: Rgb;
   skyMid: Rgb;
   skyLow: Rgb;
@@ -99,10 +102,26 @@ export const auroraPalettes: Record<ThemeId, AuroraPalette> = {
     ribbonB: [0.16, 0.32, 0.85],
     ribbonC: [0.95, 0.95, 0.98],
   },
+  // Dracula: deep editor purple with cyan/pink/purple shader surfaces.
+  dracula: {
+    shader: 'dracula-home',
+    surfaceShaders: {
+      home: 'dracula-home',
+      board: 'dracula-board',
+      card: 'dracula-card',
+    },
+    skyTop: [0.08, 0.085, 0.13],
+    skyMid: [0.12, 0.12, 0.19],
+    skyLow: [0.17, 0.18, 0.25],
+    ribbonA: [0.74, 0.58, 0.98],
+    ribbonB: [1.0, 0.47, 0.78],
+    ribbonC: [0.55, 0.91, 0.99],
+  },
 };
 
-export function auroraPaletteFor(id: ThemeId): AuroraPalette {
-  return auroraPalettes[id] ?? auroraPalettes.dark;
+export function auroraPaletteFor(id: ThemeId, surface: ThemeShaderSurface = 'home'): AuroraPalette {
+  const palette = auroraPalettes[id] ?? auroraPalettes.dark;
+  return { ...palette, shader: palette.surfaceShaders?.[surface] ?? palette.shader };
 }
 
 /**
@@ -146,6 +165,11 @@ export const captureBackgrounds: Record<ThemeId, CaptureBackground> = {
     solid: '#0a0a18',
     gradient:
       'radial-gradient(circle at 15% 8%, rgba(220,38,38,0.28), transparent 32%), radial-gradient(circle at 82% 16%, rgba(37,99,235,0.24), transparent 34%), linear-gradient(135deg, #0a0a18, #12122a 52%, #08081a)',
+  },
+  dracula: {
+    solid: '#282a36',
+    gradient:
+      'radial-gradient(circle at 15% 8%, rgba(189,147,249,0.28), transparent 32%), radial-gradient(circle at 82% 16%, rgba(255,121,198,0.22), transparent 34%), radial-gradient(circle at 48% 88%, rgba(139,233,253,0.18), transparent 38%), linear-gradient(135deg, #282a36, #1f2130 52%, #171923)',
   },
 };
 

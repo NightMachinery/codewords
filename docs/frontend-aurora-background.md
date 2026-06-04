@@ -22,7 +22,8 @@ The component exposes these props on the landing page:
 
 Shader-level tuning lives in `web/src/lib/backgrounds/auroraShaders.ts`:
 
-- Themes choose a procedural shader variant through `auroraPalettes` in `web/src/lib/theme.ts`: `aurora`, `clean-fire`, or `campfire`.
+- Themes choose a procedural shader variant through `auroraPalettes` in `web/src/lib/theme.ts`:
+  `aurora`, `clean-fire`, `campfire`, `dracula-home`, `dracula-board`, or `dracula-card`.
 - Each variant is its own fragment shader source. `AuroraBackground` swaps the material's
   `fragmentShader` and sets `needsUpdate` when the active theme changes, so a compile/runtime issue
   in one optional variant cannot disable the other variants.
@@ -33,6 +34,9 @@ Shader-level tuning lives in `web/src/lib/backgrounds/auroraShaders.ts`:
 - Dark themes use the `aurora` variant. `curtain(...)` controls the height, softness, strand density, and drift of each aurora band.
 - Light uses the `campfire` variant. `campfireBody(...)`, `flameLick(...)`, `sparkField(...)`, and `smokeVeil(...)` combine uneven lower flame mass, torn rising licks, sparse sparks, and faint smoke/haze.
 - Solarized Light uses the preserved `clean-fire` variant. `flameTongue(...)` shapes cleaner rising flame licks and composites warm orange/gold/coral color plus white-hot cores and small rising embers over the pale sky.
+- Dracula uses three variants selected by the `surface` prop. `dracula-home` is the homepage hero's
+  broad purple/pink/cyan atmosphere, `dracula-board` is slower low-contrast board fog behind the
+  grid, and `dracula-card` is a tighter spectral sheen overlay for the Dracula board cards.
 - `vignette`, `softMask`, and horizon glow keep the dark aurora restrained, while fire variants avoid dark multiply-style blending so they do not collapse into a shadow blob.
 
 Do not add images, videos, GIFs, particles, or texture dependencies for this background; it is intentionally procedural.

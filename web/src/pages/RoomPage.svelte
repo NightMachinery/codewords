@@ -1341,6 +1341,7 @@
                 {phase}
                 {guessDisabledReason}
                 onGuess={guessCard}
+                theme={effectiveThemeId}
               />
             </section>
             {#if showBelowBoardSwitchUnitySpymaster}

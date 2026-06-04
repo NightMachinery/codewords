@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   auroraPalettes,
+  auroraPaletteFor,
   defaultThemePreferences,
+  darkModeThemes,
   readThemePreferences,
   resolveTheme,
   themePreferencesStorageKey,
@@ -37,9 +39,9 @@ describe('theme preferences', () => {
     expect(readThemePreferences(storage)).toEqual(prefs);
   });
 
-  it('accepts the Solarized and Spider-Man theme ids', () => {
+  it('accepts the Solarized, Spider-Man, and Dracula theme ids', () => {
     const storage = new MemoryStorage();
-    const prefs: ThemePreferences = { auto: true, manual: 'spiderman', darkTheme: 'solarized-dark', lightTheme: 'solarized-light' };
+    const prefs: ThemePreferences = { auto: true, manual: 'dracula', darkTheme: 'dracula', lightTheme: 'solarized-light' };
     writeThemePreferences(storage, prefs);
     expect(readThemePreferences(storage)).toEqual(prefs);
   });
@@ -90,7 +92,7 @@ describe('resolveTheme', () => {
 });
 
 describe('THEMES catalog', () => {
-  it('exposes the six themes with valid modes', () => {
+  it('exposes the seven themes with valid modes', () => {
     expect(THEMES.map((t) => t.id)).toEqual([
       'dark',
       'light',
@@ -98,22 +100,30 @@ describe('THEMES catalog', () => {
       'solarized-dark',
       'solarized-light',
       'spiderman',
+      'dracula',
     ]);
     for (const theme of THEMES) {
       expect(['dark', 'light']).toContain(theme.mode);
     }
+    expect(darkModeThemes.map((theme) => theme.id)).toContain('dracula');
   });
 });
 
 describe('aurora shader variants', () => {
   it('assigns a valid shader variant to every theme palette', () => {
-    const validVariants = ['aurora', 'clean-fire', 'campfire'];
+    const validVariants = ['aurora', 'clean-fire', 'campfire', 'dracula-home', 'dracula-board', 'dracula-card'];
     for (const theme of THEMES) {
       expect(validVariants).toContain(auroraPalettes[theme.id].shader);
     }
   });
 
-  it('uses campfire for Light, clean fire for Solarized Light, and aurora for dark themes', () => {
+  it('uses surface-specific Dracula shader variants', () => {
+    expect(auroraPaletteFor('dracula', 'home').shader).toBe('dracula-home');
+    expect(auroraPaletteFor('dracula', 'board').shader).toBe('dracula-board');
+    expect(auroraPaletteFor('dracula', 'card').shader).toBe('dracula-card');
+  });
+
+  it('uses campfire for Light, clean fire for Solarized Light, and aurora for non-Dracula dark themes', () => {
     expect(auroraPalettes.light.shader).toBe('campfire');
     expect(auroraPalettes['solarized-light'].shader).toBe('clean-fire');
     expect(auroraPalettes.dark.shader).toBe('aurora');

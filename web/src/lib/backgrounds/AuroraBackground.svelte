@@ -3,16 +3,17 @@
   import * as THREE from 'three';
 
   import { auroraFragmentShaderFor, auroraVertexShader } from './auroraShaders';
-  import { auroraPaletteFor, type AuroraShaderVariant, type ThemeId } from '../theme';
+  import { auroraPaletteFor, type AuroraShaderVariant, type ThemeId, type ThemeShaderSurface } from '../theme';
 
   type Props = {
     intensity?: number;
     speed?: number;
     theme?: ThemeId;
+    surface?: ThemeShaderSurface;
     class?: string;
   };
 
-  let { intensity = 0.74, speed = 0.16, theme = 'dark', class: className = '' }: Props = $props();
+  let { intensity = 0.74, speed = 0.16, theme = 'dark', surface = 'home', class: className = '' }: Props = $props();
 
   let host: HTMLDivElement;
   let canvas: HTMLCanvasElement;
@@ -31,7 +32,7 @@
   };
 
   $effect(() => {
-    const palette = auroraPaletteFor(theme);
+    const palette = auroraPaletteFor(theme, surface);
     colorUniforms.uSkyTop.value.set(...palette.skyTop);
     colorUniforms.uSkyMid.value.set(...palette.skyMid);
     colorUniforms.uSkyLow.value.set(...palette.skyLow);
@@ -183,6 +184,7 @@
 <div
   bind:this={host}
   class={["aurora-background", className, webglSupported && "webgl-supported"]}
+  data-surface={surface}
   aria-hidden="true"
 >
   <div class="aurora-fallback"></div>
@@ -279,6 +281,37 @@
 
   :global([data-theme='matrix']) .aurora-fallback::after {
     background: linear-gradient(180deg, transparent, oklch(6% 0.03 152 / 0.58) 78%);
+  }
+
+  :global([data-theme='dracula']) .aurora-background {
+    background: oklch(22% 0.045 294);
+  }
+
+  :global([data-theme='dracula']) .aurora-fallback {
+    background:
+      radial-gradient(ellipse at 28% 18%, oklch(74% 0.16 306 / 0.24), transparent 36%),
+      radial-gradient(ellipse at 72% 22%, oklch(70% 0.18 342 / 0.2), transparent 38%),
+      radial-gradient(ellipse at 50% 102%, oklch(82% 0.11 215 / 0.18), transparent 42%),
+      linear-gradient(180deg, oklch(18% 0.04 294), oklch(24% 0.045 294) 58%, oklch(16% 0.035 294));
+  }
+
+  :global([data-theme='dracula']) .aurora-fallback::after {
+    background: linear-gradient(180deg, transparent, oklch(14% 0.035 294 / 0.58) 82%);
+  }
+
+  :global([data-theme='dracula']) .aurora-background[data-surface='board'] .aurora-fallback {
+    background:
+      radial-gradient(ellipse at 22% 38%, oklch(70% 0.15 306 / 0.22), transparent 42%),
+      radial-gradient(ellipse at 76% 54%, oklch(70% 0.18 342 / 0.17), transparent 44%),
+      radial-gradient(ellipse at 50% 86%, oklch(82% 0.11 215 / 0.14), transparent 46%),
+      linear-gradient(180deg, oklch(16% 0.035 294), oklch(20% 0.04 294));
+  }
+
+  :global([data-theme='dracula']) .aurora-background[data-surface='card'] .aurora-fallback {
+    background:
+      linear-gradient(118deg, transparent 18%, oklch(74% 0.16 306 / 0.16) 38%, transparent 58%),
+      linear-gradient(142deg, transparent 26%, oklch(70% 0.18 342 / 0.14) 48%, transparent 68%),
+      radial-gradient(ellipse at 52% 45%, oklch(82% 0.11 215 / 0.12), transparent 54%);
   }
 
   canvas {
