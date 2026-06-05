@@ -490,6 +490,11 @@ describe('board card state', () => {
     expect(cardChromeStyle(word, 'blue', '#2563eb', false)).toContain('border-color: #2563ebB3');
     expect(cardChromeStyle(word, 'blue', '#2563eb', true)).toContain('border-color: transparent');
     expect(cardChromeStyle(word, 'blue', '#2563eb', true)).toContain('background-color: #2563eb40');
+    expect(cardChromeStyle(word, 'civilian', '', false)).toContain('background-color: #9f784166');
+    expect(cardChromeStyle(word, 'civilian', '', false)).toContain('border-color: #9f7841B3');
+    expect(cardChromeStyle(word, 'black', '', false)).toContain('background-color: #15161cD9');
+    expect(cardChromeStyle(word, 'black', '', false)).toContain('border-color: #15161cB3');
+    expect(cardChromeStyle(word, 'hidden', '', false)).toBe('');
 
     const overlay = selectedImageOverlayStyle('blue', '#2563eb');
     expect(overlay).toBe('border-color: rgba(167, 243, 208, 0.95);');

@@ -695,13 +695,29 @@ export function cardChromePaddingStyle(card: Pick<DisplayCard, 'contentType'>): 
   return `padding: ${imageCardColorBorderWidthPx}px;`;
 }
 
+export function cardChromeColor(visibleColor: VisibleCardColor, settings?: Settings): string {
+  if (visibleColor === 'blue' || visibleColor === 'red' || visibleColor === 'unity') return teamColor(visibleColor, settings);
+  if (visibleColor === 'civilian') return '#9f7841';
+  if (visibleColor === 'black') return '#15161c';
+  return '';
+}
+
+function cardChromeFillAlpha(card: Pick<DisplayCard, 'contentType'>, visibleColor: VisibleCardColor): string {
+  if (card.contentType === 'image') return 'B3';
+  if (visibleColor === 'civilian') return '66';
+  if (visibleColor === 'black') return 'D9';
+  return '40';
+}
+
 export function cardChromeStyle(card: Pick<DisplayCard, 'contentType'>, visibleColor: VisibleCardColor, customColor: string, isLastSelected: boolean, surface = '#0f172a'): string {
-  if (visibleColor === 'hidden' || !customColor) return '';
-  const fillAlpha = card.contentType === 'image' ? 'B3' : '40';
-  const foreground = contrastAwareForeground(customColor, surface, alphaHexToNumber(fillAlpha));
-  if (card.contentType === 'image') return `background-color: ${hexWithAlpha(customColor, fillAlpha)}; color: ${foreground}`;
-  const borderColor = isLastSelected ? 'transparent' : hexWithAlpha(customColor, 'B3');
-  return `border-color: ${borderColor}; background-color: ${hexWithAlpha(customColor, fillAlpha)}; color: ${foreground}`;
+  if (visibleColor === 'hidden') return '';
+  const color = customColor || cardChromeColor(visibleColor);
+  if (!color) return '';
+  const fillAlpha = cardChromeFillAlpha(card, visibleColor);
+  const foreground = contrastAwareForeground(color, surface, alphaHexToNumber(fillAlpha));
+  if (card.contentType === 'image') return `background-color: ${hexWithAlpha(color, fillAlpha)}; color: ${foreground}`;
+  const borderColor = isLastSelected ? 'transparent' : hexWithAlpha(color, 'B3');
+  return `border-color: ${borderColor}; background-color: ${hexWithAlpha(color, fillAlpha)}; color: ${foreground}`;
 }
 
 export function cardDisabledStateClasses(input: { disabled: boolean; revealed?: boolean; revealedStyle: 'normal' | 'greyed' | 'invisible' | 'omitted' }): string {

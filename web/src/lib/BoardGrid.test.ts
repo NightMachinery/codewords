@@ -27,6 +27,12 @@ describe('BoardGrid surface shader contract', () => {
     expect(componentSource).toContain(":global([data-theme='christmas-candy']) .surface-card-shader");
   });
 
+
+  it('resolves visible non-team card colors through centralized semantic chrome', () => {
+    expect(componentSource).toContain('cardChromeColor(view.visibleColor, settings)');
+    expect(componentSource).not.toContain("card.color === 'blue' ? teamColor('blue', settings)");
+  });
+
   it('keeps Dracula revealed civilian cards distinct from unrevealed cards', () => {
     const baseRuleIndex = componentSource.indexOf(":global([data-theme='dracula']) .surface-shader-board-card {");
     const civilianRuleIndex = componentSource.indexOf(":global([data-theme='dracula']) .surface-shader-board-card.revealed-civilian-card");

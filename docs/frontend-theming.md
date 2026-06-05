@@ -95,8 +95,7 @@ bindable `effectiveThemeId` / `sessionOverride` / `themePreferences` props.
 - **Room board** (`web/src/lib/BoardGrid.svelte`): themes that define `surfaceShaders.board` and
   `surfaceShaders.card` render one shared board shader behind the grid and one distinct card-sheen
   shader overlay above the grid, both decorative and pointer-events-free. Dracula, Glitch, and the
-  Christmas themes use this path. Dracula gives revealed civilian cards a stronger amber surface
-  after its generic card backing so they remain distinct from unrevealed cards. Christmas Snow uses a lower-opacity board shader, nearly transparent card sheen, and stronger frosted card backings so pale surfaces do not wash out text. Capture mode omits live shader layers so memory exports stay stable.
+  Christmas themes use this path. Visible civilian and assassin cards use explicit semantic inline chrome above the generic shader card backing, so neutral and bomb/assassin cards remain distinct in shader themes; unrevealed cards keep the shader-themed backing. Dracula still gives revealed civilian cards an extra stronger amber surface after its generic card backing. Christmas Snow uses a lower-opacity board shader, nearly transparent card sheen, and stronger frosted card backings so pale surfaces do not wash out text. Capture mode omits live shader layers so memory exports stay stable.
 
 ## Moderator push (session only)
 
