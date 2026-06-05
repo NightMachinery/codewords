@@ -28,6 +28,13 @@ describe('BoardGrid surface shader contract', () => {
   });
 
 
+  it('has Blood shader card drip tuning hooks', () => {
+    expect(componentSource).toContain(":global([data-theme='blood']) .surface-card-shader");
+    expect(componentSource).toContain(":global([data-theme='blood']) .surface-shader-board-card");
+    expect(componentSource).toContain(":global([data-theme='blood']) .surface-shader-board-card:hover:not(:disabled)");
+  });
+
+
   it('resolves visible non-team card colors through centralized semantic chrome', () => {
     expect(componentSource).toContain('cardChromeColor(view.visibleColor, settings)');
     expect(componentSource).not.toContain("card.color === 'blue' ? teamColor('blue', settings)");

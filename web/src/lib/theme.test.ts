@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   auroraPalettes,
   auroraPaletteFor,
+  captureBackgroundFor,
   defaultThemePreferences,
   darkModeThemes,
   lightModeThemes,
@@ -93,7 +94,7 @@ describe('resolveTheme', () => {
 });
 
 describe('THEMES catalog', () => {
-  it('exposes the eleven themes with valid modes', () => {
+  it('exposes the twelve themes with valid modes', () => {
     expect(THEMES.map((t) => t.id)).toEqual([
       'dark',
       'light',
@@ -106,6 +107,7 @@ describe('THEMES catalog', () => {
       'christmas-cozy',
       'christmas-snow',
       'christmas-candy',
+      'blood',
     ]);
     for (const theme of THEMES) {
       expect(['dark', 'light']).toContain(theme.mode);
@@ -113,6 +115,7 @@ describe('THEMES catalog', () => {
     expect(darkModeThemes.map((theme) => theme.id)).toContain('dracula');
     expect(darkModeThemes.map((theme) => theme.id)).toContain('glitch');
     expect(darkModeThemes.map((theme) => theme.id)).toContain('christmas-cozy');
+    expect(darkModeThemes.map((theme) => theme.id)).toContain('blood');
     expect(lightModeThemes.map((theme) => theme.id)).toEqual(expect.arrayContaining(['christmas-snow', 'christmas-candy']));
   });
 });
@@ -138,6 +141,9 @@ describe('aurora shader variants', () => {
       'christmas-candy-home',
       'christmas-candy-board',
       'christmas-candy-card',
+      'blood-home',
+      'blood-board',
+      'blood-card',
     ];
     for (const theme of THEMES) {
       expect(validVariants).toContain(auroraPalettes[theme.id].shader);
@@ -181,6 +187,23 @@ describe('aurora shader variants', () => {
     expect(board).toContain('mintRibbon');
     expect(board).toContain('sugarPink');
     expect(board).not.toContain('color = mix(uSkyLow * 0.94');
+  });
+
+
+  it('uses surface-specific Blood shader variants and capture background', () => {
+    expect(auroraPaletteFor('blood', 'home').shader).toBe('blood-home');
+    expect(auroraPaletteFor('blood', 'board').shader).toBe('blood-board');
+    expect(auroraPaletteFor('blood', 'card').shader).toBe('blood-card');
+    expect(auroraPalettes.blood.surfaceShaders).toMatchObject({ home: 'blood-home', board: 'blood-board', card: 'blood-card' });
+    expect(captureBackgroundFor('blood').solid).toBe('#120306');
+  });
+
+  it('makes Blood shaders read as elegant dripping blood', async () => {
+    const { auroraFragmentShaders } = await import('./backgrounds/auroraShaders');
+    expect(auroraFragmentShaders['blood-home']).toContain('bloodDrip');
+    expect(auroraFragmentShaders['blood-board']).toContain('pooledBlood');
+    expect(auroraFragmentShaders['blood-card']).toContain('rivulet');
+    expect(auroraFragmentShaders['blood-card']).toContain('droplet');
   });
 
   it('uses campfire for Light, clean fire for Solarized Light, and aurora for base dark themes', () => {

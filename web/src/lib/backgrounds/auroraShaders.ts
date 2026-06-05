@@ -814,6 +814,137 @@ ${commonFragmentPrelude}
   }
 `;
 
+
+export const bloodHomeFragmentShader = /* glsl */ `
+${commonFragmentPrelude}
+
+  float bloodDrip(vec2 uv, float seed, float time) {
+    float columns = 13.0;
+    float cell = floor(uv.x * columns + seed);
+    float localX = fract(uv.x * columns + seed) - 0.5;
+    float r = hash(vec2(cell, seed * 17.0));
+    float width = 0.06 + r * 0.08;
+    float dripLength = 0.18 + r * 0.5 + 0.08 * sin(time * (0.24 + r * 0.2) + r * 6.2831);
+    float top = 1.02 - r * 0.18;
+    float y = top - uv.y;
+    float stem = smoothstep(width, 0.0, abs(localX + sin(uv.y * 6.0 + time * 0.18 + r) * 0.035));
+    float vertical = smoothstep(0.0, 0.08, y) * (1.0 - smoothstep(dripLength, dripLength + 0.08, y));
+    float beadY = top - dripLength;
+    float bead = 1.0 - smoothstep(0.0, width * 2.3, length(vec2(localX * 1.5, (uv.y - beadY) * 3.2)));
+    return stem * vertical * (0.34 + r * 0.48) + bead * 0.62;
+  }
+
+  void main() {
+    vec2 uv = vUv;
+    vec2 pixel = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
+    float time = uTime * uSpeed;
+    float vignette = vignetteFor(pixel);
+    float velvet = fbm(vec2(uv.x * 2.2 + time * 0.025, uv.y * 2.6 - time * 0.045));
+    float curtain = 1.0 - smoothstep(0.0, 0.34, abs(uv.y - (0.32 + velvet * 0.22 + sin(uv.x * 3.2 + time * 0.18) * 0.08)));
+    float dripA = bloodDrip(uv, 0.0, time);
+    float dripB = bloodDrip(uv + vec2(0.037, -0.05), 4.2, time * 0.74) * 0.58;
+    float lowerPool = smoothstep(0.45, 0.0, uv.y) * smoothstep(0.42, 1.0, fbm(vec2(uv.x * 4.4 - time * 0.04, uv.y * 3.2 + time * 0.03)));
+
+    vec3 color = skyColor(uv);
+    vec3 oxblood = mix(uRibbonB, uRibbonA, smoothstep(0.2, 0.95, velvet));
+    color += oxblood * curtain * 0.32 * uIntensity;
+    color += uRibbonA * (dripA + dripB) * 0.46 * uIntensity;
+    color += uRibbonC * pow(dripA + dripB, 2.2) * 0.18 * uIntensity;
+    color += uRibbonB * lowerPool * 0.28 * uIntensity;
+    color *= 0.48 + vignette * 0.72;
+
+    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+  }
+`;
+
+export const bloodBoardFragmentShader = /* glsl */ `
+${commonFragmentPrelude}
+
+  float pooledBlood(vec2 uv, float time) {
+    vec2 poolUv = vec2(uv.x * 2.6 + time * 0.026, uv.y * 3.4 - time * 0.018);
+    float slow = fbm(poolUv);
+    float ring = sin((uv.x * 3.1 + slow * 1.4 - time * 0.08) * 6.2831) * 0.5 + 0.5;
+    float lower = smoothstep(0.92, 0.1, uv.y);
+    return smoothstep(0.36, 0.82, slow) * lower + pow(ring, 5.0) * 0.16 * lower;
+  }
+
+  float bloodDrip(vec2 uv, float seed, float time) {
+    float col = floor(uv.x * 17.0 + seed);
+    float r = hash(vec2(col, seed));
+    float x = fract(uv.x * 17.0 + seed) - 0.5;
+    float fall = fract(time * (0.035 + r * 0.035) + r);
+    float headY = 1.12 - fall * 1.34;
+    float width = 0.045 + r * 0.055;
+    float trail = smoothstep(width, 0.0, abs(x)) * smoothstep(headY - 0.36, headY, uv.y) * smoothstep(headY + 0.04, headY, uv.y);
+    float bead = 1.0 - smoothstep(0.0, width * 2.1, length(vec2(x * 1.5, (uv.y - headY) * 3.0)));
+    return trail * 0.28 + bead * 0.52;
+  }
+
+  void main() {
+    vec2 uv = vUv;
+    vec2 pixel = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
+    float time = uTime * uSpeed;
+    float vignette = vignetteFor(pixel);
+    float pool = pooledBlood(uv, time);
+    float drip = bloodDrip(uv, 1.8, time) + bloodDrip(uv + vec2(0.021, 0.0), 8.4, time * 0.82) * 0.64;
+    float satin = fbm(vec2(uv.x * 7.0 + time * 0.04, uv.y * 4.6 - time * 0.035));
+
+    vec3 color = mix(uSkyLow * 0.5, uSkyMid * 0.68, smoothstep(0.0, 1.0, uv.y));
+    color += uRibbonB * pool * 0.3 * uIntensity;
+    color += uRibbonA * (pool * 0.24 + drip * 0.34) * uIntensity;
+    color += uRibbonC * pow(smoothstep(0.74, 1.0, satin), 3.0) * 0.11 * uIntensity;
+    color *= 0.54 + vignette * 0.58;
+
+    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+  }
+`;
+
+export const bloodCardFragmentShader = /* glsl */ `
+${commonFragmentPrelude}
+
+  float rivulet(vec2 uv, float seed, float time) {
+    float columns = 18.0;
+    float col = floor(uv.x * columns + seed);
+    float r = hash(vec2(col, seed * 11.0));
+    float localX = fract(uv.x * columns + seed) - 0.5;
+    float wobble = sin(uv.y * (8.0 + r * 5.0) + time * (0.18 + r * 0.18) + r * 6.2831) * (0.025 + r * 0.025);
+    float width = 0.035 + r * 0.04;
+    float topMask = smoothstep(1.04, 0.42 + r * 0.34, uv.y);
+    float lowerFade = smoothstep(-0.06, 0.28, uv.y);
+    return smoothstep(width, 0.0, abs(localX + wobble)) * topMask * lowerFade * (0.45 + r * 0.5);
+  }
+
+  float droplet(vec2 uv, float seed, float time) {
+    vec2 grid = vec2(uv.x * 18.0 + seed, uv.y * 9.0 - time * (0.16 + seed * 0.01));
+    vec2 cell = floor(grid);
+    vec2 local = fract(grid) - 0.5;
+    float r = hash(cell + seed);
+    local.x += (r - 0.5) * 0.38;
+    float drop = 1.0 - smoothstep(0.0, 0.12 + r * 0.05, length(local * vec2(0.82, 1.35)));
+    return drop * step(0.9, r) * smoothstep(0.96, 0.34, uv.y);
+  }
+
+  void main() {
+    vec2 uv = vUv;
+    vec2 pixel = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
+    float time = uTime * uSpeed;
+    float vignette = vignetteFor(pixel);
+    float flow = rivulet(uv, 0.0, time) + rivulet(uv + vec2(0.024, -0.03), 6.7, time * 0.78) * 0.58;
+    float beads = droplet(uv, 2.4, time) + droplet(uv + vec2(0.07, 0.04), 9.1, time * 0.7) * 0.55;
+    float gloss = 1.0 - smoothstep(0.0, 0.1, abs(fract(uv.x * 1.12 + uv.y * 0.72 - time * 0.045) - 0.5));
+    float edge = 1.0 - smoothstep(0.2, 0.88, length(pixel * vec2(0.82, 1.08)));
+
+    vec3 color = vec3(0.0);
+    color += uRibbonA * flow * 0.42 * uIntensity;
+    color += uRibbonB * (flow + beads) * 0.24 * uIntensity;
+    color += uRibbonC * (beads * 0.16 + gloss * edge * 0.08) * uIntensity;
+    color += uSkyMid * edge * 0.08;
+    color *= 0.58 + vignette * 0.62;
+
+    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+  }
+`;
+
 export const auroraFragmentShaders: Record<AuroraShaderVariant, string> = {
   aurora: auroraFragmentShader,
   'clean-fire': cleanFireFragmentShader,
@@ -833,6 +964,9 @@ export const auroraFragmentShaders: Record<AuroraShaderVariant, string> = {
   'christmas-candy-home': christmasCandyHomeFragmentShader,
   'christmas-candy-board': christmasCandyBoardFragmentShader,
   'christmas-candy-card': christmasCandyCardFragmentShader,
+  'blood-home': bloodHomeFragmentShader,
+  'blood-board': bloodBoardFragmentShader,
+  'blood-card': bloodCardFragmentShader,
 };
 
 export function auroraFragmentShaderFor(variant: AuroraShaderVariant): string {

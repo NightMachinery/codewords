@@ -415,6 +415,40 @@
       radial-gradient(ellipse at 52% 45%, oklch(82% 0.1 350 / 0.12), transparent 54%);
   }
 
+
+  :global([data-theme='blood']) .aurora-background {
+    background: oklch(8% 0.04 18);
+  }
+
+  :global([data-theme='blood']) .aurora-fallback {
+    background:
+      radial-gradient(ellipse at 25% 16%, oklch(42% 0.2 25 / 0.24), transparent 34%),
+      radial-gradient(ellipse at 74% 24%, oklch(30% 0.16 18 / 0.22), transparent 38%),
+      radial-gradient(ellipse at 50% 106%, oklch(50% 0.22 28 / 0.2), transparent 44%),
+      linear-gradient(180deg, oklch(7% 0.04 18), oklch(13% 0.07 18) 58%, oklch(5% 0.03 15));
+  }
+
+  :global([data-theme='blood']) .aurora-fallback::after {
+    background:
+      repeating-linear-gradient(90deg, transparent 0 52px, oklch(45% 0.22 25 / 0.12) 52px 56px, transparent 56px 92px),
+      linear-gradient(180deg, transparent, oklch(4% 0.03 14 / 0.62) 82%);
+  }
+
+  :global([data-theme='blood']) .aurora-background[data-surface='board'] .aurora-fallback {
+    background:
+      radial-gradient(ellipse at 30% 38%, oklch(38% 0.19 25 / 0.22), transparent 42%),
+      radial-gradient(ellipse at 72% 64%, oklch(28% 0.16 18 / 0.2), transparent 44%),
+      repeating-linear-gradient(90deg, transparent 0 46px, oklch(42% 0.22 24 / 0.09) 46px 50px, transparent 50px 84px),
+      linear-gradient(180deg, oklch(6% 0.035 18), oklch(13% 0.065 18));
+  }
+
+  :global([data-theme='blood']) .aurora-background[data-surface='card'] .aurora-fallback {
+    background:
+      repeating-linear-gradient(90deg, oklch(48% 0.24 25 / 0.11) 0 5px, transparent 5px 34px),
+      linear-gradient(118deg, transparent 16%, oklch(55% 0.24 28 / 0.14) 38%, transparent 58%),
+      radial-gradient(ellipse at 52% 45%, oklch(38% 0.18 20 / 0.12), transparent 54%);
+  }
+
   canvas {
     display: block;
     opacity: 0;

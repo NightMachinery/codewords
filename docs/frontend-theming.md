@@ -1,9 +1,9 @@
 # Frontend Theming
 
-Codewords ships eleven themes — **Dark** (the original look), **Light**, **Matrix**, **Solarized
+Codewords ships twelve themes — **Dark** (the original look), **Light**, **Matrix**, **Solarized
 Dark**, **Solarized Light**, **Spider-Man**, **Dracula**, **Glitch**, **Christmas Cozy**,
-**Christmas Snow**, and **Christmas Candy** — with optional automatic switching that follows the
-operating system's dark-mode preference.
+**Christmas Snow**, **Christmas Candy**, and **Blood** — with optional automatic switching that
+follows the operating system's dark-mode preference.
 
 ## How themes are applied
 
@@ -34,6 +34,8 @@ just a matter of overriding those variables — no component edits are required.
   accents; `color-scheme: light`.
 - **Christmas Candy** — peppermint cream and mint surfaces with candy-cane red controls and green
   secondary accents; `color-scheme: light`.
+- **Blood** — elegant noir burgundy surfaces with polished crimson controls, oxblood highlights,
+  and custom dripping blood shaders; `color-scheme: dark`.
 
 Team colors (`blue` = Libertarians, `red` = Monarchists, plus Unity/Monality custom accents) and warning `amber` are intentionally left semantically stable so players can recognize card allegiance in every theme. Card, counter, and clue-badge foregrounds are contrast-aware rather than fixed near-white: helpers in `gameplay.ts` blend the team tint over the active board surface and choose a dark or light OKLCH foreground. This keeps low-alpha purple Monality surfaces readable on light themes while preserving light text on dark saturated cards. The light themes still darken the low `amber` text shades so warm labels stay readable.
 
@@ -84,8 +86,10 @@ bindable `effectiveThemeId` / `sessionOverride` / `themePreferences` props.
   smoother flame tongues and ember wisps. Dracula uses separate `dracula-home`, `dracula-board`,
   and `dracula-card` shader variants, selected through the `surface` prop. Glitch likewise uses
   `glitch-home`, `glitch-board`, and `glitch-card` for CRT scanlines, RGB tearing, broken slices,
-  and intermittent block noise. The Christmas themes each use their own `home`, `board`, and `card`
-  shader variants for cozy string lights and snow, snowy frost veils, or peppermint stripe motion.
+  and intermittent block noise. Blood uses `blood-home`, `blood-board`, and `blood-card` for slow
+  crimson curtains, pooled board motion, and glossy card rivulets/droplets. The Christmas themes
+  each use their own `home`, `board`, and `card` shader variants for cozy string lights and snow,
+  snowy frost veils, or peppermint stripe motion.
   Christmas Snow keeps its board/card shader readable but visibly festive: icy-blue drift bands, sparse moving flakes/crystals, and light holly accents avoid the old gray wash. Christmas Candy uses stronger peppermint bands and mint/pink sugar highlights, with light-theme blend modes chosen to keep those colors bright instead of multiplying into gray.
   The shader's sky/ribbon colors and variant are fed from a
   per-theme `AuroraPalette` in `theme.ts` (`AuroraBackground` takes `theme` and `surface` props,
@@ -94,7 +98,7 @@ bindable `effectiveThemeId` / `sessionOverride` / `themePreferences` props.
   selectors.
 - **Room board** (`web/src/lib/BoardGrid.svelte`): themes that define `surfaceShaders.board` and
   `surfaceShaders.card` render one shared board shader behind the grid and one distinct card-sheen
-  shader overlay above the grid, both decorative and pointer-events-free. Dracula, Glitch, and the
+  shader overlay above the grid, both decorative and pointer-events-free. Dracula, Glitch, Blood, and the
   Christmas themes use this path. Visible civilian and assassin cards use explicit semantic inline chrome above the generic shader card backing, so neutral and bomb/assassin cards remain distinct in shader themes; unrevealed cards keep the shader-themed backing. Dracula still gives revealed civilian cards an extra stronger amber surface after its generic card backing. Christmas Snow uses a lower-opacity board shader, nearly transparent card sheen, and stronger frosted card backings so pale surfaces do not wash out text. Capture mode omits live shader layers so memory exports stay stable.
 
 ## Moderator push (session only)

@@ -9,7 +9,8 @@ export type ThemeId =
   | 'glitch'
   | 'christmas-cozy'
   | 'christmas-snow'
-  | 'christmas-candy';
+  | 'christmas-candy'
+  | 'blood';
 
 export interface ThemeDescriptor {
   id: ThemeId;
@@ -29,6 +30,7 @@ export const THEMES: ThemeDescriptor[] = [
   { id: 'christmas-cozy', label: 'Christmas Cozy', mode: 'dark' },
   { id: 'christmas-snow', label: 'Christmas Snow', mode: 'light' },
   { id: 'christmas-candy', label: 'Christmas Candy', mode: 'light' },
+  { id: 'blood', label: 'Blood', mode: 'dark' },
 ];
 
 export const themeIds: ThemeId[] = THEMES.map((theme) => theme.id);
@@ -56,7 +58,10 @@ export type AuroraShaderVariant =
   | 'christmas-snow-card'
   | 'christmas-candy-home'
   | 'christmas-candy-board'
-  | 'christmas-candy-card';
+  | 'christmas-candy-card'
+  | 'blood-home'
+  | 'blood-board'
+  | 'blood-card';
 
 /**
  * Per-theme palette for the landing-hero aurora shader. `sky*` are the vertical
@@ -210,6 +215,22 @@ export const auroraPalettes: Record<ThemeId, AuroraPalette> = {
     ribbonB: [0.0, 0.58, 0.25],
     ribbonC: [1.0, 0.78, 0.82],
   },
+
+  // Blood: elegant noir burgundy with liquid crimson shader surfaces.
+  blood: {
+    shader: 'blood-home',
+    surfaceShaders: {
+      home: 'blood-home',
+      board: 'blood-board',
+      card: 'blood-card',
+    },
+    skyTop: [0.025, 0.006, 0.01],
+    skyMid: [0.075, 0.012, 0.02],
+    skyLow: [0.13, 0.018, 0.026],
+    ribbonA: [0.86, 0.02, 0.06],
+    ribbonB: [0.42, 0.0, 0.02],
+    ribbonC: [1.0, 0.22, 0.18],
+  },
 };
 
 export function auroraPaletteFor(id: ThemeId, surface: ThemeShaderSurface = 'home'): AuroraPalette {
@@ -283,6 +304,12 @@ export const captureBackgrounds: Record<ThemeId, CaptureBackground> = {
     solid: '#fff7f3',
     gradient:
       'radial-gradient(circle at 12% 10%, rgba(239,68,68,0.16), transparent 30%), radial-gradient(circle at 84% 15%, rgba(34,197,94,0.16), transparent 32%), radial-gradient(circle at 48% 88%, rgba(251,113,133,0.14), transparent 38%), linear-gradient(135deg, #fffafa, #effdf5 52%, #fff1f2)',
+  },
+
+  blood: {
+    solid: '#120306',
+    gradient:
+      'radial-gradient(circle at 14% 10%, rgba(185,28,28,0.26), transparent 30%), radial-gradient(circle at 82% 18%, rgba(127,29,29,0.2), transparent 34%), radial-gradient(circle at 48% 88%, rgba(239,68,68,0.14), transparent 38%), linear-gradient(135deg, #120306, #2a060b 52%, #080103)',
   },
 };
 

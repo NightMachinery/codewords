@@ -659,7 +659,7 @@ func TestWebSocketForceThemeRequiresModAndBroadcastsSanitizedTheme(t *testing.T)
 		t.Fatalf("expected glitch theme broadcast, got %#v", msg)
 	}
 
-	for _, theme := range []string{"christmas-cozy", "christmas-snow", "christmas-candy"} {
+	for _, theme := range []string{"christmas-cozy", "christmas-snow", "christmas-candy", "blood"} {
 		if err := hostConn.WriteJSON(map[string]any{"type": "forceTheme", "theme": theme}); err != nil {
 			t.Fatalf("write host force %s theme: %v", theme, err)
 		}

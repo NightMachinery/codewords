@@ -50,11 +50,21 @@ describe('AuroraBackground WebGL component contract', () => {
     expect(shaderSource).toContain('export const christmasCozyHomeFragmentShader');
     expect(shaderSource).toContain('export const christmasSnowHomeFragmentShader');
     expect(shaderSource).toContain('export const christmasCandyHomeFragmentShader');
+    expect(shaderSource).toContain('export const bloodHomeFragmentShader');
+    expect(shaderSource).toContain('export const bloodBoardFragmentShader');
+    expect(shaderSource).toContain('export const bloodCardFragmentShader');
     expect(shaderSource).toContain('auroraFragmentShaderFor');
     expect(componentSource).toContain('auroraFragmentShaderFor(activeShaderVariant)');
     expect(componentSource).toContain('shaderMaterial.fragmentShader = auroraFragmentShaderFor(activeShaderVariant)');
     expect(componentSource).toContain('shaderMaterial.needsUpdate = true');
     expect(componentSource).not.toContain('shaderVariantUniformFor');
+  });
+
+
+  it('defines CSS fallbacks for Blood home, board, and card surfaces', () => {
+    expect(componentSource).toContain(":global([data-theme='blood']) .aurora-background");
+    expect(componentSource).toContain(":global([data-theme='blood']) .aurora-background[data-surface='board'] .aurora-fallback");
+    expect(componentSource).toContain(":global([data-theme='blood']) .aurora-background[data-surface='card'] .aurora-fallback");
   });
 
   it('defines CSS fallbacks for Christmas home, board, and card surfaces', () => {

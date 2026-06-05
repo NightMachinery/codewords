@@ -209,6 +209,34 @@
       0 14px 28px oklch(5% 0.025 154 / 0.34);
   }
 
+
+  :global([data-theme='blood']) .surface-board-shader {
+    opacity: 0.86;
+    filter: saturate(1.18) contrast(1.05);
+  }
+
+  :global([data-theme='blood']) .surface-card-shader {
+    opacity: 0.34;
+    mix-blend-mode: screen;
+  }
+
+  :global([data-theme='blood']) .surface-shader-board-card {
+    background-color: oklch(11% 0.055 18 / 0.82);
+    border-color: oklch(52% 0.2 25 / 0.24);
+    box-shadow:
+      inset 0 0 0 1px oklch(90% 0.06 25 / 0.035),
+      inset 0 -18px 34px oklch(32% 0.17 22 / 0.08),
+      0 14px 30px oklch(3% 0.025 14 / 0.42);
+  }
+
+  :global([data-theme='blood']) .surface-shader-board-card:hover:not(:disabled) {
+    border-color: oklch(58% 0.24 26 / 0.42);
+    box-shadow:
+      inset 0 0 0 1px oklch(70% 0.16 28 / 0.12),
+      inset 0 -18px 34px oklch(36% 0.18 22 / 0.12),
+      0 16px 36px oklch(3% 0.025 14 / 0.52);
+  }
+
   :global([data-theme='christmas-snow']) .surface-board-shader {
     opacity: 0.7;
     filter: saturate(1.2) contrast(1.03);

@@ -420,6 +420,47 @@
   --color-amber-200: oklch(56% 0.14 74);
 }
 
+
+/*
+ * Blood: elegant noir burgundy surfaces with polished crimson controls and
+ * restrained oxblood highlights.
+ */
+[data-theme='blood'] {
+  color-scheme: dark;
+
+  --color-slate-950: oklch(8% 0.04 18);
+  --color-slate-900: oklch(12% 0.055 18);
+  --color-slate-800: oklch(18% 0.065 18);
+  --color-slate-700: oklch(28% 0.075 18);
+  --color-slate-600: oklch(40% 0.075 18);
+  --color-slate-500: oklch(54% 0.065 18);
+  --color-slate-400: oklch(68% 0.052 20);
+  --color-slate-300: oklch(80% 0.04 24);
+  --color-slate-200: oklch(89% 0.03 30);
+  --color-slate-100: oklch(95% 0.02 38);
+  --color-slate-50: oklch(98% 0.014 48);
+
+  --color-zinc-950: oklch(7% 0.032 18);
+  --color-zinc-300: oklch(80% 0.035 24);
+  --color-zinc-100: oklch(95% 0.018 38);
+  --color-zinc-50: oklch(98% 0.012 48);
+
+  /* Accent: polished crimson in the existing emerald control slots. */
+  --color-emerald-50: oklch(96% 0.045 25);
+  --color-emerald-100: oklch(86% 0.11 25);
+  --color-emerald-200: oklch(76% 0.17 25);
+  --color-emerald-300: oklch(66% 0.23 25);
+  --color-emerald-400: oklch(58% 0.24 25);
+  --color-emerald-950: oklch(24% 0.1 18);
+
+  --color-cyan-300: oklch(78% 0.08 18);
+  --color-cyan-200: oklch(86% 0.065 20);
+  --color-cyan-100: oklch(93% 0.045 24);
+  --color-teal-300: oklch(74% 0.09 12);
+  --color-teal-200: oklch(83% 0.07 14);
+  --color-teal-100: oklch(91% 0.05 18);
+}
+
 body {
   margin: 0;
   min-width: 320px;
