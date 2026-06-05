@@ -306,8 +306,14 @@ func (s *State) finishMonality() {
 		}
 		return rankings[i].TotalScore > rankings[j].TotalScore
 	})
+	lastRank := 0
+	var lastScore float64
 	for i := range rankings {
-		rankings[i].Rank = i + 1
+		if i == 0 || rankings[i].TotalScore != lastScore {
+			lastRank = i + 1
+			lastScore = rankings[i].TotalScore
+		}
+		rankings[i].Rank = lastRank
 	}
 	s.MonalityEndStats = &MonalityEndStats{Rankings: rankings, Rounds: len(s.MonalityRoundScores)}
 }

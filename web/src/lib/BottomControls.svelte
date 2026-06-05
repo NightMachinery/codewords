@@ -4,6 +4,7 @@
   import { bottomStripRoleBadgeKinds, filteredBottomShortcutItems, displayTeamName, formatClueNumber, hexWithAlpha, isUnityTemporaryRepresentative, pressableButtonClasses, sortedTurnPlayers, teamColor, type ClueEntry, type GameplayPhase, type PlayerRoleBadgeKind, type UnityBoardView } from './gameplay';
   import ChevronDown from 'lucide-svelte/icons/chevron-down';
   import Grid2X2 from 'lucide-svelte/icons/grid-2x2';
+  import Trophy from 'lucide-svelte/icons/trophy';
   import List from 'lucide-svelte/icons/list';
   import MessageSquare from 'lucide-svelte/icons/message-square';
   import SendHorizontal from 'lucide-svelte/icons/send-horizontal';
@@ -115,7 +116,7 @@
   let canActNow = $derived(Boolean(phase === 'active' && isYourTeam && (role.activeGuesser || (role.kind === 'spymaster' && cluePermission.allowed))));
   let showClueInput = $derived(role.kind === 'spymaster' && phase === 'active' && cluePermission.allowed);
   let showPass = $derived(role.activeGuesser && phase === 'active');
-  let shortcutItems = $derived(filteredBottomShortcutItems(hostControls));
+  let shortcutItems = $derived(filteredBottomShortcutItems(hostControls, mode));
   let showUnityBoardSwitch = $derived(mode === 'unity' && Boolean(role.player));
   let turnColor = $derived(teamColor(currentTeam, settings));
   let turnGlowStyle = $derived(currentTeam === 'blue' || currentTeam === 'red'
@@ -161,13 +162,15 @@
   {/if}
 {/snippet}
 
-{#snippet MiniIcon(kind: 'spy' | 'rep' | 'board' | 'players' | 'clues' | 'settings' | 'local' | 'chat')}
+{#snippet MiniIcon(kind: 'spy' | 'rep' | 'board' | 'leaderboard' | 'players' | 'clues' | 'settings' | 'local' | 'chat')}
   {#if kind === 'spy'}
     <SvgMaskIcon src={customSvg.spy} classes="h-3.5 w-3.5" />
   {:else if kind === 'rep'}
     <SvgMaskIcon src={customSvg.representative} classes="h-3.5 w-3.5" />
   {:else if kind === 'board'}
     <Grid2X2 class="h-3.5 w-3.5" />
+  {:else if kind === 'leaderboard'}
+    <Trophy class="h-3.5 w-3.5" />
   {:else if kind === 'players'}
     <Users class="h-3.5 w-3.5" />
   {:else if kind === 'clues'}

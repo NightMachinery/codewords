@@ -37,6 +37,7 @@ import {
   chatScrollShouldAutoScroll,
   imageColorFrameClasses,
   filteredBottomShortcutItems,
+  monalityLeaderboardRows,
   shouldResetClueDraft,
   selectedImageOverlayStyle,
   deterministicRoastLine,
@@ -298,10 +299,55 @@ describe('local gameplay preferences', () => {
 });
 
 
+
+describe('Monality leaderboard helpers', () => {
+  const monalityPlayers: LobbyPlayer[] = [
+    { id: 'alpha', displayName: 'Alpha', team: 'monality', spymaster: false, representative: false, mod: false },
+    { id: 'bravo', displayName: 'Bravo', team: 'monality', spymaster: false, representative: false, mod: false },
+    { id: 'charlie', displayName: 'Charlie', team: 'monality', spymaster: false, representative: false, mod: false },
+    { id: 'observer', displayName: 'Observer', team: 'observers', spymaster: false, representative: false, mod: false },
+  ];
+
+  it('sorts total scores descending and assigns the same rank to tied totals', () => {
+    expect(monalityLeaderboardRows(monalityPlayers, {
+      scores: { alpha: 4, bravo: 4, charlie: 1 },
+      roundScores: [],
+    }).map((row) => `${row.rank}:${row.name}:${row.totalScoreLabel}`)).toEqual([
+      '1:Alpha:4.00 pts',
+      '1:Bravo:4.00 pts',
+      '3:Charlie:1.00 pts',
+    ]);
+  });
+
+  it('uses the most recently closed round for guesser deltas and spymaster average delta', () => {
+    const rows = monalityLeaderboardRows(monalityPlayers, {
+      scores: { alpha: 5, bravo: 3, charlie: 3 },
+      roundScores: [
+        { round: 1, spymasterId: 'alpha', average: 0.5, scores: { bravo: 1, charlie: 0 } },
+        { round: 2, spymasterId: 'bravo', average: 1.5, scores: { alpha: 2, charlie: -1 } },
+      ],
+    });
+
+    expect(rows.map((row) => `${row.id}:${row.lastDeltaLabel ?? 'hidden'}`)).toEqual([
+      'alpha:+2.00',
+      'bravo:+1.50',
+      'charlie:-1.00',
+    ]);
+  });
+
+  it('hides last-round delta before any Monality round closes', () => {
+    expect(monalityLeaderboardRows(monalityPlayers, {
+      scores: { alpha: 0, bravo: 0, charlie: 0 },
+      roundScores: [],
+    }).map((row) => row.lastDeltaLabel)).toEqual([undefined, undefined, undefined]);
+  });
+});
+
 describe('bottom control navigation helpers', () => {
   it('exposes working shortcut targets with requested labels', () => {
     expect(bottomShortcutItems.map((item) => `${item.kind}:${item.target}:${item.label}`)).toEqual([
       'board:board:Board',
+      'leaderboard:leaderboard:Leaderboard',
       'players:players:Players',
       'clues:clues:Clues',
       'settings:settings:Mod Settings',
@@ -312,8 +358,10 @@ describe('bottom control navigation helpers', () => {
   });
 
   it('hides moderator shortcuts from non-mods while preserving player navigation', () => {
-    expect(filteredBottomShortcutItems(false).map((item) => item.target)).toEqual(['board', 'players', 'clues', 'local-options', 'chat']);
-    expect(filteredBottomShortcutItems(true).map((item) => item.target)).toEqual(['board', 'players', 'clues', 'settings', 'local-options', 'chat']);
+    expect(filteredBottomShortcutItems(false, 'polarity').map((item) => item.target)).toEqual(['board', 'players', 'clues', 'local-options', 'chat']);
+    expect(filteredBottomShortcutItems(true, 'polarity').map((item) => item.target)).toEqual(['board', 'players', 'clues', 'settings', 'local-options', 'chat']);
+    expect(filteredBottomShortcutItems(false, 'monality').map((item) => item.target)).toEqual(['board', 'leaderboard', 'players', 'clues', 'local-options', 'chat']);
+    expect(filteredBottomShortcutItems(true, 'monality').map((item) => item.target)).toEqual(['board', 'leaderboard', 'players', 'clues', 'settings', 'local-options', 'chat']);
   });
 
   it('formats the current team row as player names only', () => {

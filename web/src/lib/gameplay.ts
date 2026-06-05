@@ -178,7 +178,7 @@ export interface PanelPreferences {
   localOptionsOpen: boolean;
 }
 
-export type BottomShortcutKind = 'board' | 'players' | 'clues' | 'settings' | 'local' | 'chat';
+export type BottomShortcutKind = 'board' | 'leaderboard' | 'players' | 'clues' | 'settings' | 'local' | 'chat';
 
 export interface BottomShortcutItem {
   kind: BottomShortcutKind;
@@ -190,6 +190,7 @@ export const chatToggleEventName = 'codewords:toggle-chat';
 
 export const bottomShortcutItems: BottomShortcutItem[] = [
   { kind: 'board', target: 'board', label: 'Board' },
+  { kind: 'leaderboard', target: 'leaderboard', label: 'Leaderboard' },
   { kind: 'players', target: 'players', label: 'Players' },
   { kind: 'clues', target: 'clues', label: 'Clues' },
   { kind: 'settings', target: 'settings', label: 'Mod Settings' },
@@ -197,8 +198,12 @@ export const bottomShortcutItems: BottomShortcutItem[] = [
   { kind: 'chat', target: 'chat', label: 'Chat' },
 ];
 
-export function filteredBottomShortcutItems(canUseModSettings: boolean): BottomShortcutItem[] {
-  return bottomShortcutItems.filter((item) => canUseModSettings || item.target !== 'settings');
+export function filteredBottomShortcutItems(canUseModSettings: boolean, mode: GameMode = 'polarity'): BottomShortcutItem[] {
+  return bottomShortcutItems.filter((item) => {
+    if (!canUseModSettings && item.target === 'settings') return false;
+    if (item.target === 'leaderboard' && mode !== 'monality') return false;
+    return true;
+  });
 }
 
 export function ownTeamPlayerNames(players: LobbyPlayer[], team: Team | undefined): string[] {
@@ -956,13 +961,56 @@ export function monalityGuessDisabledReason(input: {
   return '';
 }
 
+export interface MonalityLeaderboardRow {
+  id: string;
+  name: string;
+  rank: number;
+  totalScore: number;
+  totalScoreLabel: string;
+  lastDelta?: number;
+  lastDeltaLabel?: string;
+  detail: string;
+}
+
+export function monalityLeaderboardRows(players: LobbyPlayer[], input: {
+  scores?: Record<string, number> | null;
+  roundScores?: MonalityRoundStats[] | null;
+  endStats?: MonalityEndStats | null;
+}): MonalityLeaderboardRow[] {
+  const playerRows = players
+    .filter((player) => player.team === 'monality')
+    .map((player, index) => ({ player, index, totalScore: input.scores?.[player.id] ?? 0 }));
+  const lastRound = input.roundScores?.length ? input.roundScores[input.roundScores.length - 1] : null;
+  let previousTotal: number | undefined;
+  let previousRank = 0;
+  return playerRows
+    .sort((left, right) => right.totalScore - left.totalScore || left.index - right.index)
+    .map((entry, index) => {
+      const rank = previousTotal === entry.totalScore ? previousRank : index + 1;
+      previousTotal = entry.totalScore;
+      previousRank = rank;
+      const lastDelta = lastRound
+        ? lastRound.spymasterId === entry.player.id
+          ? lastRound.average
+          : lastRound.scores[entry.player.id]
+        : undefined;
+      const lastDeltaLabel = lastDelta === undefined ? undefined : `${lastDelta >= 0 ? '+' : ''}${lastDelta.toFixed(2)}`;
+      return {
+        id: entry.player.id,
+        name: entry.player.displayName.trim() || 'Player',
+        rank,
+        totalScore: entry.totalScore,
+        totalScoreLabel: `${entry.totalScore.toFixed(2)} pts`,
+        lastDelta,
+        lastDeltaLabel,
+        detail: `#${rank} · ${entry.totalScore.toFixed(2)} pts`,
+      };
+    });
+}
+
 export function monalityRankingRows(players: LobbyPlayer[], stats: MonalityEndStats | null | undefined): { id: string; name: string; detail: string }[] {
-  const byId = new Map(players.map((player) => [player.id, player]));
-  return (stats?.rankings ?? []).map((ranking) => ({
-    id: ranking.playerId,
-    name: byId.get(ranking.playerId)?.displayName?.trim() || 'Player',
-    detail: `#${ranking.rank} · ${ranking.totalScore.toFixed(2)} pts`,
-  }));
+  const scores = Object.fromEntries((stats?.rankings ?? []).map((ranking) => [ranking.playerId, ranking.totalScore]));
+  return monalityLeaderboardRows(players, { scores, endStats: stats }).map((row) => ({ id: row.id, name: row.name, detail: row.detail }));
 }
 
 export function unityStartReadiness(players: LobbyPlayer[]): { ready: boolean; reason: string } {

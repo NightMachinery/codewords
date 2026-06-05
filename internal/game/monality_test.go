@@ -114,6 +114,26 @@ func TestMonalityMatchEndsAfterConfiguredSpymasterRoundsAndRanksScores(t *testin
 	}
 }
 
+func TestMonalityFinishAssignsSameRankToEqualScores(t *testing.T) {
+	state := monalityLobby(t, Settings{Mode: ModeMonality, Seed: 905, TotalCards: 9, BlackCards: 1})
+	state.Mode = ModeMonality
+	state.Phase = PhaseActive
+	state.MonalityTotalScores = map[string]float64{"host": 3, "p2": 3, "p3": 1}
+
+	state.finishMonality()
+
+	if state.MonalityEndStats == nil || len(state.MonalityEndStats.Rankings) != 3 {
+		t.Fatalf("expected three rankings, got %#v", state.MonalityEndStats)
+	}
+	got := map[string]int{}
+	for _, ranking := range state.MonalityEndStats.Rankings {
+		got[ranking.PlayerID] = ranking.Rank
+	}
+	if got["host"] != 1 || got["p2"] != 1 || got["p3"] != 3 {
+		t.Fatalf("expected tied leaders to share rank and next player to rank third, got %#v", state.MonalityEndStats.Rankings)
+	}
+}
+
 func TestMonalityCloseRoundCountsCompletedDisconnectedAndAbandonsUnfinishedDisconnected(t *testing.T) {
 	state := monalityLobby(t, Settings{Mode: ModeMonality, Seed: 904, TotalCards: 9, BlackCards: 1})
 	mustApply(t, &state, StartCommand{GameID: "monality-close", Words: makeWords(40)}, "host")

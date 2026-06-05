@@ -59,7 +59,7 @@
     unityStartReadiness,
     monalityStartReadiness,
     monalityGuessDisabledReason,
-    monalityRankingRows,
+    monalityLeaderboardRows,
     type ClueEntry,
     type GameplayCard,
     type GameplayPreferences,
@@ -215,6 +215,7 @@
   let needsName = $derived(Boolean(credentialMode === 'auth' && !displayName && (roomStatus === 'lobby' || !currentPlayer)));
   let role = $derived(viewerRole(players, viewer, currentTeam as any, phase, activeBoardOwner, unityProgress?.temporaryRepresentativeId ?? ''));
   let monalityOwnAttempt = $derived(monality?.attempts.find((attempt) => attempt.ownerId === currentPlayer?.id));
+  let monalityLeaderboard = $derived(monalityLeaderboardRows(players, { scores: monality?.scores, roundScores: monality?.roundScores, endStats: monality?.endStats }));
   let boardRole = $derived(mode === 'unity' && unityBoardView === 'own' && ownBoard?.ownerId === currentPlayer?.id
     ? { ...role, kind: 'spymaster', canSeeHiddenColors: true, activeGuesser: false }
     : role);
@@ -1303,14 +1304,14 @@
 	                        {/each}
 	                      </div>
 	                    {:else if mode === 'monality'}
-                      {@const rows = monalityRankingRows(players, monality?.endStats)}
+                      {@const rows = monalityLeaderboardRows(players, { scores: monality?.scores, roundScores: monality?.roundScores, endStats: monality?.endStats })}
                       <h2 class="mt-2 text-4xl font-black tracking-[-0.04em] text-slate-50">Monality rankings</h2>
                       <p class="mt-3 max-w-2xl text-slate-300">Players are ranked by cumulative guessing and spymaster-average scores.</p>
                       <div class="mt-5 grid gap-2 sm:grid-cols-2">
                         {#each rows as row (row.id)}
                           <div class="rounded-2xl border border-purple-200/20 bg-slate-950/55 px-3 py-2">
                             <p class="truncate text-sm font-black text-slate-100">{row.name}</p>
-                            <p class="mt-0.5 truncate text-xs font-bold text-purple-100/80">{row.detail}</p>
+                            <p class="mt-0.5 truncate text-xs font-bold text-purple-100/80">#{row.rank} · {row.totalScoreLabel}{row.lastDeltaLabel ? ` · last ${row.lastDeltaLabel}` : ''}</p>
                           </div>
                         {/each}
                       </div>
@@ -1411,6 +1412,41 @@
           </div>
 
           <aside class="space-y-6 pb-32">
+            {#if mode === 'monality'}
+              <section id="leaderboard" class="relative overflow-hidden rounded-[2rem] border border-purple-200/30 bg-slate-900/80 p-5 shadow-2xl shadow-purple-950/20">
+                <div class="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-purple-200/80 to-transparent"></div>
+                <div class="flex items-end justify-between gap-3">
+                  <div>
+                    <p class="text-xs font-black uppercase tracking-[0.22em] text-purple-100/80">Monality</p>
+                    <h2 class="mt-1 text-xl font-black tracking-tight text-slate-50">Leaderboard</h2>
+                  </div>
+                  {#if monality?.roundScores?.length}
+                    <span class="rounded-full border border-purple-200/20 bg-slate-950/60 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-purple-100">Round {monality.roundScores[monality.roundScores.length - 1].round}</span>
+                  {/if}
+                </div>
+                <div class="mt-4 overflow-hidden rounded-2xl border border-slate-700/70 bg-slate-950/70">
+                  <div class="grid grid-cols-[3.25rem_minmax(0,1fr)_5rem_4.75rem] gap-2 border-b border-slate-800 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">
+                    <span>Rank</span>
+                    <span>Name</span>
+                    <span class="text-right">Total</span>
+                    <span class="text-right">Last</span>
+                  </div>
+                  <div class="divide-y divide-slate-800/90">
+                    {#each monalityLeaderboard as row (row.id)}
+                      <article class="grid grid-cols-[3.25rem_minmax(0,1fr)_5rem_4.75rem] items-center gap-2 px-3 py-2.5">
+                        <span class="text-sm font-black text-purple-100">#{row.rank}</span>
+                        <span class="min-w-0 truncate text-sm font-black text-slate-100">{row.name}</span>
+                        <span class="text-right text-sm font-black text-slate-100">{row.totalScore.toFixed(2)}</span>
+                        <span class={["text-right text-xs font-black", row.lastDelta === undefined ? 'text-slate-600' : row.lastDelta < 0 ? 'text-red-200' : 'text-emerald-200'].join(' ')}>{row.lastDeltaLabel ?? ''}</span>
+                      </article>
+                    {:else}
+                      <p class="px-3 py-5 text-sm text-slate-400">Scores appear after Monality starts.</p>
+                    {/each}
+                  </div>
+                </div>
+              </section>
+            {/if}
+
             <PlayerList 
               players={players} 
               viewer={viewer} 
