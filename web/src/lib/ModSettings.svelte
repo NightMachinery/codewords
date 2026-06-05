@@ -84,13 +84,15 @@
     onSave();
   }
 
-  function setMode(mode: 'polarity' | 'unity') {
+  function setMode(mode: 'polarity' | 'unity' | 'monality') {
     settings.mode = mode;
-    if (mode === 'unity') {
-      settings.customColorUnity = settings.customColorUnity || '#20b2aa';
-      settings.teamNameUnity = settings.teamNameUnity || 'Unity';
+    if (mode === 'unity' || mode === 'monality') {
+      settings.customColorUnity = mode === 'monality' ? '#a855f7' : (settings.customColorUnity || '#20b2aa');
+      settings.teamNameUnity = mode === 'monality' ? 'Monality' : (settings.teamNameUnity || 'Unity');
       settings.blackCards = settings.blackCards || 4;
       settings.unityTurnLimit = settings.unityTurnLimit || 6;
+      settings.monalitySpymasterRounds = settings.monalitySpymasterRounds || 1;
+      settings.monalityRoundSeconds = settings.monalityRoundSeconds || 0;
     }
     settings = normalizeLobbySettingsForSave(settings);
     onSave();
@@ -191,14 +193,15 @@
   {#if open}
   <fieldset class="space-y-6 disabled:opacity-60" disabled={!hostControls}>
     {#if phase === 'lobby'}
-      <div class="grid grid-cols-2 gap-2 rounded-2xl border border-slate-700 bg-slate-950/60 p-1">
-        <button type="button" class={['rounded-xl px-4 py-2 text-sm font-black transition', settings.mode !== 'unity' ? 'bg-blue-400/20 text-blue-100' : 'text-slate-400 hover:text-slate-100'].join(' ')} onclick={() => setMode('polarity')}>Polarity</button>
+      <div class="grid grid-cols-3 gap-2 rounded-2xl border border-slate-700 bg-slate-950/60 p-1">
+        <button type="button" class={['rounded-xl px-4 py-2 text-sm font-black transition', settings.mode !== 'unity' && settings.mode !== 'monality' ? 'bg-blue-400/20 text-blue-100' : 'text-slate-400 hover:text-slate-100'].join(' ')} onclick={() => setMode('polarity')}>Polarity</button>
         <button type="button" class={['rounded-xl px-4 py-2 text-sm font-black transition', settings.mode === 'unity' ? 'bg-teal-400/20 text-teal-100' : 'text-slate-400 hover:text-slate-100'].join(' ')} onclick={() => setMode('unity')}>Unity</button>
+        <button type="button" class={['rounded-xl px-4 py-2 text-sm font-black transition', settings.mode === 'monality' ? 'bg-purple-400/20 text-purple-100' : 'text-slate-400 hover:text-slate-100'].join(' ')} onclick={() => setMode('monality')}>Monality</button>
       </div>
     {/if}
 
     {#if phase === 'lobby'}
-      {#if settings.mode !== 'unity'}
+      {#if settings.mode !== 'unity' && settings.mode !== 'monality'}
       <!-- Lobby Tools -->
       <div class="space-y-3 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4">
         <span class="text-xs font-black uppercase tracking-widest text-emerald-200">Randomize teams</span>
@@ -270,6 +273,19 @@
           </div>
         </div>
         <p class="mt-3 text-xs leading-5 text-teal-100/70">Default Unity uses a shared pool. Players who become observers withdraw only their unspent contribution, clamped at zero.</p>
+      </div>
+    {:else if settings.mode === 'monality'}
+      <div class="space-y-3 rounded-2xl border border-purple-300/30 bg-purple-400/10 p-5">
+        <span class="text-xs font-black uppercase tracking-widest text-purple-100">Monality scoring</span>
+        <label class="block rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3">
+          <span class="text-xs font-bold text-purple-100">Spymaster rounds per player</span>
+          <input class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" type="number" min="1" bind:value={settings.monalitySpymasterRounds} onchange={saveNormalizedSettings} />
+        </label>
+        <label class="block rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3">
+          <span class="text-xs font-bold text-purple-100">Round timer seconds (0 = off)</span>
+          <input class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" type="number" min="0" bind:value={settings.monalityRoundSeconds} onchange={saveNormalizedSettings} />
+        </label>
+        <p class="text-xs leading-5 text-purple-100/75">Bombs score -1. Spymasters receive the average counted attempt score.</p>
       </div>
     {:else}
     <div class="rounded-2xl border border-slate-700 bg-slate-950/50 p-5">
@@ -365,10 +381,10 @@
 
     <!-- Custom Colors -->
     <div class="grid gap-4 sm:grid-cols-2">
-      {#if settings.mode === 'unity'}
+      {#if settings.mode === 'unity' || settings.mode === 'monality'}
       <label class="block">
         <span class="text-xs font-bold text-slate-400">Team name</span>
-        <input class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" maxlength="30" bind:value={settings.teamNameUnity} onchange={onSave} placeholder="Unity" />
+        <input class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" maxlength="30" bind:value={settings.teamNameUnity} onchange={onSave} placeholder={settings.mode === 'monality' ? 'Monality' : 'Unity'} />
       </label>
       {:else}
       <label class="block">
@@ -381,8 +397,8 @@
       </label>
       {/if}
       {#each [
-        ...(settings.mode === 'unity' ? [{ team: 'unity' as const, fallback: '#20b2aa' }] : []),
-        ...(settings.mode === 'unity' ? [] : [
+        ...(settings.mode === 'unity' || settings.mode === 'monality' ? [{ team: 'unity' as const, fallback: settings.mode === 'monality' ? '#a855f7' : '#20b2aa' }] : []),
+        ...(settings.mode === 'unity' || settings.mode === 'monality' ? [] : [
         { team: 'blue' as const, fallback: '#3b82f6' },
         { team: 'red' as const, fallback: '#ef4444' }
         ])

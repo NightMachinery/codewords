@@ -3,7 +3,7 @@ import { imageCardColorBorderWidthPx } from './constants';
 import type { LobbyPlayer, Team } from './lobby';
 
 export type GameplayPhase = 'lobby' | 'active' | 'game_over';
-export type GameMode = 'polarity' | 'unity';
+export type GameMode = 'polarity' | 'unity' | 'monality';
 export type CardColor = 'blue' | 'red' | 'unity' | 'black' | 'civilian';
 export type VisibleCardColor = CardColor | 'hidden';
 
@@ -14,7 +14,7 @@ export interface ClueNumber {
 
 export interface ClueEntry {
   round: number;
-  team: 'blue' | 'red' | 'unity';
+  team: 'blue' | 'red' | 'unity' | 'monality';
   text: string;
   number: ClueNumber;
   status: 'active' | 'final' | 'na';
@@ -25,7 +25,7 @@ export interface ClueEntry {
 
 export interface LastSelected {
   index: number;
-  team: 'blue' | 'red' | 'unity';
+  team: 'blue' | 'red' | 'unity' | 'monality';
 }
 
 export interface RemainingCounts {
@@ -92,6 +92,44 @@ export interface UnityPlayerBoardRow {
   name: string;
   status: 'board' | 'no-board';
   detail: string;
+}
+
+export interface MonalityAttemptSummary {
+  ownerId: string;
+  score: number;
+  completed: boolean;
+  abandoned?: boolean;
+  bombed?: boolean;
+}
+
+export interface MonalityRanking {
+  playerId: string;
+  totalScore: number;
+  rank: number;
+}
+
+export interface MonalityEndStats {
+  rankings: MonalityRanking[];
+  rounds: number;
+}
+
+export interface MonalityRoundStats {
+  round: number;
+  spymasterId: string;
+  average: number;
+  scores: Record<string, number>;
+}
+
+export interface MonalitySnapshot {
+  spymasterId: string;
+  board?: UnityBoardSnapshot | null;
+  ownAttempt?: UnityBoardSnapshot | null;
+  attempts: MonalityAttemptSummary[];
+  scores: Record<string, number>;
+  spymasterCounts: Record<string, number>;
+  deadline?: string;
+  endStats?: MonalityEndStats | null;
+  roundScores?: MonalityRoundStats[];
 }
 
 export interface GameplayCard {
@@ -164,14 +202,14 @@ export function filteredBottomShortcutItems(canUseModSettings: boolean): BottomS
 }
 
 export function ownTeamPlayerNames(players: LobbyPlayer[], team: Team | undefined): string[] {
-  if (team !== 'blue' && team !== 'red' && team !== 'unity') return [];
+  if (team !== 'blue' && team !== 'red' && team !== 'unity' && team !== 'monality') return [];
   return players
     .filter((player) => player.team === team)
     .map((player) => player.displayName.trim() || 'Player');
 }
 
 export function sortedTurnPlayers(players: LobbyPlayer[], team: Team | undefined): LobbyPlayer[] {
-  if (team !== 'blue' && team !== 'red' && team !== 'unity') return [];
+  if (team !== 'blue' && team !== 'red' && team !== 'unity' && team !== 'monality') return [];
   const roleRank = (player: LobbyPlayer): number => {
     if (player.spymaster) return 0;
     if (player.representative) return 1;
@@ -210,6 +248,7 @@ export const defaultTeamNames = {
   blue: 'Libertarians',
   red: 'Monarchists',
   unity: 'Unity',
+  monality: 'Monality',
 } as const;
 
 export const defaultPanelPreferences: PanelPreferences = {
@@ -227,9 +266,13 @@ export function findViewerPlayer(players: LobbyPlayer[], viewer: Viewer | null |
 }
 
 export function isActiveGuesser(players: LobbyPlayer[], playerId: string | undefined, currentTeam: Team, activeBoardOwner = '', temporaryRepresentativeId = ''): boolean {
-  if (!playerId || (currentTeam !== 'blue' && currentTeam !== 'red' && currentTeam !== 'unity')) return false;
+  if (!playerId || (currentTeam !== 'blue' && currentTeam !== 'red' && currentTeam !== 'unity' && currentTeam !== 'monality')) return false;
   const player = players.find((candidate) => candidate.id === playerId);
   if (!player || player.team !== currentTeam) return false;
+
+  if (currentTeam === 'monality') {
+    return player.team === 'monality' && player.id !== activeBoardOwner;
+  }
 
   if (currentTeam === 'unity') {
     if (player.id === activeBoardOwner) return false;
@@ -280,10 +323,10 @@ export function viewerRole(
   }
   const activeGuesser = phase === 'active' && isActiveGuesser(players, player.id, currentTeam, activeBoardOwner, temporaryRepresentativeId);
   return {
-    kind: currentTeam === 'unity' && player.id === activeBoardOwner ? 'spymaster' : player.spymaster ? 'spymaster' : 'player',
+    kind: (currentTeam === 'unity' || currentTeam === 'monality') && player.id === activeBoardOwner ? 'spymaster' : player.spymaster ? 'spymaster' : 'player',
     team: player.team,
     player,
-    canSeeHiddenColors: gameOver || player.spymaster || (currentTeam === 'unity' && player.id === activeBoardOwner),
+    canSeeHiddenColors: gameOver || player.spymaster || ((currentTeam === 'unity' || currentTeam === 'monality') && player.id === activeBoardOwner),
     activeGuesser,
   };
 }
@@ -300,8 +343,8 @@ export function canSubmitClue(
   if (phase !== 'active') return { allowed: false, reason: 'Clues are available after the match starts.' };
   const player = findViewerPlayer(players, viewer);
   if (!player) return { allowed: false, reason: 'Observers are read-only.' };
-  if (currentTeam === 'unity') {
-    if (player.id !== activeBoardOwner) return { allowed: false, reason: 'Only the active board owner can clue right now.' };
+  if (currentTeam === 'unity' || currentTeam === 'monality') {
+    if (player.id !== activeBoardOwner) return { allowed: false, reason: 'Only the active spymaster can clue right now.' };
     return { allowed: true, reason: '' };
   }
   if (!player.spymaster) return { allowed: false, reason: 'Only spymasters can clue.' };
@@ -509,6 +552,7 @@ export function displayTeamName(team: Team | 'blue' | 'red' | 'unity' | '', sett
   if (team === 'blue') return (settings?.teamNameBlue?.trim() || defaultTeamNames.blue).slice(0, 30);
   if (team === 'red') return (settings?.teamNameRed?.trim() || defaultTeamNames.red).slice(0, 30);
   if (team === 'unity') return (settings?.teamNameUnity?.trim() || defaultTeamNames.unity).slice(0, 30);
+  if (team === 'monality') return (settings?.teamNameUnity?.trim() || defaultTeamNames.monality).slice(0, 30);
   if (team === 'observers') return 'Observers';
   return 'Waiting';
 }
@@ -517,6 +561,7 @@ export function teamColor(team: Team | 'blue' | 'red' | 'unity' | '', settings: 
   if (team === 'blue') return normalizedHexColor(settings?.customColorBlue, '#3b82f6');
   if (team === 'red') return normalizedHexColor(settings?.customColorRed, '#ef4444');
   if (team === 'unity') return normalizedHexColor(settings?.customColorUnity, '#20b2aa');
+  if (team === 'monality') return normalizedHexColor(settings?.customColorUnity, '#a855f7');
   return '';
 }
 
@@ -719,12 +764,12 @@ export function autoNeutralCards(totalCards: number, startingTeamHandicap = 1): 
 export function normalizeLobbySettingsForSave(settings: Settings): Settings {
   const totalCards = clampTotalCards(settings.totalCards ?? defaultTotalCards);
   const imageCardCount = Math.min(totalCards, Math.max(0, Math.round(settings.imageCardCount ?? 0)));
-  if (settings.mode === 'unity') {
+  if (settings.mode === 'unity' || settings.mode === 'monality') {
     const unityCards = Math.round(totalCards / 2.5);
     const blackCards = Math.min(totalCards - unityCards, Math.max(0, Math.round(settings.blackCards || 4)));
     return {
       ...settings,
-      mode: 'unity',
+      mode: settings.mode === 'monality' ? 'monality' : 'unity',
       totalCards,
       autoColorCounts: true,
       blueCards: 0,
@@ -734,10 +779,12 @@ export function normalizeLobbySettingsForSave(settings: Settings): Settings {
       blackCards,
       imageCardCount,
       unityTurnLimit: Math.max(0, Math.round(settings.unityTurnLimit || 6)),
+      monalitySpymasterRounds: Math.max(1, Math.round(settings.monalitySpymasterRounds || 1)),
+      monalityRoundSeconds: Math.max(0, Math.round(settings.monalityRoundSeconds || 0)),
       unityUnlimitedTurns: Boolean(settings.unityUnlimitedTurns),
       unityStrictPerBoardTurns: Boolean(settings.unityStrictPerBoardTurns),
-      customColorUnity: normalizedHexColor(settings.customColorUnity, '#20b2aa'),
-      teamNameUnity: settings.teamNameUnity?.trim() || defaultTeamNames.unity,
+      customColorUnity: normalizedHexColor(settings.customColorUnity, settings.mode === 'monality' ? '#a855f7' : '#20b2aa'),
+      teamNameUnity: settings.teamNameUnity?.trim() || (settings.mode === 'monality' ? defaultTeamNames.monality : defaultTeamNames.unity),
     };
   }
   const startingTeamHandicap = Math.min(totalCards, Math.max(0, Math.round(settings.startingTeamHandicap ?? 1)));
@@ -803,6 +850,43 @@ export function displayCards(cards: GameplayCard[], cardMode: CardMode, imageOrd
 }
 
 export type UnityBoardView = 'previous' | 'active' | 'own';
+
+export function monalityStartReadiness(players: LobbyPlayer[]): { ready: boolean; reason: string } {
+  if (players.some((player) => player.team === '')) {
+    return { ready: false, reason: 'Assign every player to Monality or observer mode first.' };
+  }
+  const active = players.filter((player) => player.team === 'monality');
+  if (active.length < 2) {
+    return { ready: false, reason: 'Monality needs at least two active players.' };
+  }
+  return { ready: true, reason: '' };
+}
+
+export function monalityGuessDisabledReason(input: {
+  phase: GameplayPhase;
+  hasPlayer: boolean;
+  activeGuesser: boolean;
+  enforceClueGuessLimit: boolean;
+  currentClue: ClueEntry | null | undefined;
+  cardRevealed?: boolean;
+}): string {
+  if (input.phase === 'game_over') return 'The match is over.';
+  if (input.phase !== 'active') return 'The match has not started.';
+  if (!input.hasPlayer) return 'Observers are read-only.';
+  if (!input.activeGuesser) return 'Only active Monality guessers can reveal cards.';
+  if (input.enforceClueGuessLimit && (!input.currentClue || input.currentClue.number.kind === 'blank')) return 'Wait for a numbered clue first.';
+  if (input.cardRevealed) return 'That card is already revealed.';
+  return '';
+}
+
+export function monalityRankingRows(players: LobbyPlayer[], stats: MonalityEndStats | null | undefined): { id: string; name: string; detail: string }[] {
+  const byId = new Map(players.map((player) => [player.id, player]));
+  return (stats?.rankings ?? []).map((ranking) => ({
+    id: ranking.playerId,
+    name: byId.get(ranking.playerId)?.displayName?.trim() || 'Player',
+    detail: `#${ranking.rank} · ${ranking.totalScore.toFixed(2)} pts`,
+  }));
+}
 
 export function unityStartReadiness(players: LobbyPlayer[]): { ready: boolean; reason: string } {
   if (players.some((player) => player.team === '')) {

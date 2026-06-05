@@ -19,7 +19,7 @@
   interface Props {
     phase: GameplayPhase;
     currentTeam: Team;
-    mode?: 'polarity' | 'unity';
+    mode?: 'polarity' | 'unity' | 'monality';
     activeBoardOwner?: string;
     temporaryRepresentativeId?: string;
     boardView?: UnityBoardView;

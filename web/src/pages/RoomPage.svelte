@@ -54,6 +54,9 @@
     unityTurnsSegmentStyle,
     unityPlayerBoardRows,
     unityStartReadiness,
+    monalityStartReadiness,
+    monalityGuessDisabledReason,
+    monalityRankingRows,
     type ClueEntry,
     type GameplayCard,
     type GameplayPreferences,
@@ -68,6 +71,7 @@
     type UnityBoardSummary,
     type UnityEndStats,
     type UnityProgress,
+    type MonalitySnapshot,
   } from '../lib/gameplay';
   import { downloadMemoryCapture, memoryCaptureDesktopWidth } from '../lib/memoryCapture';
   import { getOrCreateAuthToken, resolveSessionCredential, type SessionCredential } from '../lib/identity';
@@ -116,8 +120,8 @@
   let pictures = $state<PictureAsset[]>([]);
   let pictureCatalogAvailable = $state(false);
   let phase = $state<'lobby' | 'active' | 'game_over'>('lobby');
-  let currentTeam = $state<'blue' | 'red' | 'unity' | 'observers' | ''>('');
-  let winner = $state<'blue' | 'red' | 'unity' | 'observers' | ''>('');
+  let currentTeam = $state<'blue' | 'red' | 'unity' | 'monality' | 'observers' | ''>('');
+  let winner = $state<'blue' | 'red' | 'unity' | 'monality' | 'observers' | ''>('');
   let finishedAt = $state('');
   let cards = $state<GameplayCard[]>([]);
   let lastSelected = $state<LastSelected | null>(null);
@@ -130,6 +134,7 @@
   let unityProgress = $state<UnityProgress | null>(null);
   let unityEndStats = $state<UnityEndStats | null>(null);
   let unityTransitionUntil = $state('');
+  let monality = $state<MonalitySnapshot | null>(null);
   let transitionNow = $state(Date.now());
   let unityBoardView = $state<UnityBoardView>('active');
   let clueText = $state('');
@@ -145,7 +150,7 @@
   let copyStatus = $state('');
   let migrateUrl = $state('');
   let cueNotice = $state('');
-  let endGameCue = $state<{ outcome: EndGameOutcome; team: 'blue' | 'red' | 'unity' | 'observers'; text: string } | null>(null);
+  let endGameCue = $state<{ outcome: EndGameOutcome; team: 'blue' | 'red' | 'unity' | 'monality' | 'observers'; text: string } | null>(null);
   let unifiedBoardCue = $state('');
   let captureStatus = $state('');
   let captureBusy = $state(false);
@@ -177,15 +182,16 @@
   let bottomPanelObserver: ResizeObserver | null = null;
   let confirmationResolver: ((confirmed: boolean) => void) | null = null;
 
-  let mode = $derived.by((): 'unity' | 'polarity' => settings.mode === 'unity' ? 'unity' : 'polarity');
-  let activeBoardOwner = $derived(activeBoard?.ownerId ?? '');
+  let mode = $derived.by((): 'unity' | 'monality' | 'polarity' => settings.mode === 'unity' ? 'unity' : settings.mode === 'monality' ? 'monality' : 'polarity');
+  let activeBoardOwner = $derived(mode === 'monality' ? (monality?.spymasterId ?? '') : (activeBoard?.ownerId ?? ''));
   let unityTransitionLocked = $derived(Boolean(unityTransitionUntil && Date.parse(unityTransitionUntil) > transitionNow));
   let unityTransitionSecondsRemaining = $derived(unityTransitionLocked ? Math.max(0, Math.ceil((Date.parse(unityTransitionUntil) - transitionNow) / 1000)) : 0);
   let displayedUnityBoard = $derived(unityBoardView === 'previous' && previousBoard ? previousBoard : unityBoardView === 'own' && ownBoard ? ownBoard : activeBoard);
-  let displayedCardsRaw = $derived(mode === 'unity' ? unityBoardViewCards(unityBoardView, activeBoard, ownBoard, previousBoard) : cards);
-  let displayedLastSelected = $derived(mode === 'unity' ? (displayedUnityBoard?.lastSelected ?? null) : lastSelected);
-  let displayedClueLog = $derived(mode === 'unity' ? (displayedUnityBoard?.clueLog ?? []) : clueLog);
-  let activeClueLog = $derived(mode === 'unity' ? (activeBoard?.clueLog ?? []) : clueLog);
+  let displayedMonalityBoard = $derived(ownBoard ?? activeBoard);
+  let displayedCardsRaw = $derived(mode === 'unity' ? unityBoardViewCards(unityBoardView, activeBoard, ownBoard, previousBoard) : mode === 'monality' ? (displayedMonalityBoard?.cards ?? cards) : cards);
+  let displayedLastSelected = $derived(mode === 'unity' ? (displayedUnityBoard?.lastSelected ?? null) : mode === 'monality' ? (displayedMonalityBoard?.lastSelected ?? null) : lastSelected);
+  let displayedClueLog = $derived(mode === 'unity' ? (displayedUnityBoard?.clueLog ?? []) : mode === 'monality' ? (displayedMonalityBoard?.clueLog ?? clueLog) : clueLog);
+  let activeClueLog = $derived(mode === 'unity' ? (activeBoard?.clueLog ?? []) : mode === 'monality' ? (displayedMonalityBoard?.clueLog ?? clueLog) : clueLog);
   let unityTurnsPending = $derived(mode === 'unity' && unityTurnsPendingForDisplayedBoard({
     phase,
     unlimitedTurns: settings.unityUnlimitedTurns,
@@ -199,11 +205,12 @@
   let capturePreferences = $derived.by(() => pendingCaptureModel ? { ...preferences, ...pendingCaptureModel.boardLayout, showNumberBadges: pendingCaptureModel.showNumberBadges } : preferences);
   let captureBg = $derived(captureBackgroundFor(effectiveThemeId));
   let canRandomizeTeams = $derived(players.filter((player) => player.team !== 'observers').length >= 2);
-  let startState = $derived(mode === 'unity' ? unityStartReadiness(players) : startReadiness(players));
+  let startState = $derived(mode === 'unity' ? unityStartReadiness(players) : mode === 'monality' ? monalityStartReadiness(players) : startReadiness(players));
   let hostControls = $derived(canManageLobby(viewer));
   let currentPlayer = $derived(findViewerPlayer(players, viewer));
   let needsName = $derived(Boolean(credentialMode === 'auth' && !displayName && (roomStatus === 'lobby' || !currentPlayer)));
   let role = $derived(viewerRole(players, viewer, currentTeam as any, phase, activeBoardOwner, unityProgress?.temporaryRepresentativeId ?? ''));
+  let monalityOwnAttempt = $derived(monality?.attempts.find((attempt) => attempt.ownerId === currentPlayer?.id));
   let boardRole = $derived(mode === 'unity' && unityBoardView === 'own' && ownBoard?.ownerId === currentPlayer?.id
     ? { ...role, kind: 'spymaster', canSeeHiddenColors: true, activeGuesser: false }
     : role);
@@ -378,7 +385,7 @@
 
   function handleSocketMessage(message: RoomSocketMessage) {
     if (message.type === 'snapshot') {
-      const nextMode = message.snapshot.settings?.mode === 'unity' ? 'unity' : 'polarity';
+      const nextMode = message.snapshot.settings?.mode === 'unity' ? 'unity' : message.snapshot.settings?.mode === 'monality' ? 'monality' : 'polarity';
       const nextActiveBoard = message.snapshot.activeBoard ?? null;
       const nextPreviousBoard = message.snapshot.previousBoard ?? null;
       const nextOwnBoard = message.snapshot.ownBoard ?? null;
@@ -393,7 +400,7 @@
         unityBoardView = 'active';
       }
       const nextDisplayedCards = nextMode === 'unity' ? unityBoardViewCards(unityBoardView, nextActiveBoard, nextOwnBoard, nextPreviousBoard) : (message.snapshot.cards ?? []);
-      const nextActiveClueLog = nextMode === 'unity' ? (nextActiveBoard?.clueLog ?? []) : (message.snapshot.clueLog ?? []);
+      const nextActiveClueLog = nextMode === 'unity' ? (nextActiveBoard?.clueLog ?? []) : nextMode === 'monality' ? ((nextOwnBoard ?? nextActiveBoard)?.clueLog ?? message.snapshot.clueLog ?? []) : (message.snapshot.clueLog ?? []);
       const nextClueSignature = clueCueSignature(nextActiveClueLog);
       const nextCards = nextDisplayedCards;
       const enteredGameOver = sawSnapshot && phase !== 'game_over' && message.snapshot.phase === 'game_over' && Boolean(message.snapshot.winner);
@@ -435,6 +442,7 @@
       unityProgress = message.snapshot.unityProgress ?? null;
       unityEndStats = message.snapshot.unityEndStats ?? null;
       unityTransitionUntil = nextTransitionUntil;
+      monality = message.snapshot.monality ?? null;
       transitionNow = Date.now();
       lastSelected = message.snapshot.lastSelected ?? null;
       remainingCounts = message.snapshot.remainingCounts ?? { blue: 0, red: 0, civilian: 0, black: 0 };
@@ -450,7 +458,7 @@
       previousPhaseForDraft = message.snapshot.phase;
       previousActiveBoardOwnerForDraft = nextActiveBoard?.ownerId ?? '';
       if (enteredGameOver) {
-        emitEndGameCue(message.snapshot.winner as 'blue' | 'red' | 'unity' | 'observers', message.snapshot.viewer, message.snapshot.players);
+        emitEndGameCue(message.snapshot.winner as 'blue' | 'red' | 'unity' | 'monality' | 'observers', message.snapshot.viewer, message.snapshot.players);
       }
     }
     if (message.type === 'chatMessage') {
@@ -602,6 +610,16 @@
   }
 
   function guessDisabledReason(card?: GameplayCard): string {
+    if (mode === 'monality') {
+      return monalityGuessDisabledReason({
+        phase,
+        hasPlayer: Boolean(role.player),
+        activeGuesser: role.activeGuesser && !monalityOwnAttempt?.completed && !monalityOwnAttempt?.abandoned,
+        enforceClueGuessLimit: settings.enforceClueGuessLimit,
+        currentClue,
+        cardRevealed: card?.revealed,
+      });
+    }
     if (mode === 'unity') {
       return unityGuessDisabledReason({
         phase,
@@ -637,7 +655,8 @@
     if (!role.player) return 'Observers are read-only.';
     if (mode === 'unity' && unityTransitionLocked) return 'Waiting for the next Unity board.';
     if (mode === 'unity' && unityProgress?.waitingForGuessers) return 'Waiting for eligible Unity guessers.';
-    if (!role.activeGuesser) return mode === 'unity' && role.player?.id === activeBoardOwner ? 'You cannot pass on your own board.' : role.kind === 'spymaster' ? 'Spymasters cannot pass while teammates can.' : `Only the ${displayTeamName(currentTeam, settings)} guesser can pass.`;
+    if (mode === 'monality' && (monalityOwnAttempt?.completed || monalityOwnAttempt?.abandoned)) return 'Your Monality attempt is complete.';
+    if (!role.activeGuesser) return (mode === 'unity' || mode === 'monality') && role.player?.id === activeBoardOwner ? 'You cannot pass as the spymaster.' : role.kind === 'spymaster' ? 'Spymasters cannot pass while teammates can.' : `Only the ${displayTeamName(currentTeam, settings)} guesser can pass.`;
     return '';
   }
 
@@ -690,8 +709,8 @@
   }
 
 
-  function emitEndGameCue(winningTeam: 'blue' | 'red' | 'unity' | 'observers', snapshotViewer: Viewer | null | undefined, snapshotPlayers: LobbyPlayer[]) {
-    const outcome = winningTeam === 'unity'
+  function emitEndGameCue(winningTeam: 'blue' | 'red' | 'unity' | 'monality' | 'observers', snapshotViewer: Viewer | null | undefined, snapshotPlayers: LobbyPlayer[]) {
+    const outcome = winningTeam === 'unity' || winningTeam === 'monality'
       ? 'win'
       : winningTeam === 'observers'
         ? 'loss'
@@ -878,6 +897,15 @@
     clueText = '';
     clueNumber = '';
     sendSocketAction('resetClue', { type: 'resetClue' });
+  }
+
+  async function closeMonalityRound() {
+    if (!hostControls) {
+      error = 'Only moderators can close a Monality round.';
+      appendSystemMessage(error, 'closeMonalityRound');
+      return;
+    }
+    sendSocketAction('closeMonalityRound', { type: 'closeMonalityRound' });
   }
 
   async function switchUnitySpymaster() {
@@ -1178,7 +1206,7 @@
       {#if phase !== 'active'}
       <header class="px-3 py-8 sm:px-0 lg:py-12">
         <h1 class="max-w-5xl text-5xl font-black leading-[0.96] tracking-[-0.05em] text-slate-50 sm:text-7xl">
-          {phase === 'lobby' ? 'Gather teams, choose roles, then start.' : phase === 'game_over' && mode === 'unity' ? unityEndGameSummary(unityEndStats, unityProgress).headline : phase === 'game_over' ? `${displayTeamName(winner, settings)} wins the board.` : ''}
+          {phase === 'lobby' ? 'Gather teams, choose roles, then start.' : phase === 'game_over' && mode === 'unity' ? unityEndGameSummary(unityEndStats, unityProgress).headline : phase === 'game_over' && mode === 'monality' ? 'Monality rankings are final.' : phase === 'game_over' ? `${displayTeamName(winner, settings)} wins the board.` : ''}
         </h1>
       </header>
       {/if}
@@ -1270,7 +1298,19 @@
 	                          </div>
 	                        {/each}
 	                      </div>
-	                    {:else}
+	                    {:else if mode === 'monality'}
+                      {@const rows = monalityRankingRows(players, monality?.endStats)}
+                      <h2 class="mt-2 text-4xl font-black tracking-[-0.04em] text-slate-50">Monality rankings</h2>
+                      <p class="mt-3 max-w-2xl text-slate-300">Players are ranked by cumulative guessing and spymaster-average scores.</p>
+                      <div class="mt-5 grid gap-2 sm:grid-cols-2">
+                        {#each rows as row (row.id)}
+                          <div class="rounded-2xl border border-purple-200/20 bg-slate-950/55 px-3 py-2">
+                            <p class="truncate text-sm font-black text-slate-100">{row.name}</p>
+                            <p class="mt-0.5 truncate text-xs font-bold text-purple-100/80">{row.detail}</p>
+                          </div>
+                        {/each}
+                      </div>
+                    {:else}
                       <h2 class="mt-2 text-4xl font-black tracking-[-0.04em] text-slate-50">{displayTeamName(winner, settings)} wins</h2>
                       <p class="mt-3 max-w-2xl text-slate-300">All card colors are revealed. Save the final board, winner, rivals, and team rosters as a keepsake.</p>
                     {/if}
@@ -1311,7 +1351,7 @@
             <section bind:this={boardShell} class="rounded-[1.5rem] border border-slate-700/70 bg-slate-900/70 p-2 shadow-2xl shadow-slate-950/35 sm:rounded-[2rem] sm:p-5" style={boardFitStyle}>
               <div class="mb-3 flex flex-wrap items-center justify-between gap-3 sm:mb-5">
                 <div>
-                  <p class="text-xs font-black uppercase tracking-[0.22em] text-slate-400">{mode === 'unity' ? `${unityBoardView === 'previous' ? 'Previous' : displayedUnityBoard?.ownerId === currentPlayer?.id ? 'Your' : 'Unity'} board` : 'Board'}</p>
+                  <p class="text-xs font-black uppercase tracking-[0.22em] text-slate-400">{mode === 'unity' ? `${unityBoardView === 'previous' ? 'Previous' : displayedUnityBoard?.ownerId === currentPlayer?.id ? 'Your' : 'Unity'} board` : mode === 'monality' ? (role.kind === 'spymaster' ? 'Monality spy board' : 'Your Monality attempt') : 'Board'}</p>
                   {#if mode === 'unity' && unityTransitionLocked}
                     <p class="mt-1 text-xs font-bold text-teal-100">Next board unlocks in {unityTransitionSecondsRemaining}s.</p>
                   {/if}
@@ -1322,6 +1362,10 @@
 	                  <span class={`${unityCounterSegmentClasses('middle')} flex-1 border-l border-slate-600/70 text-amber-100`} title={`Civilian ${displayedUnityBoard?.remainingCounts.civilian ?? 0}`} aria-label={`Civilian ${displayedUnityBoard?.remainingCounts.civilian ?? 0}`} style="background: linear-gradient(90deg, rgba(251,191,36,0.18), transparent)"><SvgMaskIcon src={customSvg.civilianCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Civilian</span><span>{displayedUnityBoard?.remainingCounts.civilian ?? 0}</span></span>
 	                  <span class={`${unityCounterSegmentClasses('middle')} flex-1 border-l border-slate-600/70 text-zinc-100`} title={`Assassin ${displayedUnityBoard?.remainingCounts.black ?? 0}`} aria-label={`Assassin ${displayedUnityBoard?.remainingCounts.black ?? 0}`} style="background: linear-gradient(90deg, rgba(24,24,27,0.85), rgba(0,0,0,0.55))"><SvgMaskIcon src={customSvg.assassinCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Assassin</span><span>{displayedUnityBoard?.remainingCounts.black ?? 0}</span></span>
 	                  <span class={`${unityCounterSegmentClasses('last')} flex-[1.2_1_0] border-l border-slate-600/70 ${unityTurnsPending ? 'text-emerald-50' : 'text-teal-100'}`} title={unityTurnsPending ? 'Turns remaining; current spy has not spent this turn yet' : 'Turns remaining'} aria-label={unityTurnsPending ? 'Turns remaining, current spy turn unspent' : 'Turns remaining'} style={unityTurnsSegmentStyle({ pending: unityTurnsPending, color: teamColor('unity', settings) })}><SvgMaskIcon src={customSvg.turnBudget} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Turns</span><span class={unityTurnsPending ? 'rounded-full bg-emerald-100 px-1.5 py-0.5 text-slate-950' : ''}>{settings.unityUnlimitedTurns ? '∞' : mode === 'unity' && settings.unityStrictPerBoardTurns ? Math.max(0, (settings.unityTurnLimit ?? 0) - (displayedUnityBoard?.turnsUsed ?? 0)) : unityProgress?.sharedTurnsRemaining ?? 0}</span></span>
+                  {:else if mode === 'monality'}
+                  <span class={`${unityCounterSegmentClasses('first')} flex-[1.35_1_0] text-purple-100`} title={`Targets ${displayedMonalityBoard?.remainingCounts.unity ?? 0}`} aria-label={`Targets ${displayedMonalityBoard?.remainingCounts.unity ?? 0}`} style={`background: linear-gradient(90deg, ${hexWithAlpha(teamColor('monality', settings), '40')}, transparent);`}><SvgMaskIcon src={customSvg.unityCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Targets</span><span>{displayedMonalityBoard?.remainingCounts.unity ?? 0}</span></span>
+                  <span class={`${unityCounterSegmentClasses('middle')} flex-1 border-l border-slate-600/70 text-amber-100`} title={`Civilian ${displayedMonalityBoard?.remainingCounts.civilian ?? 0}`} aria-label={`Civilian ${displayedMonalityBoard?.remainingCounts.civilian ?? 0}`} style="background: linear-gradient(90deg, rgba(251,191,36,0.18), transparent)"><SvgMaskIcon src={customSvg.civilianCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Civilian</span><span>{displayedMonalityBoard?.remainingCounts.civilian ?? 0}</span></span>
+                  <span class={`${unityCounterSegmentClasses('last')} flex-1 border-l border-slate-600/70 text-zinc-100`} title={`Bomb ${displayedMonalityBoard?.remainingCounts.black ?? 0}`} aria-label={`Bomb ${displayedMonalityBoard?.remainingCounts.black ?? 0}`} style="background: linear-gradient(90deg, rgba(24,24,27,0.85), rgba(0,0,0,0.55))"><SvgMaskIcon src={customSvg.assassinCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Bomb</span><span>{displayedMonalityBoard?.remainingCounts.black ?? 0}</span></span>
                   {:else}
                   <span class="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 px-2 py-1.5 sm:px-3" title={`${displayTeamName('blue', settings)} ${remainingCounts.blue}`} aria-label={`${displayTeamName('blue', settings)} ${remainingCounts.blue}`} style={`color: ${teamColor('blue', settings)}; background: linear-gradient(90deg, ${hexWithAlpha(teamColor('blue', settings), currentTeam === 'blue' ? '40' : '24')}, transparent); ${currentTeam === 'blue' ? `box-shadow: inset 0 0 0 1px ${hexWithAlpha(teamColor('blue', settings), '66')};` : ''}`}><SvgMaskIcon src={customSvg.blueCard} classes="h-3.5 w-3.5" /><span class="hidden min-w-0 truncate sm:inline">{displayTeamName('blue', settings)}</span><span>{remainingCounts.blue}</span></span>
                   <span class="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 border-l border-slate-600/70 px-2 py-1.5 sm:px-3" title={`${displayTeamName('red', settings)} ${remainingCounts.red}`} aria-label={`${displayTeamName('red', settings)} ${remainingCounts.red}`} style={`color: ${teamColor('red', settings)}; background: linear-gradient(90deg, ${hexWithAlpha(teamColor('red', settings), currentTeam === 'red' ? '40' : '24')}, transparent); ${currentTeam === 'red' ? `box-shadow: inset 0 0 0 1px ${hexWithAlpha(teamColor('red', settings), '66')};` : ''}`}><SvgMaskIcon src={customSvg.redCard} classes="h-3.5 w-3.5" /><span class="hidden min-w-0 truncate sm:inline">{displayTeamName('red', settings)}</span><span>{remainingCounts.red}</span></span>
@@ -1344,6 +1388,9 @@
                 theme={effectiveThemeId}
               />
             </section>
+            {#if mode === 'monality' && hostControls && phase === 'active'}
+              <button class={pressableButtonClasses('flex w-full items-center justify-center gap-2 rounded-2xl border border-purple-300/50 bg-purple-300/10 px-4 py-3 text-sm font-black uppercase tracking-[0.16em] text-purple-100 hover:bg-purple-300/20')} onclick={closeMonalityRound}>Close Monality round</button>
+            {/if}
             {#if showBelowBoardSwitchUnitySpymaster}
               <button
                 class={pressableButtonClasses(['flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-black uppercase tracking-[0.16em]', unityTransitionLocked ? 'border-slate-700 bg-slate-800 text-slate-500' : 'border-teal-300/50 bg-teal-300/10 text-teal-100 hover:bg-teal-300/20'].join(' '))}

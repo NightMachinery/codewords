@@ -14,6 +14,7 @@ describe('lobby helpers', () => {
       blue: [players[0]],
       red: [players[1]],
       unity: [],
+      monality: [],
       observers: [],
       unassigned: [players[2]],
     });

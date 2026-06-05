@@ -22,7 +22,7 @@
     hostControls: boolean;
     phase?: 'lobby' | 'active' | 'game_over';
     roomHostId: string;
-    mode?: 'polarity' | 'unity';
+    mode?: 'polarity' | 'unity' | 'monality';
     activeBoardOwner?: string;
     unityBoards?: UnityBoardSummary[];
     unityProgress?: UnityProgress | null;
@@ -55,7 +55,8 @@
 
   let visibleBuckets = $derived(visiblePlayerBuckets(players).filter((bucket) => {
     if (mode === 'unity') return bucket.tone === 'unity' || bucket.tone === 'observers' || bucket.tone === 'unassigned';
-    return bucket.tone !== 'unity';
+    if (mode === 'monality') return bucket.tone === 'monality' || bucket.tone === 'observers' || bucket.tone === 'unassigned';
+    return bucket.tone !== 'unity' && bucket.tone !== 'monality';
   }));
   let unityBoardByOwner = $derived(new Map(unityBoards.map((board) => [board.ownerId, board])));
 </script>
@@ -105,6 +106,9 @@
       {#if canShowTeamAssignmentButton({ phase, mode, hostControls, player, viewer, team: 'unity' })}
         <button class={['rounded-full border px-3 py-1.5 text-xs font-bold transition', player.team === 'unity' ? 'text-slate-50' : 'text-slate-100/70']} style={`border-color: ${hexWithAlpha(teamColor('unity', settings), player.team === 'unity' ? 'cc' : '80')}; background-color: ${player.team === 'unity' ? hexWithAlpha(teamColor('unity', settings), '40') : 'transparent'};`} onclick={() => onAssignTeam(player.id, 'unity')}>{displayTeamName('unity', settings)}</button>
       {/if}
+      {#if canShowTeamAssignmentButton({ phase, mode, hostControls, player, viewer, team: 'monality' })}
+        <button class={['rounded-full border px-3 py-1.5 text-xs font-bold transition', player.team === 'monality' ? 'text-slate-50' : 'text-slate-100/70']} style={`border-color: ${hexWithAlpha(teamColor('monality', settings), player.team === 'monality' ? 'cc' : '80')}; background-color: ${player.team === 'monality' ? hexWithAlpha(teamColor('monality', settings), '40') : 'transparent'};`} onclick={() => onAssignTeam(player.id, 'monality')}>{displayTeamName('monality', settings)}</button>
+      {/if}
       {#if canShowTeamAssignmentButton({ phase, mode, hostControls, player, viewer, team: 'blue' })}
         <button class={['rounded-full border px-3 py-1.5 text-xs font-bold transition', player.team === 'blue' ? 'text-slate-50' : 'text-slate-100/70']} style={`border-color: ${hexWithAlpha(teamColor('blue', settings), player.team === 'blue' ? 'cc' : '80')}; background-color: ${player.team === 'blue' ? hexWithAlpha(teamColor('blue', settings), '40') : 'transparent'};`} onclick={() => onAssignTeam(player.id, 'blue')}>{displayTeamName('blue', settings)}</button>
       {/if}
@@ -116,7 +120,7 @@
       {/if}
       {#if canShowRejoinTeamButton({ phase, mode, hostControls, player, viewer })}
         <button class="rounded-full border border-emerald-300/70 px-3 py-1.5 text-xs font-black text-emerald-100 hover:bg-emerald-300/10" onclick={() => onRejoinTeam(player.id)}>
-          Rejoin {mode === 'unity' ? displayTeamName('unity', settings) : displayTeamName(player.previousTeam === 'red' ? 'red' : 'blue', settings)}
+          Rejoin {mode === 'unity' ? displayTeamName('unity', settings) : mode === 'monality' ? displayTeamName('monality', settings) : displayTeamName(player.previousTeam === 'red' ? 'red' : 'blue', settings)}
         </button>
       {/if}
       {#if canShowRoleControls({ phase, hostControls, player })}
@@ -139,15 +143,16 @@
   </article>
 {/snippet}
 
-{#snippet TeamColumn(tone: 'blue' | 'red' | 'unity' | 'observers' | 'unassigned', members: LobbyPlayer[])}
-  {@const title = tone === 'blue' ? displayTeamName('blue', settings) : tone === 'red' ? displayTeamName('red', settings) : tone === 'unity' ? displayTeamName('unity', settings) : tone === 'observers' ? 'Observers' : 'Unassigned'}
+{#snippet TeamColumn(tone: 'blue' | 'red' | 'unity' | 'monality' | 'observers' | 'unassigned', members: LobbyPlayer[])}
+  {@const title = tone === 'blue' ? displayTeamName('blue', settings) : tone === 'red' ? displayTeamName('red', settings) : tone === 'unity' ? displayTeamName('unity', settings) : tone === 'monality' ? displayTeamName('monality', settings) : tone === 'observers' ? 'Observers' : 'Unassigned'}
   <section class={['rounded-[1.5rem] border p-3 shadow-2xl shadow-slate-950/25 sm:p-4',
     tone === 'blue' ? 'border-blue-300/30 bg-blue-400/10' : 
     tone === 'red' ? 'border-red-300/30 bg-red-400/10' : 
     tone === 'unity' ? 'border-teal-300/40 bg-teal-400/10' :
+    tone === 'monality' ? 'border-purple-300/40 bg-purple-400/10' :
     tone === 'observers' ? 'border-slate-500/30 bg-slate-700/10' :
     'border-slate-700 bg-slate-900/40']}
-    style={tone === 'blue' || tone === 'red' || tone === 'unity' ? `border-color: ${hexWithAlpha(teamColor(tone, settings), '55')}; background-color: ${hexWithAlpha(teamColor(tone, settings), '18')};` : ''}>
+    style={tone === 'blue' || tone === 'red' || tone === 'unity' || tone === 'monality' ? `border-color: ${hexWithAlpha(teamColor(tone, settings), '55')}; background-color: ${hexWithAlpha(teamColor(tone, settings), '18')};` : ''}>
     {#if tone === 'observers' || tone === 'unassigned'}
       <h2 class="text-lg font-black tracking-tight">{title} ({members.length})</h2>
     {:else}

@@ -24,10 +24,11 @@ import (
 )
 
 const (
-	defaultBlueTeamName  = "Libertarians"
-	defaultRedTeamName   = "Monarchists"
-	defaultUnityTeamName = "Unity"
-	maxTeamNameRunes     = 30
+	defaultBlueTeamName     = "Libertarians"
+	defaultRedTeamName      = "Monarchists"
+	defaultUnityTeamName    = "Unity"
+	defaultMonalityTeamName = "Monality"
+	maxTeamNameRunes        = 30
 )
 
 // Options wires the HTTP/API handler to persistence, identity, and local assets.
@@ -58,9 +59,10 @@ type Handler struct {
 }
 
 type roomRuntime struct {
-	mu      sync.Mutex
-	state   game.State
-	clients map[*websocket.Conn]string
+	mu              sync.Mutex
+	state           game.State
+	clients         map[*websocket.Conn]string
+	timerGeneration int
 }
 
 // NewHandler returns the HTTP handler for API, WebSocket, and health routes.
@@ -366,6 +368,7 @@ func (a *app) handleStart(w http.ResponseWriter, r *http.Request) {
 		writeEngineErr(w, err)
 		return
 	}
+	a.scheduleMonalityTimer(roomID, rt)
 	rt.broadcastLocked(snapshotMessage(rt.state, ""))
 	writeJSON(w, http.StatusOK, map[string]any{"matchId": match.ID, "snapshot": snapshotDTO(rt.state, user.ID)})
 }
@@ -549,6 +552,7 @@ func (a *app) handleWSMessage(ctx context.Context, roomID string, rt *roomRuntim
 			_ = conn.WriteJSON(errorMessage("command_rejected", err.Error()))
 			return
 		}
+		a.scheduleMonalityTimer(roomID, rt)
 		rt.broadcastLocked(snapshotMessage(rt.state, ""))
 		return
 	}
@@ -623,6 +627,21 @@ func (a *app) handleWSMessage(ctx context.Context, roomID string, rt *roomRuntim
 		rt.broadcastLocked(map[string]any{"type": "themeForced", "theme": theme, "by": viewerID})
 		return
 	}
+	if t == "closeMonalityRound" {
+		connected := rt.connectedPlayerIDsLocked()
+		event, err := game.Apply(&rt.state, game.CloseMonalityRoundCommand{ConnectedPlayerIDs: connected, Now: time.Now().UTC()}, viewerID)
+		if err != nil {
+			_ = conn.WriteJSON(errorMessage("command_rejected", err.Error()))
+			return
+		}
+		if err := a.persistRuntimeStateLocked(context.Background(), roomID, rt, viewerID, string(event.Type)); err != nil {
+			_ = conn.WriteJSON(errorMessage("persist_failed", err.Error()))
+			return
+		}
+		a.scheduleMonalityTimer(roomID, rt)
+		rt.broadcastLocked(snapshotMessage(rt.state, ""))
+		return
+	}
 	cmd, err := commandFromMessage(t, msg)
 	if err != nil {
 		_ = conn.WriteJSON(errorMessage("invalid_command", err.Error()))
@@ -665,6 +684,7 @@ func (a *app) handleWSMessage(ctx context.Context, roomID string, rt *roomRuntim
 			}
 		}
 	}
+	a.scheduleMonalityTimer(roomID, rt)
 	rt.broadcastLocked(snapshotMessage(rt.state, ""))
 }
 
@@ -1035,7 +1055,11 @@ func normalizeSettings(s game.Settings) (game.Settings, error) {
 	s.CustomColorUnity = normalizeHexColor(s.CustomColorUnity)
 	s.TeamNameBlue = normalizeTeamName(s.TeamNameBlue, defaultBlueTeamName)
 	s.TeamNameRed = normalizeTeamName(s.TeamNameRed, defaultRedTeamName)
-	s.TeamNameUnity = normalizeTeamName(s.TeamNameUnity, defaultUnityTeamName)
+	unityNameFallback := defaultUnityTeamName
+	if s.Mode == game.ModeMonality {
+		unityNameFallback = defaultMonalityTeamName
+	}
+	s.TeamNameUnity = normalizeTeamName(s.TeamNameUnity, unityNameFallback)
 	if err := game.ValidateSettings(s); err != nil {
 		return game.Settings{}, err
 	}
@@ -1341,12 +1365,23 @@ func snapshotDTO(state game.State, viewerID string) map[string]any {
 		}
 		cards[i] = card
 	}
-	for _, c := range state.Cards {
-		if !c.Revealed {
+	for _, c := range s.Cards {
+		if !c.Revealed && c.Color != "" {
 			remaining[string(c.Color)]++
 		}
 	}
 	out := map[string]any{"phase": s.Phase, "mode": state.Mode, "players": players, "settings": state.Settings, "currentTeam": s.CurrentTeam, "winner": s.Winner, "finishedAt": s.FinishedAt, "actionId": s.ActionID, "cards": cards, "lastSelected": s.LastSelected, "remainingCounts": remaining, "clueLog": s.ClueLog, "viewer": map[string]any{"playerId": viewerID, "userId": viewerID, "isHost": viewerID != "" && viewerID == state.HostID, "isMod": state.CanManage(viewerID)}}
+	if state.Mode == game.ModeMonality || state.Settings.Mode == game.ModeMonality {
+		out["monality"] = monalitySnapshotDTO(s.Monality)
+		if s.Monality != nil {
+			if s.Monality.Board != nil {
+				out["activeBoard"] = snapshotBoardDTO(*s.Monality.Board)
+			}
+			if s.Monality.OwnAttempt != nil {
+				out["ownBoard"] = snapshotBoardDTO(*s.Monality.OwnAttempt)
+			}
+		}
+	}
 	if state.Mode == game.ModeUnity || state.Settings.Mode == game.ModeUnity {
 		out["activeBoard"] = snapshotBoardDTO(s.ActiveBoard)
 		if s.PreviousBoard != nil {
@@ -1388,6 +1423,38 @@ func snapshotDTO(state game.State, viewerID string) map[string]any {
 				"boardStats":      boardStats,
 			}
 		}
+	}
+	return out
+}
+
+func monalitySnapshotDTO(mon *game.MonalitySnapshot) map[string]any {
+	if mon == nil {
+		return nil
+	}
+	attempts := make([]map[string]any, len(mon.Attempts))
+	for i, attempt := range mon.Attempts {
+		attempts[i] = map[string]any{"ownerId": attempt.OwnerID, "score": attempt.Score, "completed": attempt.Completed, "abandoned": attempt.Abandoned, "bombed": attempt.Bombed}
+	}
+	rounds := make([]map[string]any, len(mon.RoundScores))
+	for i, round := range mon.RoundScores {
+		rounds[i] = map[string]any{"round": round.Round, "spymasterId": round.SpymasterID, "average": round.Average, "scores": round.Scores}
+	}
+	out := map[string]any{
+		"spymasterId":     mon.SpymasterID,
+		"attempts":        attempts,
+		"scores":          mon.Scores,
+		"spymasterCounts": mon.SpymasterCounts,
+		"deadline":        mon.Deadline,
+		"roundScores":     rounds,
+	}
+	if mon.Board != nil {
+		out["board"] = snapshotBoardDTO(*mon.Board)
+	}
+	if mon.OwnAttempt != nil {
+		out["ownAttempt"] = snapshotBoardDTO(*mon.OwnAttempt)
+	}
+	if mon.EndStats != nil {
+		out["endStats"] = mon.EndStats
 	}
 	return out
 }
@@ -1474,4 +1541,69 @@ func writeEngineErr(w http.ResponseWriter, err error) {
 		status = http.StatusForbidden
 	}
 	writeError(w, status, "command_rejected", err.Error())
+}
+
+func (rt *roomRuntime) connectedPlayerIDsLocked() []string {
+	seen := map[string]bool{}
+	ids := make([]string, 0, len(rt.clients))
+	for _, id := range rt.clients {
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+func (a *app) persistRuntimeStateLocked(ctx context.Context, roomID string, rt *roomRuntime, actorID string, eventType string) error {
+	room, err := a.store.RoomByID(ctx, roomID)
+	if err != nil {
+		return err
+	}
+	if err := a.syncRoomPlayers(ctx, roomID, rt.state); err != nil {
+		return err
+	}
+	if room.CurrentMatchID == "" {
+		return nil
+	}
+	return a.persistState(ctx, room.CurrentMatchID, actorID, eventType, rt.state)
+}
+
+func (a *app) scheduleMonalityTimer(roomID string, rt *roomRuntime) {
+	if rt.state.Mode != game.ModeMonality || rt.state.Phase != game.PhaseActive || rt.state.MonalityDeadline == "" {
+		return
+	}
+	deadline, err := time.Parse(time.RFC3339Nano, rt.state.MonalityDeadline)
+	if err != nil {
+		return
+	}
+	delay := time.Until(deadline)
+	if delay < 0 {
+		delay = 0
+	}
+	rt.timerGeneration++
+	generation := rt.timerGeneration
+	time.AfterFunc(delay, func() {
+		rt.mu.Lock()
+		defer rt.mu.Unlock()
+		if generation != rt.timerGeneration || rt.state.Mode != game.ModeMonality || rt.state.Phase != game.PhaseActive || rt.state.MonalityDeadline == "" {
+			return
+		}
+		currentDeadline, err := time.Parse(time.RFC3339Nano, rt.state.MonalityDeadline)
+		if err != nil || time.Now().UTC().Before(currentDeadline) {
+			return
+		}
+		connected := rt.connectedPlayerIDsLocked()
+		event, err := game.Apply(&rt.state, game.CloseMonalityRoundCommand{ConnectedPlayerIDs: connected, Now: time.Now().UTC()}, rt.state.HostID)
+		if err != nil {
+			return
+		}
+		if err := a.persistRuntimeStateLocked(context.Background(), roomID, rt, rt.state.HostID, string(event.Type)); err != nil {
+			log.Printf("monality timer persist failed for room %s: %v", roomID, err)
+		}
+		a.scheduleMonalityTimer(roomID, rt)
+		rt.broadcastLocked(snapshotMessage(rt.state, ""))
+	})
 }

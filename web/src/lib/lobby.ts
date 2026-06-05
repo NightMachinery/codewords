@@ -1,4 +1,4 @@
-export type Team = '' | 'blue' | 'red' | 'unity' | 'observers';
+export type Team = '' | 'blue' | 'red' | 'unity' | 'monality' | 'observers';
 
 export interface LobbyPlayer {
   id: string;
@@ -25,6 +25,7 @@ export function playerBuckets(players: LobbyPlayer[]): {
   blue: LobbyPlayer[];
   red: LobbyPlayer[];
   unity: LobbyPlayer[];
+  monality: LobbyPlayer[];
   observers: LobbyPlayer[];
   unassigned: LobbyPlayer[];
 } {
@@ -32,12 +33,13 @@ export function playerBuckets(players: LobbyPlayer[]): {
     blue: players.filter((player) => player.team === 'blue'),
     red: players.filter((player) => player.team === 'red'),
     unity: players.filter((player) => player.team === 'unity'),
+    monality: players.filter((player) => player.team === 'monality'),
     observers: players.filter((player) => player.team === 'observers'),
     unassigned: players.filter((player) => player.team === ''),
   };
 }
 
-export type VisiblePlayerBucket = { tone: 'blue' | 'red' | 'unity' | 'observers' | 'unassigned'; members: LobbyPlayer[] };
+export type VisiblePlayerBucket = { tone: 'blue' | 'red' | 'unity' | 'monality' | 'observers' | 'unassigned'; members: LobbyPlayer[] };
 
 export function visiblePlayerBuckets(players: LobbyPlayer[]): VisiblePlayerBucket[] {
   const buckets = playerBuckets(players);
@@ -45,6 +47,7 @@ export function visiblePlayerBuckets(players: LobbyPlayer[]): VisiblePlayerBucke
     { tone: 'blue' as const, members: buckets.blue },
     { tone: 'red' as const, members: buckets.red },
     { tone: 'unity' as const, members: buckets.unity },
+    { tone: 'monality' as const, members: buckets.monality },
     { tone: 'observers' as const, members: buckets.observers },
     { tone: 'unassigned' as const, members: buckets.unassigned },
   ].filter((bucket) => bucket.tone === 'blue' || bucket.tone === 'red' || bucket.members.length > 0);
@@ -56,7 +59,7 @@ export function isViewerPlayer(player: Pick<LobbyPlayer, 'id'>, viewer: Pick<Vie
 
 export function canShowTeamAssignmentButton(input: {
   phase: PlayerPanelPhase;
-  mode?: 'polarity' | 'unity';
+  mode?: 'polarity' | 'unity' | 'monality';
   hostControls: boolean;
   player: LobbyPlayer;
   viewer: Pick<ViewerContext, 'userId' | 'playerId'> | null | undefined;
@@ -67,7 +70,10 @@ export function canShowTeamAssignmentButton(input: {
   if (mode === 'unity') {
     return input.hostControls && (input.team === 'unity' || input.team === 'observers') && input.player.team !== input.team;
   }
-  if (input.team === 'unity') return false;
+  if (mode === 'monality') {
+    return input.hostControls && (input.team === 'monality' || input.team === 'observers') && input.player.team !== input.team;
+  }
+  if (input.team === 'unity' || input.team === 'monality') return false;
   if (input.hostControls) return true;
   if (!isViewerPlayer(input.player, input.viewer)) return false;
   if (input.phase === 'lobby') return true;
@@ -76,7 +82,7 @@ export function canShowTeamAssignmentButton(input: {
 
 export function canShowRejoinTeamButton(input: {
   phase: PlayerPanelPhase;
-  mode?: 'polarity' | 'unity';
+  mode?: 'polarity' | 'unity' | 'monality';
   hostControls: boolean;
   player: LobbyPlayer;
   viewer: Pick<ViewerContext, 'userId' | 'playerId'> | null | undefined;
@@ -84,7 +90,7 @@ export function canShowRejoinTeamButton(input: {
   const mode = input.mode ?? 'polarity';
   return input.phase !== 'game_over'
     && input.player.team === 'observers'
-    && (mode === 'unity' ? (input.player.previousTeam === 'blue' || input.player.previousTeam === 'red' || input.player.previousTeam === 'unity') : (input.player.previousTeam === 'blue' || input.player.previousTeam === 'red'))
+    && (mode === 'unity' ? (input.player.previousTeam === 'blue' || input.player.previousTeam === 'red' || input.player.previousTeam === 'unity') : mode === 'monality' ? input.player.previousTeam === 'monality' : (input.player.previousTeam === 'blue' || input.player.previousTeam === 'red'))
     && (input.hostControls || isViewerPlayer(input.player, input.viewer));
 }
 

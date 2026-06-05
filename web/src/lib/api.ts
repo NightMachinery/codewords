@@ -6,7 +6,7 @@ export interface ApiErrorBody {
 }
 
 export interface Settings {
-  mode?: 'polarity' | 'unity';
+  mode?: 'polarity' | 'unity' | 'monality';
   seed: number;
   blackCards: number;
   totalCards: number;
@@ -29,6 +29,8 @@ export interface Settings {
   unityTurnLimit?: number;
   unityUnlimitedTurns?: boolean;
   unityStrictPerBoardTurns?: boolean;
+  monalitySpymasterRounds?: number;
+  monalityRoundSeconds?: number;
   observerChatEnabled: boolean;
   mixedImageOrderFirst: boolean;
   memoryRoastsDisabled?: boolean;
@@ -50,11 +52,11 @@ export interface RoomSummary {
 
 export interface RoomSnapshot {
   phase: 'lobby' | 'active' | 'game_over';
-  mode?: 'polarity' | 'unity';
+  mode?: 'polarity' | 'unity' | 'monality';
   players: LobbyPlayer[];
   settings: Settings;
-  currentTeam: 'blue' | 'red' | 'unity' | '';
-  winner: 'blue' | 'red' | 'unity' | 'observers' | '';
+  currentTeam: 'blue' | 'red' | 'unity' | 'monality' | '';
+  winner: 'blue' | 'red' | 'unity' | 'monality' | 'observers' | '';
   finishedAt?: string;
   actionId: number;
   cards: GameplayCard[];
@@ -68,6 +70,7 @@ export interface RoomSnapshot {
   unityProgress?: import('./gameplay').UnityProgress;
   unityTransitionUntil?: string;
   unityEndStats?: import('./gameplay').UnityEndStats | null;
+  monality?: import('./gameplay').MonalitySnapshot | null;
   viewer: Viewer;
 }
 
@@ -194,6 +197,8 @@ export const defaultSettings: Settings = {
   unityTurnLimit: 6,
   unityUnlimitedTurns: false,
   unityStrictPerBoardTurns: false,
+  monalitySpymasterRounds: 1,
+  monalityRoundSeconds: 0,
 };
 
 export const api = new ApiClient();

@@ -134,12 +134,15 @@ func SettingsWithDefaults(settings Settings) Settings {
 	if settings.TotalCards == 0 {
 		settings.TotalCards = DefaultTotalCards
 	}
-	if settings.Mode == ModeUnity {
+	if settings.Mode == ModeUnity || settings.Mode == ModeMonality {
 		if settings.BlackCards == 0 {
 			settings.BlackCards = 4
 		}
-		if settings.UnityTurnLimit == 0 && !settings.UnityUnlimitedTurns {
+		if settings.Mode == ModeUnity && settings.UnityTurnLimit == 0 && !settings.UnityUnlimitedTurns {
 			settings.UnityTurnLimit = 6
+		}
+		if settings.Mode == ModeMonality && settings.MonalitySpymasterRounds == 0 {
+			settings.MonalitySpymasterRounds = 1
 		}
 		settings.AutoColorCounts = true
 		settings.BlueCards = 0
@@ -229,9 +232,17 @@ func ValidateSettings(settings Settings) error {
 	if settings.BlackCards < 0 {
 		return fmt.Errorf("%w: blackCards cannot be negative", ErrInvalidSettings)
 	}
-	if settings.Mode == ModeUnity {
-		if settings.UnityTurnLimit < 0 {
+	if settings.Mode == ModeUnity || settings.Mode == ModeMonality {
+		if settings.Mode == ModeUnity && settings.UnityTurnLimit < 0 {
 			return fmt.Errorf("%w: unityTurnLimit cannot be negative", ErrInvalidSettings)
+		}
+		if settings.Mode == ModeMonality {
+			if settings.MonalitySpymasterRounds < 1 {
+				return fmt.Errorf("%w: monalitySpymasterRounds must be at least 1", ErrInvalidSettings)
+			}
+			if settings.MonalityRoundSeconds < 0 {
+				return fmt.Errorf("%w: monalityRoundSeconds cannot be negative", ErrInvalidSettings)
+			}
 		}
 		if settings.BlackCards+UnityCardCount(settings.TotalCards) > settings.TotalCards {
 			return fmt.Errorf("%w: unity and assassin cards cannot exceed totalCards", ErrInvalidSettings)
@@ -345,6 +356,9 @@ func (c AddPlayerCommand) apply(state *State, actorID string) (Event, error) {
 	if player.Team == "" && state.Phase == PhaseLobby && (state.Settings.Mode == ModeUnity || state.Mode == ModeUnity) {
 		player.Team = TeamUnity
 	}
+	if player.Team == "" && state.Phase == PhaseLobby && (state.Settings.Mode == ModeMonality || state.Mode == ModeMonality) {
+		player.Team = TeamMonality
+	}
 	if player.Team == "" && state.Phase == PhaseLobby && state.Settings.RandomizeTeams {
 		player.Team = state.nextBalancedTeam(c.PlayerID)
 	}
@@ -356,7 +370,7 @@ func (c AssignTeamCommand) apply(state *State, actorID string) (Event, error) {
 	if !state.CanManage(actorID) && actorID != c.PlayerID {
 		return Event{}, ErrForbidden
 	}
-	if c.Team != TeamBlue && c.Team != TeamRed && c.Team != TeamUnity && c.Team != TeamObservers && c.Team != "" {
+	if c.Team != TeamBlue && c.Team != TeamRed && c.Team != TeamUnity && c.Team != TeamMonality && c.Team != TeamObservers && c.Team != "" {
 		return Event{}, fmt.Errorf("%w: invalid team", ErrInvalidCommand)
 	}
 	player, ok := state.Players[c.PlayerID]
@@ -365,7 +379,7 @@ func (c AssignTeamCommand) apply(state *State, actorID string) (Event, error) {
 	}
 	previousPlayer := player
 	if player.Team != c.Team {
-		if c.Team == TeamObservers && (player.Team == TeamBlue || player.Team == TeamRed || player.Team == TeamUnity) {
+		if c.Team == TeamObservers && (player.Team == TeamBlue || player.Team == TeamRed || player.Team == TeamUnity || player.Team == TeamMonality) {
 			player.PreviousTeam = player.Team
 			player.PreviousSpymaster = player.Spymaster
 			player.PreviousRepresentative = player.Representative
@@ -395,11 +409,15 @@ func (c RejoinTeamCommand) apply(state *State, actorID string) (Event, error) {
 	if player.Team != TeamObservers {
 		return Event{}, fmt.Errorf("%w: player is not an observer", ErrInvalidCommand)
 	}
-	if player.PreviousTeam != TeamBlue && player.PreviousTeam != TeamRed && player.PreviousTeam != TeamUnity {
+	if player.PreviousTeam != TeamBlue && player.PreviousTeam != TeamRed && player.PreviousTeam != TeamUnity && player.PreviousTeam != TeamMonality {
 		return Event{}, fmt.Errorf("%w: no previous playable team", ErrInvalidCommand)
 	}
 	if state.Settings.Mode == ModeUnity || state.Mode == ModeUnity {
 		player.Team = TeamUnity
+		player.Spymaster = false
+		player.Representative = false
+	} else if state.Settings.Mode == ModeMonality || state.Mode == ModeMonality {
+		player.Team = TeamMonality
 		player.Spymaster = false
 		player.Representative = false
 	} else {
@@ -431,8 +449,8 @@ func (c ToggleSpymasterCommand) apply(state *State, actorID string) (Event, erro
 	if player.Team == TeamObservers {
 		return Event{}, fmt.Errorf("%w: observers cannot be spymasters", ErrInvalidCommand)
 	}
-	if state.Settings.Mode == ModeUnity {
-		return Event{}, fmt.Errorf("%w: unity spymasters are board owners", ErrInvalidCommand)
+	if state.Settings.Mode == ModeUnity || state.Settings.Mode == ModeMonality {
+		return Event{}, fmt.Errorf("%w: mode spymasters are selected by the engine", ErrInvalidCommand)
 	}
 	player.Spymaster = !player.Spymaster
 	if player.Spymaster {
@@ -574,6 +592,9 @@ func (c StartCommand) apply(state *State, actorID string) (Event, error) {
 	if state.Mode == ModeUnity {
 		return c.startUnity(state, actorID)
 	}
+	if state.Mode == ModeMonality {
+		return c.startMonality(state, actorID)
+	}
 	board, err := GenerateBoard(state.Settings, c.Words, c.ImageIDs)
 	if err != nil {
 		return Event{}, err
@@ -609,6 +630,9 @@ func (c SubmitClueCommand) apply(state *State, actorID string) (Event, error) {
 	if state.Mode == ModeUnity {
 		return c.submitUnityClue(state, actorID)
 	}
+	if state.Mode == ModeMonality {
+		return c.submitMonalityClue(state, actorID)
+	}
 	player, ok := state.Players[actorID]
 	if !ok || player.Team != state.CurrentTeam || !player.Spymaster {
 		return Event{}, ErrForbidden
@@ -640,6 +664,9 @@ func (c GuessCommand) apply(state *State, actorID string) (Event, error) {
 	}
 	if state.Mode == ModeUnity {
 		return c.guessUnity(state, actorID)
+	}
+	if state.Mode == ModeMonality {
+		return c.guessMonality(state, actorID)
 	}
 	if c.Index < 0 || c.Index >= len(state.Cards) {
 		return Event{}, fmt.Errorf("%w: card index", ErrInvalidCommand)
@@ -680,6 +707,9 @@ func (c PassCommand) apply(state *State, actorID string) (Event, error) {
 	}
 	if state.Mode == ModeUnity {
 		return c.passUnity(state, actorID)
+	}
+	if state.Mode == ModeMonality {
+		return c.passMonality(state, actorID)
 	}
 	if !state.IsActiveGuesser(actorID, state.CurrentTeam) {
 		return Event{}, ErrForbidden
@@ -766,6 +796,15 @@ func (c RestartMatchCommand) apply(state *State, actorID string) (Event, error) 
 	state.UnityWords = nil
 	state.UnityImageIDs = nil
 	state.UnityEndStats = nil
+	state.MonalityBoard = UnityBoardState{}
+	state.MonalityAttempts = nil
+	state.MonalitySpymasterID = ""
+	state.MonalitySpymasterCounts = nil
+	state.MonalityTotalScores = nil
+	state.MonalityRoundScores = nil
+	state.MonalityDeadline = ""
+	state.RoundGuessesByPlayer = nil
+	state.MonalityEndStats = nil
 	state.Settings.Seed++
 	state.ActionID++
 	return Event{Type: EventMatchRestarted}, nil
@@ -773,6 +812,10 @@ func (c RestartMatchCommand) apply(state *State, actorID string) (Event, error) 
 
 // IsActiveGuesser reports whether playerID may guess/pass for team.
 func (s State) IsActiveGuesser(playerID string, team Team) bool {
+	if s.Mode == ModeMonality || s.Settings.Mode == ModeMonality || team == TeamMonality {
+		attempt, ok := s.MonalityAttempts[playerID]
+		return ok && !attempt.Completed && !attempt.Abandoned
+	}
 	if s.Mode == ModeUnity || s.Settings.Mode == ModeUnity || team == TeamUnity {
 		return s.isUnityActiveGuesser(playerID)
 	}
@@ -821,6 +864,9 @@ func (s State) CurrentClue() *ClueEntry {
 
 // SnapshotFor returns a viewer-safe snapshot.
 func (s State) SnapshotFor(viewer Viewer) Snapshot {
+	if s.Mode == ModeMonality || s.Settings.Mode == ModeMonality {
+		return s.monalitySnapshotFor(viewer)
+	}
 	if s.Mode == ModeUnity || s.Settings.Mode == ModeUnity {
 		return s.unitySnapshotFor(viewer)
 	}
@@ -845,6 +891,17 @@ func (s State) canStart() bool {
 		active := 0
 		for _, player := range s.Players {
 			if player.Team == TeamUnity {
+				active++
+			} else if player.Team != TeamObservers && player.Team != "" {
+				return false
+			}
+		}
+		return active >= 2
+	}
+	if s.Settings.Mode == ModeMonality || s.Mode == ModeMonality {
+		active := 0
+		for _, player := range s.Players {
+			if player.Team == TeamMonality {
 				active++
 			} else if player.Team != TeamObservers && player.Team != "" {
 				return false

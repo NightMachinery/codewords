@@ -4,7 +4,7 @@ Milestone 2 adds a pure Go game engine under `internal/game`. The package owns l
 
 ## Modes
 
-The engine supports two rule modes. `polarity` is the original two-team mode. `unity` is a cooperative mode with one playable Unity team and per-player hidden boards. Lobby mode switches are explicit room settings: switching from Polarity to Unity moves playable blue/red players onto Unity while preserving their previous team, spymaster, and representative metadata; switching back restores that metadata when present.
+The engine supports three rule modes. `polarity` is the original two-team mode. `unity` is a cooperative mode with one playable Unity team and per-player hidden boards. `monality` is a competitive single-team mode where one active spymaster clues while all other active players guess independent copies of a fresh round board. Lobby mode switches are explicit room settings: switching from Polarity to Unity or Monality moves playable blue/red players onto the selected single-team mode while preserving their previous team, spymaster, and representative metadata; switching back restores that metadata when present.
 
 ## Command flow
 
@@ -19,6 +19,8 @@ Engine commands cover player seating, team assignment, observer rejoin, moderato
 Automatic color-count mode applies the configured starting-team handicap to whichever team randomly starts. It sets neutral cards to `round(totalCards / 3)`, adjusts neutral when needed so team cards minus that handicap can split evenly, splits the base team cards evenly, and treats assassins as a subset of neutral cards. Manual mode accepts blue/red base counts, neutral cards, and a starting-team handicap whose sum equals `TotalCards`; the handicap is applied to whichever team randomly starts. Assassins must be between zero and the neutral-card count.
 
 Unity starts one deterministic board per active Unity player. Each board seed derives from the room seed, match id, and board owner id. Unity board colors are Unity, assassin, and civilian. The Unity target count is `round(totalCards / 2.5)`, and Unity defaults to four assassins and six finite turns per board when the lobby does not set those values.
+
+Monality uses the same target/assassin/civilian board composition but creates one fresh board per round, then clones it into an independent reveal-state attempt for each non-observer, non-spymaster player.
 
 ## Clues
 
@@ -44,6 +46,14 @@ Default finite Unity difficulty uses a shared-pool ledger: the match starts with
 
 Strict per-board mode gives each board its own `unityTurnLimit`; an unresolved board loses immediately when its remaining turn count reaches zero, including when play rotates onto that board. Solved boards lose unused turns, and observer/rejoin affects only that board.
 
+## Monality scoring and rounds
+
+Monality starts with every non-observer player on `TeamMonality`. At each round start the engine randomly chooses the spymaster from the active players who have served as spymaster the fewest times and have not yet reached `monalitySpymasterRounds` (default `1`). The spymaster can submit/update the clue and sees the full hidden board; they do not receive a guessing attempt.
+
+Each other active Monality player receives an independent attempt board. Correct target reveals add `+1` to that player’s round score. Civilian/wrong reveals complete that player’s attempt with the current score. Bomb/assassin reveals immediately complete the attempt and set that player’s round score to `MONALITY_BOMB_SCORE = -1`. Passing completes the attempt with the current score. If clue limits are enforced, each attempt has its own accepted-guess count against the shared clue number.
+
+When all attempts are completed, the engine adds each counted guesser score to that player’s cumulative score and adds the average counted guesser score to the round spymaster’s cumulative score. Completed attempts always count even if the player disconnects later. `CloseMonalityRoundCommand` is used for timer expiry or moderator close: unfinished disconnected or observer attempts are abandoned, while unfinished connected attempts count with their current score. When every active player has been spymaster the configured number of times, the match ends with `TeamMonality` as winner and rankings sorted by cumulative score.
+
 ## Observer rejoin and restarts
 
 Assigning a player from a playable team to observers clears their active spy/representative flags but records the previous team and role. `RejoinTeamCommand` restores that remembered playable assignment for the player or a moderator.
@@ -54,4 +64,4 @@ Unity lobby joins assign new players directly to Unity instead of applying Polar
 
 Unity end stats include global found/total/turn/assassin totals plus one row per active Unity-team personal board with owner id, Unity cards found, total Unity cards, turns used, and Unity cards found per board turn. Observer-owned stored boards remain available for review but do not count toward active progress, win/loss, or end stats. Higher per-turn averages are ranked first, and unplayed boards expose no per-turn average.
 
-`RestartMatchCommand` returns the room to lobby state, clears active board state including Unity personal boards and progress, and increments the seed so the next start generates a fresh board instead of reusing the prior word/image order.
+`RestartMatchCommand` returns the room to lobby state, clears active board state including Unity personal boards/progress and Monality round/scoring state, and increments the seed so the next start generates a fresh board instead of reusing the prior word/image order.

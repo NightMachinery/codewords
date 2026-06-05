@@ -188,22 +188,29 @@ func (s State) unityActivePlayerIDs() []string {
 }
 
 func (s *State) applyLobbyModeSwitch(oldMode Mode, nextMode Mode) {
-	if nextMode == ModeUnity {
+	if nextMode == ModeUnity || nextMode == ModeMonality {
+		nextTeam := TeamUnity
+		if nextMode == ModeMonality {
+			nextTeam = TeamMonality
+		}
 		for id, player := range s.Players {
-			if player.Team == TeamBlue || player.Team == TeamRed {
-				player.PreviousTeam = player.Team
-				player.PreviousSpymaster = player.Spymaster
-				player.PreviousRepresentative = player.Representative
-				player.Team = TeamUnity
+			if player.Team == TeamBlue || player.Team == TeamRed || player.Team == TeamUnity || player.Team == TeamMonality {
+				if player.Team == TeamBlue || player.Team == TeamRed {
+					player.PreviousTeam = player.Team
+					player.PreviousSpymaster = player.Spymaster
+					player.PreviousRepresentative = player.Representative
+				}
+				player.Team = nextTeam
 				player.Spymaster = false
+				player.Representative = false
 				s.Players[id] = player
 			}
 		}
 		return
 	}
-	if oldMode == ModeUnity && nextMode == ModePolarity {
+	if (oldMode == ModeUnity || oldMode == ModeMonality) && nextMode == ModePolarity {
 		for id, player := range s.Players {
-			if player.Team == TeamUnity {
+			if player.Team == TeamUnity || player.Team == TeamMonality {
 				if player.PreviousTeam == TeamBlue || player.PreviousTeam == TeamRed {
 					player.Team = player.PreviousTeam
 					player.Spymaster = player.PreviousSpymaster

@@ -45,6 +45,7 @@ const (
 	TeamBlue      Team = "blue"
 	TeamRed       Team = "red"
 	TeamUnity     Team = "unity"
+	TeamMonality  Team = "monality"
 	TeamObservers Team = "observers"
 )
 
@@ -67,7 +68,7 @@ func (t Team) Color() Color {
 	if t == TeamRed {
 		return ColorRed
 	}
-	if t == TeamUnity {
+	if t == TeamUnity || t == TeamMonality {
 		return ColorUnity
 	}
 	return ""
@@ -90,6 +91,7 @@ type Mode string
 const (
 	ModePolarity Mode = "polarity"
 	ModeUnity    Mode = "unity"
+	ModeMonality Mode = "monality"
 )
 
 // Phase identifies the lifecycle phase of a game state.
@@ -152,6 +154,8 @@ type Settings struct {
 	UnityTurnLimit           int    `json:"unityTurnLimit,omitempty"`
 	UnityUnlimitedTurns      bool   `json:"unityUnlimitedTurns,omitempty"`
 	UnityStrictPerBoardTurns bool   `json:"unityStrictPerBoardTurns,omitempty"`
+	MonalitySpymasterRounds  int    `json:"monalitySpymasterRounds,omitempty"`
+	MonalityRoundSeconds     int    `json:"monalityRoundSeconds,omitempty"`
 }
 
 // UnmarshalJSON gives API/DB payloads the product default for randomized team
@@ -235,6 +239,39 @@ type UnityBoardState struct {
 	WithdrawnSharedTurns int           `json:"withdrawnSharedTurns,omitempty"`
 }
 
+// MonalityAttemptState is one player's independent board attempt for the current Monality round.
+type MonalityAttemptState struct {
+	OwnerID      string        `json:"ownerId"`
+	Cards        []Card        `json:"cards"`
+	ClueLog      []ClueEntry   `json:"clueLog,omitempty"`
+	Score        float64       `json:"score"`
+	Completed    bool          `json:"completed"`
+	Abandoned    bool          `json:"abandoned,omitempty"`
+	Bombed       bool          `json:"bombed,omitempty"`
+	LastSelected *LastSelected `json:"lastSelected,omitempty"`
+}
+
+// MonalityRoundStats summarizes one completed Monality round.
+type MonalityRoundStats struct {
+	Round       int                `json:"round"`
+	SpymasterID string             `json:"spymasterId"`
+	Average     float64            `json:"average"`
+	Scores      map[string]float64 `json:"scores"`
+}
+
+// MonalityRanking ranks one player at Monality match end.
+type MonalityRanking struct {
+	PlayerID   string  `json:"playerId"`
+	TotalScore float64 `json:"totalScore"`
+	Rank       int     `json:"rank"`
+}
+
+// MonalityEndStats summarizes a finished Monality match.
+type MonalityEndStats struct {
+	Rankings []MonalityRanking `json:"rankings"`
+	Rounds   int               `json:"rounds"`
+}
+
 // UnityEndStats summarizes a finished Unity match.
 type UnityEndStats struct {
 	UnityCardsFound int                  `json:"unityCardsFound"`
@@ -257,31 +294,40 @@ type UnityBoardEndStats struct {
 
 // State is the authoritative game engine state.
 type State struct {
-	HostID                    string                     `json:"hostId"`
-	Mode                      Mode                       `json:"mode,omitempty"`
-	GameID                    string                     `json:"gameId,omitempty"`
-	Settings                  Settings                   `json:"settings"`
-	Phase                     Phase                      `json:"phase"`
-	Players                   map[string]Player          `json:"players"`
-	Cards                     []Card                     `json:"cards"`
-	CurrentTeam               Team                       `json:"currentTeam"`
-	Winner                    Team                       `json:"winner"`
-	FinishedAt                string                     `json:"finishedAt,omitempty"`
-	ActionID                  int                        `json:"actionId"`
-	LastSelected              *LastSelected              `json:"lastSelected"`
-	ClueLog                   []ClueEntry                `json:"clueLog"`
-	Round                     int                        `json:"round"`
-	RoundGuesses              int                        `json:"roundGuesses,omitempty"`
-	ActiveBoardOwner          string                     `json:"activeBoardOwner,omitempty"`
-	PreviousBoardOwner        string                     `json:"previousBoardOwner,omitempty"`
-	UnityBoards               map[string]UnityBoardState `json:"unityBoards,omitempty"`
-	UnityBoardOrder           []string                   `json:"unityBoardOrder,omitempty"`
-	UnitySharedTurnsRemaining int                        `json:"unitySharedTurnsRemaining,omitempty"`
-	UnityWaitingForGuessers   bool                       `json:"unityWaitingForGuessers,omitempty"`
-	UnityTransitionUntil      string                     `json:"unityTransitionUntil,omitempty"`
-	UnityWords                []string                   `json:"unityWords,omitempty"`
-	UnityImageIDs             []string                   `json:"unityImageIds,omitempty"`
-	UnityEndStats             *UnityEndStats             `json:"unityEndStats,omitempty"`
+	HostID                    string                          `json:"hostId"`
+	Mode                      Mode                            `json:"mode,omitempty"`
+	GameID                    string                          `json:"gameId,omitempty"`
+	Settings                  Settings                        `json:"settings"`
+	Phase                     Phase                           `json:"phase"`
+	Players                   map[string]Player               `json:"players"`
+	Cards                     []Card                          `json:"cards"`
+	CurrentTeam               Team                            `json:"currentTeam"`
+	Winner                    Team                            `json:"winner"`
+	FinishedAt                string                          `json:"finishedAt,omitempty"`
+	ActionID                  int                             `json:"actionId"`
+	LastSelected              *LastSelected                   `json:"lastSelected"`
+	ClueLog                   []ClueEntry                     `json:"clueLog"`
+	Round                     int                             `json:"round"`
+	RoundGuesses              int                             `json:"roundGuesses,omitempty"`
+	ActiveBoardOwner          string                          `json:"activeBoardOwner,omitempty"`
+	PreviousBoardOwner        string                          `json:"previousBoardOwner,omitempty"`
+	UnityBoards               map[string]UnityBoardState      `json:"unityBoards,omitempty"`
+	UnityBoardOrder           []string                        `json:"unityBoardOrder,omitempty"`
+	UnitySharedTurnsRemaining int                             `json:"unitySharedTurnsRemaining,omitempty"`
+	UnityWaitingForGuessers   bool                            `json:"unityWaitingForGuessers,omitempty"`
+	UnityTransitionUntil      string                          `json:"unityTransitionUntil,omitempty"`
+	UnityWords                []string                        `json:"unityWords,omitempty"`
+	UnityImageIDs             []string                        `json:"unityImageIds,omitempty"`
+	UnityEndStats             *UnityEndStats                  `json:"unityEndStats,omitempty"`
+	MonalityBoard             UnityBoardState                 `json:"monalityBoard,omitempty"`
+	MonalityAttempts          map[string]MonalityAttemptState `json:"monalityAttempts,omitempty"`
+	MonalitySpymasterID       string                          `json:"monalitySpymasterId,omitempty"`
+	MonalitySpymasterCounts   map[string]int                  `json:"monalitySpymasterCounts,omitempty"`
+	MonalityTotalScores       map[string]float64              `json:"monalityTotalScores,omitempty"`
+	MonalityRoundScores       []MonalityRoundStats            `json:"monalityRoundScores,omitempty"`
+	MonalityDeadline          string                          `json:"monalityDeadline,omitempty"`
+	RoundGuessesByPlayer      map[string]int                  `json:"roundGuessesByPlayer,omitempty"`
+	MonalityEndStats          *MonalityEndStats               `json:"monalityEndStats,omitempty"`
 }
 
 // Board is a generated board plus starting team.
@@ -294,21 +340,22 @@ type Board struct {
 type EventType string
 
 const (
-	EventPlayerAdded      EventType = "player_added"
-	EventTeamAssigned     EventType = "team_assigned"
-	EventRoleChanged      EventType = "role_changed"
-	EventSettingsUpdated  EventType = "settings_updated"
-	EventModChanged       EventType = "mod_changed"
-	EventMatchStarted     EventType = "match_started"
-	EventGuessAccepted    EventType = "guess_accepted"
-	EventPassAccepted     EventType = "pass_accepted"
-	EventClueSubmitted    EventType = "clue_submitted"
-	EventClueFinalized    EventType = "clue_finalized"
-	EventTeamsRandomized  EventType = "teams_randomized"
-	EventRolesShuffled    EventType = "roles_shuffled"
-	EventClueReset        EventType = "clue_reset"
-	EventMatchRestarted   EventType = "match_restarted"
-	EventUnitySpySwitched EventType = "unity_spy_switched"
+	EventPlayerAdded         EventType = "player_added"
+	EventTeamAssigned        EventType = "team_assigned"
+	EventRoleChanged         EventType = "role_changed"
+	EventSettingsUpdated     EventType = "settings_updated"
+	EventModChanged          EventType = "mod_changed"
+	EventMatchStarted        EventType = "match_started"
+	EventGuessAccepted       EventType = "guess_accepted"
+	EventPassAccepted        EventType = "pass_accepted"
+	EventClueSubmitted       EventType = "clue_submitted"
+	EventClueFinalized       EventType = "clue_finalized"
+	EventTeamsRandomized     EventType = "teams_randomized"
+	EventRolesShuffled       EventType = "roles_shuffled"
+	EventClueReset           EventType = "clue_reset"
+	EventMatchRestarted      EventType = "match_restarted"
+	EventUnitySpySwitched    EventType = "unity_spy_switched"
+	EventMonalityRoundClosed EventType = "monality_round_closed"
 )
 
 // Event is returned for an accepted command.
@@ -358,6 +405,28 @@ type UnityProgress struct {
 	TemporaryRepresentativeID string
 }
 
+// MonalityAttemptSummary is public attempt progress for one player.
+type MonalityAttemptSummary struct {
+	OwnerID   string  `json:"ownerId"`
+	Score     float64 `json:"score"`
+	Completed bool    `json:"completed"`
+	Abandoned bool    `json:"abandoned,omitempty"`
+	Bombed    bool    `json:"bombed,omitempty"`
+}
+
+// MonalitySnapshot is viewer-safe Monality state.
+type MonalitySnapshot struct {
+	SpymasterID     string                   `json:"spymasterId"`
+	Board           *SnapshotBoard           `json:"board,omitempty"`
+	OwnAttempt      *SnapshotBoard           `json:"ownAttempt,omitempty"`
+	Attempts        []MonalityAttemptSummary `json:"attempts"`
+	Scores          map[string]float64       `json:"scores"`
+	SpymasterCounts map[string]int           `json:"spymasterCounts"`
+	Deadline        string                   `json:"deadline,omitempty"`
+	EndStats        *MonalityEndStats        `json:"endStats,omitempty"`
+	RoundScores     []MonalityRoundStats     `json:"roundScores,omitempty"`
+}
+
 // Snapshot is a viewer-safe game state.
 type Snapshot struct {
 	Phase                Phase
@@ -375,4 +444,5 @@ type Snapshot struct {
 	UnityProgress        UnityProgress
 	UnityTransitionUntil string
 	UnityEndStats        *UnityEndStats
+	Monality             *MonalitySnapshot
 }

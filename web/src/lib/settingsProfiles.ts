@@ -38,6 +38,8 @@ const settingKeys = new Set<keyof Settings>([
   'unityTurnLimit',
   'unityUnlimitedTurns',
   'unityStrictPerBoardTurns',
+  'monalitySpymasterRounds',
+  'monalityRoundSeconds',
   'observerChatEnabled',
   'mixedImageOrderFirst',
   'memoryRoastsDisabled',
