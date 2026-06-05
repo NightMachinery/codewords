@@ -1,3 +1,5 @@
+import { gameTerms, lowerGameTerm } from './constants';
+
 export type Team = '' | 'blue' | 'red' | 'unity' | 'monality' | 'observers';
 
 export interface LobbyPlayer {
@@ -115,17 +117,17 @@ export function startReadiness(players: LobbyPlayer[]): { ready: boolean; reason
     return { ready: false, reason: 'Invite at least one player first.' };
   }
   if (players.some((player) => player.team === '')) {
-    return { ready: false, reason: 'Assign every player to a team or observer mode first.' };
+    return { ready: false, reason: `Assign every player to a team or ${lowerGameTerm(gameTerms.role.observer.one)} mode first.` };
   }
   const blueSpy = players.some((player) => player.team === 'blue' && player.spymaster);
   const redSpy = players.some((player) => player.team === 'red' && player.spymaster);
   if (!blueSpy || !redSpy) {
-    return { ready: false, reason: 'Each team needs a spymaster.' };
+    return { ready: false, reason: `Each team needs a ${lowerGameTerm(gameTerms.role.spymaster.one)}.` };
   }
   const blueGuesser = players.some((player) => player.team === 'blue' && !player.spymaster);
   const redGuesser = players.some((player) => player.team === 'red' && !player.spymaster);
   if (!blueGuesser || !redGuesser) {
-    return { ready: false, reason: 'Each team needs a non-spymaster guesser.' };
+    return { ready: false, reason: `Each team needs a non-${lowerGameTerm(gameTerms.role.spymaster.one)} ${lowerGameTerm(gameTerms.role.guesser.one)}.` };
   }
   return { ready: true, reason: '' };
 }

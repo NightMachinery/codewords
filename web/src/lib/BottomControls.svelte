@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { Settings } from './api';
+  import { gameTerms, lowerGameTerm } from './constants';
   import { bottomStripRoleBadgeKinds, filteredBottomShortcutItems, displayTeamName, formatClueNumber, hexWithAlpha, isUnityTemporaryRepresentative, pressableButtonClasses, sortedTurnPlayers, teamColor, type ClueEntry, type GameplayPhase, type PlayerRoleBadgeKind, type UnityBoardView } from './gameplay';
   import ChevronDown from 'lucide-svelte/icons/chevron-down';
   import Grid2X2 from 'lucide-svelte/icons/grid-2x2';
@@ -347,9 +348,9 @@
             <button
               class={pressableButtonClasses(['grid h-8 w-8 place-items-center rounded-xl', boardView === 'active' && spymasterViewActive ? 'bg-teal-300 text-slate-950' : 'text-teal-100 hover:bg-teal-300/10'].join(' '))}
               type="button"
-              aria-label="Current spy view"
+              aria-label={`Current ${lowerGameTerm(gameTerms.role.spy.one)} view`}
               aria-pressed={boardView === 'active' && spymasterViewActive}
-              title="Current spy view"
+              title={`Current ${lowerGameTerm(gameTerms.role.spy.one)} view`}
               onclick={() => { onSetBoardView('active'); onSetSpyView(true); }}
             >
               {@render BoardViewIcon('active-spy')}
@@ -385,8 +386,8 @@
           class={pressableButtonClasses(['grid h-10 w-10 place-items-center rounded-xl border', transitionLocked ? 'border-slate-700 bg-slate-800 text-slate-500' : 'border-teal-300/50 bg-teal-300/10 text-teal-100 hover:bg-teal-300/20'].join(' '))}
           type="button"
           disabled={transitionLocked}
-          aria-label="Switch Unity spy"
-          title={transitionLocked ? `Next board unlocks in ${transitionSecondsRemaining}s` : 'Switch Unity spy'}
+          aria-label={`Switch Unity ${lowerGameTerm(gameTerms.role.spy.one)}`}
+          title={transitionLocked ? `Next board unlocks in ${transitionSecondsRemaining}s` : `Switch Unity ${lowerGameTerm(gameTerms.role.spy.one)}`}
           onclick={onSwitchUnitySpymaster}
         >
           {@render BoardViewIcon('switch-spy')}
@@ -396,9 +397,9 @@
         <button
           class={pressableButtonClasses(['inline-flex h-10 w-10 items-center justify-center gap-1 rounded-xl border', spymasterViewActive ? 'border-emerald-300/60 bg-emerald-300/15 text-emerald-100' : 'border-slate-600 bg-slate-800 text-slate-300 hover:border-emerald-300/50'].join(' '))}
           onclick={onToggleView}
-          aria-label={spymasterViewActive ? 'Turn spy view off' : 'Turn spy view on'}
+          aria-label={spymasterViewActive ? `Turn ${lowerGameTerm(gameTerms.role.spy.one)} view off` : `Turn ${lowerGameTerm(gameTerms.role.spy.one)} view on`}
           aria-pressed={spymasterViewActive}
-          title={spymasterViewActive ? 'Spy view on' : 'Spy view off'}
+          title={spymasterViewActive ? `${gameTerms.role.spy.one} view on` : `${gameTerms.role.spy.one} view off`}
         >
           <SvgMaskIcon src={customSvg.spy} classes="h-4 w-4" />
           {#if spymasterViewActive}<span class="h-2 w-2 shrink-0 rounded-full bg-current"></span>{/if}

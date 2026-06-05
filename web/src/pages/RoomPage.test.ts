@@ -20,4 +20,12 @@ describe('RoomPage confirmation contract', () => {
     expect(source).toContain(":global([data-theme='light']) .restart-match-button");
     expect(source).toContain(":global([data-theme='solarized-light']) .restart-match-button");
   });
+
+  it('uses centralized game terms for visible card labels', () => {
+    expect(source).toContain("import { gameTermCountLabel, gameTerms, lowerGameTerm } from '../lib/constants'");
+    expect(source).toContain('gameTerms.card.assassin.one');
+    expect(source).toContain('gameTerms.card.civilian.one');
+    expect(source).not.toContain('Bomb');
+  });
+
 });

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { gameTerms, lowerGameTerm } from './constants';
+
 import {
   activeMatchLayoutClasses,
   canSubmitClue,
@@ -154,9 +156,9 @@ describe('gameplay permissions', () => {
 
   it('allows only the current team spymaster to submit clues during active play', () => {
     expect(canSubmitClue(players, viewer('blueSpy'), 'blue', 'active').allowed).toBe(true);
-    expect(canSubmitClue(players, viewer('redSpy'), 'blue', 'active', settings).reason).toBe('Only the Libertarians spymaster can clue right now.');
-    expect(canSubmitClue(players, viewer('blueGuess'), 'blue', 'active').reason).toBe('Only spymasters can clue.');
-    expect(canSubmitClue(players, viewer('observer'), 'blue', 'active').reason).toBe('Observers are read-only.');
+    expect(canSubmitClue(players, viewer('redSpy'), 'blue', 'active', settings).reason).toBe(`Only the Libertarians ${lowerGameTerm(gameTerms.role.spymaster.one)} can clue right now.`);
+    expect(canSubmitClue(players, viewer('blueGuess'), 'blue', 'active').reason).toBe(`Only ${lowerGameTerm(gameTerms.role.spymaster.many)} can clue.`);
+    expect(canSubmitClue(players, viewer('observer'), 'blue', 'active').reason).toBe(`${gameTerms.role.observer.many} are read-only.`);
     expect(canSubmitClue(players, viewer('blueSpy'), 'blue', 'game_over').reason).toBe('The match is over.');
   });
 

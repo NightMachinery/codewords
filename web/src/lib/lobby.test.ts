@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { gameTerms, lowerGameTerm } from './constants';
+
 import { canManageLobby, canShowMigrateDeviceButton, canShowModControl, canShowRejoinTeamButton, canShowRoleControls, canShowTeamAssignmentButton, playerBuckets, visiblePlayerBuckets, startReadiness, type LobbyPlayer } from './lobby';
 
 const players: LobbyPlayer[] = [
@@ -68,7 +70,7 @@ describe('lobby helpers', () => {
   });
 
   it('explains what prevents the host from starting', () => {
-    expect(startReadiness(players)).toEqual({ ready: false, reason: 'Assign every player to a team or observer mode first.' });
+    expect(startReadiness(players)).toEqual({ ready: false, reason: `Assign every player to a team or ${lowerGameTerm(gameTerms.role.observer.one)} mode first.` });
     const startable = [players[0], { ...players[0], id: 'blue-guess', spymaster: false }, players[1], { ...players[1], id: 'red-guess', spymaster: false }];
     expect(startReadiness(startable)).toEqual({ ready: true, reason: '' });
     expect(startReadiness(players.slice(0, 2))).toEqual({ ready: false, reason: 'Each team needs a non-spymaster guesser.' });

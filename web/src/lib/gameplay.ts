@@ -1,5 +1,5 @@
 import type { RoomSummary, Settings, Viewer } from './api';
-import { imageCardColorBorderWidthPx } from './constants';
+import { gameTermForCount, gameTerms, imageCardColorBorderWidthPx, lowerGameTerm } from './constants';
 import type { LobbyPlayer, Team } from './lobby';
 
 export type GameplayPhase = 'lobby' | 'active' | 'game_over';
@@ -347,13 +347,13 @@ export function canSubmitClue(
   if (phase === 'game_over') return { allowed: false, reason: 'The match is over.' };
   if (phase !== 'active') return { allowed: false, reason: 'Clues are available after the match starts.' };
   const player = findViewerPlayer(players, viewer);
-  if (!player) return { allowed: false, reason: 'Observers are read-only.' };
+  if (!player) return { allowed: false, reason: `${gameTerms.role.observer.many} are read-only.` };
   if (currentTeam === 'unity' || currentTeam === 'monality') {
-    if (player.id !== activeBoardOwner) return { allowed: false, reason: 'Only the active spymaster can clue right now.' };
+    if (player.id !== activeBoardOwner) return { allowed: false, reason: `Only the active ${lowerGameTerm(gameTerms.role.spymaster.one)} can clue right now.` };
     return { allowed: true, reason: '' };
   }
-  if (!player.spymaster) return { allowed: false, reason: 'Only spymasters can clue.' };
-  if (player.team !== currentTeam) return { allowed: false, reason: `Only the ${displayTeamName(currentTeam, settings)} spymaster can clue right now.` };
+  if (!player.spymaster) return { allowed: false, reason: `Only ${lowerGameTerm(gameTerms.role.spymaster.many)} can clue.` };
+  if (player.team !== currentTeam) return { allowed: false, reason: `Only the ${displayTeamName(currentTeam, settings)} ${lowerGameTerm(gameTerms.role.spymaster.one)} can clue right now.` };
   return { allowed: true, reason: '' };
 }
 
@@ -951,7 +951,7 @@ export type UnityBoardView = 'previous' | 'active' | 'own';
 
 export function monalityStartReadiness(players: LobbyPlayer[]): { ready: boolean; reason: string } {
   if (players.some((player) => player.team === '')) {
-    return { ready: false, reason: 'Assign every player to Monality or observer mode first.' };
+    return { ready: false, reason: `Assign every player to Monality or ${lowerGameTerm(gameTerms.role.observer.one)} mode first.` };
   }
   const active = players.filter((player) => player.team === 'monality');
   if (active.length < 2) {
@@ -970,8 +970,8 @@ export function monalityGuessDisabledReason(input: {
 }): string {
   if (input.phase === 'game_over') return 'The match is over.';
   if (input.phase !== 'active') return 'The match has not started.';
-  if (!input.hasPlayer) return 'Observers are read-only.';
-  if (!input.activeGuesser) return 'Only active Monality guessers can reveal cards.';
+  if (!input.hasPlayer) return `${gameTerms.role.observer.many} are read-only.`;
+  if (!input.activeGuesser) return `Only active Monality ${lowerGameTerm(gameTerms.role.guesser.many)} can reveal cards.`;
   if (input.enforceClueGuessLimit && (!input.currentClue || input.currentClue.number.kind === 'blank')) return 'Wait for a numbered clue first.';
   if (input.cardRevealed) return 'That card is already revealed.';
   return '';
@@ -1031,7 +1031,7 @@ export function monalityRankingRows(players: LobbyPlayer[], stats: MonalityEndSt
 
 export function unityStartReadiness(players: LobbyPlayer[]): { ready: boolean; reason: string } {
   if (players.some((player) => player.team === '')) {
-    return { ready: false, reason: 'Assign every player to Unity or observer mode first.' };
+    return { ready: false, reason: `Assign every player to Unity or ${lowerGameTerm(gameTerms.role.observer.one)} mode first.` };
   }
   const active = players.filter((player) => player.team === 'unity');
   if (active.length < 2) {
@@ -1081,8 +1081,8 @@ export function unityGuessDisabledReason(input: {
 }): string {
   if (input.phase === 'game_over') return 'The match is over.';
   if (input.phase !== 'active') return 'The match has not started.';
-  if (!input.hasPlayer) return 'Observers are read-only.';
-  if (input.waitingForGuessers) return 'Waiting for eligible Unity guessers.';
+  if (!input.hasPlayer) return `${gameTerms.role.observer.many} are read-only.`;
+  if (input.waitingForGuessers) return `Waiting for eligible Unity ${lowerGameTerm(gameTerms.role.guesser.many)}.`;
   if (input.transitionLocked) return 'Waiting for the next Unity board.';
   if (input.activeGuesser && input.boardView === 'own' && input.displayedBoardId && input.displayedBoardId !== input.activeBoardId) {
     return 'Switch to the active board to reveal cards.';
@@ -1090,7 +1090,7 @@ export function unityGuessDisabledReason(input: {
   if (input.activeGuesser && input.boardView === 'previous') return 'Switch to the active board to reveal cards.';
   if (!input.activeGuesser) {
     if (input.playerId === input.activeBoardOwner) return 'You cannot guess on your own board.';
-    return 'Only eligible Unity guessers can reveal cards.';
+    return `Only eligible Unity ${lowerGameTerm(gameTerms.role.guesser.many)} can reveal cards.`;
   }
   if (input.enforceClueGuessLimit && (!input.currentClue || input.currentClue.number.kind === 'blank')) return 'Wait for a numbered clue first.';
   if (input.cardRevealed) return 'That card is already revealed.';
@@ -1101,14 +1101,14 @@ export function unityEndGameSummary(stats: UnityEndStats | null | undefined, pro
   const found = stats?.unityCardsFound ?? progress?.unityCardsFound ?? 0;
   const total = stats?.totalUnityCards ?? progress?.totalUnityCards ?? 0;
   const turns = stats?.totalTurns ?? 0;
-  const assassins = stats?.assassinCount ?? 0;
+  const assassinCount = stats?.assassinCount ?? 0;
   const score = stats?.score ?? (turns > 0 ? found / turns : 0);
   const solved = total > 0 && found >= total;
   const mode = progress?.unlimitedTurns ? 'infinite' : progress?.strictPerBoardTurns ? 'per-board limit' : 'shared pool';
   return {
     headline: solved ? 'Unification successful.' : 'Players were divided.',
     score: `${score.toFixed(2)} Unity cards/turn`,
-    detail: `${found}/${total} found · ${turns} turns · ${assassins} assassins · ${mode}`,
+    detail: `${found}/${total} found · ${turns} turns · ${assassinCount} ${lowerGameTerm(gameTermForCount(gameTerms.card.assassin, assassinCount))} · ${mode}`,
   };
 }
 

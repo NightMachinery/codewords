@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { gameTermForCount, gameTerms, lowerGameTerm } from './constants';
+
 import {
   defaultSettings,
   type Settings,
@@ -58,7 +60,7 @@ describe('unity frontend helpers', () => {
   it('checks unity start readiness from unity players only', () => {
     expect(unityStartReadiness(players).ready).toBe(true);
     expect(unityStartReadiness(players.slice(0, 1)).reason).toBe('Unity needs at least two active players.');
-    expect(unityStartReadiness([{ ...players[0], team: '' }]).reason).toBe('Assign every player to Unity or observer mode first.');
+    expect(unityStartReadiness([{ ...players[0], team: '' }]).reason).toBe(`Assign every player to Unity or ${lowerGameTerm(gameTerms.role.observer.one)} mode first.`);
   });
 
   it('mirrors unity representative guesser rules', () => {
@@ -186,7 +188,7 @@ describe('unity frontend helpers', () => {
     expect(unityEndGameSummary(stats, progress)).toEqual({
       headline: 'Unification successful.',
       score: '2.50 Unity cards/turn',
-      detail: '30/30 found · 12 turns · 12 assassins · shared pool',
+      detail: `30/30 found · 12 turns · 12 ${lowerGameTerm(gameTermForCount(gameTerms.card.assassin, 12))} · shared pool`,
     });
 
     expect(unityEndGameSummary({ ...stats, unityCardsFound: 12, reason: 'assassin' }, progress).headline).toBe('Players were divided.');

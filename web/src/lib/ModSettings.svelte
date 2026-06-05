@@ -5,6 +5,7 @@
   import Save from 'lucide-svelte/icons/save';
   import Upload from 'lucide-svelte/icons/upload';
   import type { SettingsProfile } from './settingsProfiles';
+  import { gameTerms, lowerGameTerm } from './constants';
   import { cardModeFromImageCount, colorPickerCtaLabel, colorSettingsGridClasses, displayTeamName, imageCountForMode, isValidHexColor, modSettingsShellClasses, normalizeLobbySettingsForSave, teamColor, teamColorControlClasses, unityTurnBudgetGridClasses, unityTurnBudgetOptionsClasses } from './gameplay';
 
   interface Props {
@@ -206,7 +207,7 @@
       <div class="space-y-3 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4">
         <span class="text-xs font-black uppercase tracking-widest text-emerald-200">Randomize teams</span>
         <button class="w-full rounded-xl border border-emerald-400/60 bg-emerald-400/10 px-4 py-3 text-sm font-black text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50" disabled={!canRandomizeTeams} onclick={onRandomizeTeams}>Randomize Teams</button>
-        <p class="text-xs leading-5 text-emerald-100/70">Balances non-observer and unassigned players, clears rep roles, and picks one spy for each team.</p>
+        <p class="text-xs leading-5 text-emerald-100/70">Balances non-observer and unassigned players, clears rep roles, and picks one {lowerGameTerm(gameTerms.role.spy.one)} for each team.</p>
       </div>
       {/if}
     {/if}
@@ -249,7 +250,7 @@
         <input class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" type="number" min="9" max="100" bind:value={settings.totalCards} onchange={saveNormalizedSettings} />
       </label>
       <label class="block">
-        <span class="text-sm font-bold text-slate-300">Assassins within neutral cards</span>
+        <span class="text-sm font-bold text-slate-300">{gameTerms.card.assassin.many} within neutral cards</span>
         <input class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" type="number" min="0" max={settings.neutralCards ?? 8} bind:value={settings.blackCards} onchange={saveNormalizedSettings} />
       </label>
     </div>
@@ -278,21 +279,21 @@
       <div class="space-y-3 rounded-2xl border border-purple-300/30 bg-purple-400/10 p-5">
         <span class="text-xs font-black uppercase tracking-widest text-purple-100">Monality scoring</span>
         <label class="block rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3">
-          <span class="text-xs font-bold text-purple-100">Spymaster rounds per player</span>
+          <span class="text-xs font-bold text-purple-100">{gameTerms.role.spymaster.one} rounds per player</span>
           <input class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" type="number" min="1" bind:value={settings.monalitySpymasterRounds} onchange={saveNormalizedSettings} />
         </label>
         <label class="block rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3">
           <span class="text-xs font-bold text-purple-100">Round timer seconds (0 = off)</span>
           <input class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" type="number" min="0" bind:value={settings.monalityRoundSeconds} onchange={saveNormalizedSettings} />
         </label>
-        <p class="text-xs leading-5 text-purple-100/75">Bombs score -1. Spymasters receive the average counted attempt score.</p>
+        <p class="text-xs leading-5 text-purple-100/75">{gameTerms.card.assassin.many} score -1. {gameTerms.role.spymaster.many} receive the average counted attempt score.</p>
       </div>
     {:else}
     <div class="rounded-2xl border border-slate-700 bg-slate-950/50 p-5">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <span class="text-sm font-bold text-slate-300">Hidden color counts</span>
-          <p class="mt-1 text-xs leading-5 text-slate-500">Automatic mode keeps the starting team one card ahead; assassins are counted inside neutral cards.</p>
+          <p class="mt-1 text-xs leading-5 text-slate-500">Automatic mode keeps the starting team one card ahead; {lowerGameTerm(gameTerms.card.assassin.many)} are counted inside neutral cards.</p>
         </div>
         <label class="flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-black uppercase tracking-wider text-slate-300">
           <input type="checkbox" checked={settings.autoColorCounts !== false} onchange={(event) => setAutoColorCounts(event.currentTarget.checked)} />
@@ -307,7 +308,7 @@
         <div class="mt-4 grid gap-3 text-xs font-bold text-slate-400 sm:grid-cols-3">
           <div class="rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-2">Starting team handicap: {settings.startingTeamHandicap ?? 1}</div>
           <div class="rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-2">Neutral: {settings.neutralCards ?? 8}</div>
-          <div class="rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-2">Civilian: {(settings.neutralCards ?? 8) - (settings.blackCards ?? 0)}</div>
+          <div class="rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-2">{gameTerms.card.civilian.one}: {(settings.neutralCards ?? 8) - (settings.blackCards ?? 0)}</div>
         </div>
       {:else}
         <div class="mt-4 grid gap-3 sm:grid-cols-3">
@@ -367,7 +368,7 @@
       </label>
       <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950/40 px-4 py-3 hover:bg-slate-950/60 transition cursor-pointer">
         <input type="checkbox" bind:checked={settings.observerChatEnabled} onchange={onSave} />
-        <span class="text-sm font-medium text-slate-200">Observers can chat</span>
+        <span class="text-sm font-medium text-slate-200">{gameTerms.role.observer.many} can chat</span>
       </label>
       <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950/40 px-4 py-3 hover:bg-slate-950/60 transition cursor-pointer">
         <input type="checkbox" checked={!settings.memoryRoastsDisabled} onchange={(event) => { settings.memoryRoastsDisabled = !event.currentTarget.checked; onSave(); }} />

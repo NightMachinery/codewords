@@ -1,3 +1,5 @@
+import { gameTerms, lowerGameTerm } from './constants';
+
 export type ConfirmationKind = 'reveal' | 'pass' | 'restart' | 'switchUnitySpymaster';
 export type ConfirmationTone = 'reveal' | 'pass' | 'danger';
 
@@ -58,9 +60,9 @@ export function buildRestartConfirmation(): ConfirmationRequest {
 export function buildSwitchUnitySpymasterConfirmation(): ConfirmationRequest {
   return {
     kind: 'switchUnitySpymaster',
-    title: 'Switch Unity spy?',
-    message: 'Move the live Unity board to the next eligible player. If this spy has given a clue or revealed a card, this spends their turn.',
-    confirmLabel: 'Switch Spy',
+    title: `Switch Unity ${lowerGameTerm(gameTerms.role.spy.one)}?`,
+    message: `Move the live Unity board to the next eligible player. If this ${lowerGameTerm(gameTerms.role.spy.one)} has given a clue or revealed a card, this spends their turn.`,
+    confirmLabel: `Switch ${gameTerms.role.spy.one}`,
     cancelLabel: 'Stay Here',
     tone: 'pass',
   };

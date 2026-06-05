@@ -7,6 +7,7 @@
 
   import { api, defaultSettings, type ChatMessage, type PictureAsset, type Settings, type Viewer, type Wordpack } from '../lib/api';
   import { copyText } from '../lib/clipboard';
+  import { gameTermCountLabel, gameTerms, lowerGameTerm } from '../lib/constants';
   import {
     activeMatchLayoutClasses,
     canSubmitClue,
@@ -232,7 +233,7 @@
     if (phase === 'game_over') return 'Game over. Review the board.';
     if (phase !== 'active') return '';
     if (role.activeGuesser) return guessProblem || 'Select a card to guess';
-    if (!role.player) return 'Observers are read-only.';
+    if (!role.player) return `${gameTerms.role.observer.many} are read-only.`;
     if (role.team !== currentTeam) return 'Their turn. Watch the board.';
     if (role.kind === 'spymaster' && !cluePermission.allowed) return 'Your team is guessing. Watch the board.';
     if (!role.activeGuesser && role.kind !== 'spymaster') return activeTeamHasRepresentative ? 'Your representative will play for you.' : 'Your teammate will guess for you.';
@@ -644,10 +645,10 @@
     }
     if (phase === 'game_over') return 'The match is over.';
     if (phase !== 'active') return 'The match has not started.';
-    if (!role.player) return 'Observers are read-only.';
+    if (!role.player) return `${gameTerms.role.observer.many} are read-only.`;
     if (!role.activeGuesser) {
-      if (role.kind === 'spymaster') return 'Spymasters cannot guess while teammates can.';
-      return `Only the ${displayTeamName(currentTeam, settings)} guesser can reveal cards.`;
+      if (role.kind === 'spymaster') return `${gameTerms.role.spymaster.many} cannot guess while teammates can.`;
+      return `Only the ${displayTeamName(currentTeam, settings)} ${lowerGameTerm(gameTerms.role.guesser.one)} can reveal cards.`;
     }
     if (settings.enforceClueGuessLimit && (!currentClue || currentClue.number.kind === 'blank')) return 'Wait for a numbered clue first.';
     if (card?.revealed) return 'That card is already revealed.';
@@ -657,11 +658,11 @@
   function passDisabledReason(): string {
     if (phase === 'game_over') return 'The match is over.';
     if (phase !== 'active') return 'The match has not started.';
-    if (!role.player) return 'Observers are read-only.';
+    if (!role.player) return `${gameTerms.role.observer.many} are read-only.`;
     if (mode === 'unity' && unityTransitionLocked) return 'Waiting for the next Unity board.';
-    if (mode === 'unity' && unityProgress?.waitingForGuessers) return 'Waiting for eligible Unity guessers.';
+    if (mode === 'unity' && unityProgress?.waitingForGuessers) return `Waiting for eligible Unity ${lowerGameTerm(gameTerms.role.guesser.many)}.`;
     if (mode === 'monality' && (monalityOwnAttempt?.completed || monalityOwnAttempt?.abandoned)) return 'Your Monality attempt is complete.';
-    if (!role.activeGuesser) return (mode === 'unity' || mode === 'monality') && role.player?.id === activeBoardOwner ? 'You cannot pass as the spymaster.' : role.kind === 'spymaster' ? 'Spymasters cannot pass while teammates can.' : `Only the ${displayTeamName(currentTeam, settings)} guesser can pass.`;
+    if (!role.activeGuesser) return (mode === 'unity' || mode === 'monality') && role.player?.id === activeBoardOwner ? `You cannot pass as the ${lowerGameTerm(gameTerms.role.spymaster.one)}.` : role.kind === 'spymaster' ? `${gameTerms.role.spymaster.many} cannot pass while teammates can.` : `Only the ${displayTeamName(currentTeam, settings)} ${lowerGameTerm(gameTerms.role.guesser.one)} can pass.`;
     return '';
   }
 
@@ -859,7 +860,7 @@
     const body = chatDraft.trim();
     if (!body) return;
     if (!currentPlayer) {
-      error = 'Observers must join the room before sending messages.';
+      error = `${gameTerms.role.observer.many} must join the room before sending messages.`;
       appendSystemMessage(error, 'sendChat');
       return;
     }
@@ -916,12 +917,12 @@
   async function switchUnitySpymaster() {
     error = '';
     if (!hostControls) {
-      error = 'Only moderators can switch the Unity spy.';
+      error = `Only ${lowerGameTerm(gameTerms.role.moderator.many)} can switch the Unity ${lowerGameTerm(gameTerms.role.spy.one)}.`;
       appendSystemMessage(error, 'switchUnitySpymaster');
       return;
     }
     if (mode !== 'unity' || phase !== 'active') {
-      error = 'Unity spy switching is available during active Unity matches.';
+      error = `Unity ${lowerGameTerm(gameTerms.role.spy.one)} switching is available during active Unity matches.`;
       appendSystemMessage(error, 'switchUnitySpymaster');
       return;
     }
@@ -1137,8 +1138,8 @@
               <div class="mt-5 flex flex-wrap gap-2 text-lg font-bold leading-snug text-slate-300 sm:text-2xl">
                 {#each pendingCaptureModel.winner.players as player (player.name)}
                   <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-950/50 px-3 py-1">
-                    {#if player.spymaster}<SvgMaskIcon src={customSvg.spy} classes="h-4 w-4 sm:h-5 sm:w-5" label="Spymaster" />{/if}
-                    {#if player.representative}<SvgMaskIcon src={customSvg.representative} classes="h-4 w-4 sm:h-5 sm:w-5" label="Representative" />{/if}
+                    {#if player.spymaster}<SvgMaskIcon src={customSvg.spy} classes="h-4 w-4 sm:h-5 sm:w-5" label={gameTerms.role.spymaster.one} />{/if}
+                    {#if player.representative}<SvgMaskIcon src={customSvg.representative} classes="h-4 w-4 sm:h-5 sm:w-5" label={gameTerms.role.representative.one} />{/if}
                     {player.name}
                   </span>
                 {:else}
@@ -1152,8 +1153,8 @@
               <div class="mt-5 flex flex-wrap gap-2 text-lg font-bold leading-snug text-slate-300 sm:text-2xl">
                 {#each pendingCaptureModel.loser.players as player (player.name)}
                   <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-950/50 px-3 py-1">
-                    {#if player.spymaster}<SvgMaskIcon src={customSvg.spy} classes="h-4 w-4 sm:h-5 sm:w-5" label="Spymaster" />{/if}
-                    {#if player.representative}<SvgMaskIcon src={customSvg.representative} classes="h-4 w-4 sm:h-5 sm:w-5" label="Representative" />{/if}
+                    {#if player.spymaster}<SvgMaskIcon src={customSvg.spy} classes="h-4 w-4 sm:h-5 sm:w-5" label={gameTerms.role.spymaster.one} />{/if}
+                    {#if player.representative}<SvgMaskIcon src={customSvg.representative} classes="h-4 w-4 sm:h-5 sm:w-5" label={gameTerms.role.representative.one} />{/if}
                     {player.name}
                   </span>
                 {:else}
@@ -1356,7 +1357,7 @@
             <section bind:this={boardShell} class="rounded-[1.5rem] border border-slate-700/70 bg-slate-900/70 p-2 shadow-2xl shadow-slate-950/35 sm:rounded-[2rem] sm:p-5" style={boardFitStyle}>
               <div class="mb-3 flex flex-wrap items-center justify-between gap-3 sm:mb-5">
                 <div>
-                  <p class="text-xs font-black uppercase tracking-[0.22em] text-slate-400">{mode === 'unity' ? `${unityBoardView === 'previous' ? 'Previous' : displayedUnityBoard?.ownerId === currentPlayer?.id ? 'Your' : 'Unity'} board` : mode === 'monality' ? (role.kind === 'spymaster' ? 'Monality spy board' : 'Your Monality attempt') : 'Board'}</p>
+                  <p class="text-xs font-black uppercase tracking-[0.22em] text-slate-400">{mode === 'unity' ? `${unityBoardView === 'previous' ? 'Previous' : displayedUnityBoard?.ownerId === currentPlayer?.id ? 'Your' : 'Unity'} board` : mode === 'monality' ? (role.kind === 'spymaster' ? `Monality ${lowerGameTerm(gameTerms.role.spy.one)} board` : 'Your Monality attempt') : 'Board'}</p>
                   {#if mode === 'unity' && unityTransitionLocked}
                     <p class="mt-1 text-xs font-bold text-teal-100">Next board unlocks in {unityTransitionSecondsRemaining}s.</p>
                   {/if}
@@ -1364,18 +1365,18 @@
                 <div class="isolate flex min-w-0 max-w-full overflow-hidden rounded-full border border-slate-600/70 bg-slate-950 text-[10px] font-black uppercase tracking-widest shadow-inner shadow-slate-950/60">
                   {#if mode === 'unity'}
 	                  <span class={`${unityCounterSegmentClasses('first')} flex-[1.35_1_0]`} title={`Unity ${displayedUnityBoard?.remainingCounts.unity ?? 0}`} aria-label={`Unity ${displayedUnityBoard?.remainingCounts.unity ?? 0}`} style={teamCounterSegmentStyle({ color: teamColor('unity', settings), alpha: '40', surface: boardSurfaceHex })}><SvgMaskIcon src={customSvg.unityCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Unity</span><span>{displayedUnityBoard?.remainingCounts.unity ?? 0}</span></span>
-	                  <span class={`${unityCounterSegmentClasses('middle')} flex-1 border-l border-slate-600/70 text-amber-100`} title={`Civilian ${displayedUnityBoard?.remainingCounts.civilian ?? 0}`} aria-label={`Civilian ${displayedUnityBoard?.remainingCounts.civilian ?? 0}`} style="background: linear-gradient(90deg, rgba(251,191,36,0.18), transparent)"><SvgMaskIcon src={customSvg.civilianCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Civilian</span><span>{displayedUnityBoard?.remainingCounts.civilian ?? 0}</span></span>
-	                  <span class={`${unityCounterSegmentClasses('middle')} flex-1 border-l border-slate-600/70 text-zinc-100`} title={`Assassin ${displayedUnityBoard?.remainingCounts.black ?? 0}`} aria-label={`Assassin ${displayedUnityBoard?.remainingCounts.black ?? 0}`} style="background: linear-gradient(90deg, rgba(24,24,27,0.85), rgba(0,0,0,0.55))"><SvgMaskIcon src={customSvg.assassinCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Assassin</span><span>{displayedUnityBoard?.remainingCounts.black ?? 0}</span></span>
-	                  <span class={`${unityCounterSegmentClasses('last')} flex-[1.2_1_0] border-l border-slate-600/70`} title={unityTurnsPending ? 'Turns remaining; current spy has not spent this turn yet' : 'Turns remaining'} aria-label={unityTurnsPending ? 'Turns remaining, current spy turn unspent' : 'Turns remaining'} style={unityTurnsSegmentStyle({ pending: unityTurnsPending, color: teamColor('unity', settings) }) + ` color: ${contrastAwareForeground(teamColor('unity', settings), boardSurfaceHex, unityTurnsPending ? 0.95 : 0.35)};`}><SvgMaskIcon src={customSvg.turnBudget} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Turns</span><span class={unityTurnsPending ? 'rounded-full bg-emerald-100 px-1.5 py-0.5 text-slate-950' : ''}>{settings.unityUnlimitedTurns ? '∞' : mode === 'unity' && settings.unityStrictPerBoardTurns ? Math.max(0, (settings.unityTurnLimit ?? 0) - (displayedUnityBoard?.turnsUsed ?? 0)) : unityProgress?.sharedTurnsRemaining ?? 0}</span></span>
+	                  <span class={`${unityCounterSegmentClasses('middle')} flex-1 border-l border-slate-600/70 text-amber-100`} title={gameTermCountLabel(gameTerms.card.civilian, displayedUnityBoard?.remainingCounts.civilian ?? 0)} aria-label={gameTermCountLabel(gameTerms.card.civilian, displayedUnityBoard?.remainingCounts.civilian ?? 0)} style="background: linear-gradient(90deg, rgba(251,191,36,0.18), transparent)"><SvgMaskIcon src={customSvg.civilianCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">{gameTerms.card.civilian.one}</span><span>{displayedUnityBoard?.remainingCounts.civilian ?? 0}</span></span>
+	                  <span class={`${unityCounterSegmentClasses('middle')} flex-1 border-l border-slate-600/70 text-zinc-100`} title={gameTermCountLabel(gameTerms.card.assassin, displayedUnityBoard?.remainingCounts.black ?? 0)} aria-label={gameTermCountLabel(gameTerms.card.assassin, displayedUnityBoard?.remainingCounts.black ?? 0)} style="background: linear-gradient(90deg, rgba(24,24,27,0.85), rgba(0,0,0,0.55))"><SvgMaskIcon src={customSvg.assassinCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">{gameTerms.card.assassin.one}</span><span>{displayedUnityBoard?.remainingCounts.black ?? 0}</span></span>
+	                  <span class={`${unityCounterSegmentClasses('last')} flex-[1.2_1_0] border-l border-slate-600/70`} title={unityTurnsPending ? `Turns remaining; current ${lowerGameTerm(gameTerms.role.spy.one)} has not spent this turn yet` : 'Turns remaining'} aria-label={unityTurnsPending ? `Turns remaining, current ${lowerGameTerm(gameTerms.role.spy.one)} turn unspent` : 'Turns remaining'} style={unityTurnsSegmentStyle({ pending: unityTurnsPending, color: teamColor('unity', settings) }) + ` color: ${contrastAwareForeground(teamColor('unity', settings), boardSurfaceHex, unityTurnsPending ? 0.95 : 0.35)};`}><SvgMaskIcon src={customSvg.turnBudget} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Turns</span><span class={unityTurnsPending ? 'rounded-full bg-emerald-100 px-1.5 py-0.5 text-slate-950' : ''}>{settings.unityUnlimitedTurns ? '∞' : mode === 'unity' && settings.unityStrictPerBoardTurns ? Math.max(0, (settings.unityTurnLimit ?? 0) - (displayedUnityBoard?.turnsUsed ?? 0)) : unityProgress?.sharedTurnsRemaining ?? 0}</span></span>
                   {:else if mode === 'monality'}
-                  <span class={`${unityCounterSegmentClasses('first')} flex-[1.35_1_0]`} title={`Targets ${displayedMonalityBoard?.remainingCounts.unity ?? 0}`} aria-label={`Targets ${displayedMonalityBoard?.remainingCounts.unity ?? 0}`} style={teamCounterSegmentStyle({ color: teamColor('monality', settings), alpha: '40', surface: boardSurfaceHex })}><SvgMaskIcon src={customSvg.unityCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Targets</span><span>{displayedMonalityBoard?.remainingCounts.unity ?? 0}</span></span>
-                  <span class={`${unityCounterSegmentClasses('middle')} flex-1 border-l border-slate-600/70 text-amber-100`} title={`Civilian ${displayedMonalityBoard?.remainingCounts.civilian ?? 0}`} aria-label={`Civilian ${displayedMonalityBoard?.remainingCounts.civilian ?? 0}`} style="background: linear-gradient(90deg, rgba(251,191,36,0.18), transparent)"><SvgMaskIcon src={customSvg.civilianCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Civilian</span><span>{displayedMonalityBoard?.remainingCounts.civilian ?? 0}</span></span>
-                  <span class={`${unityCounterSegmentClasses('last')} flex-1 border-l border-slate-600/70 text-zinc-100`} title={`Bomb ${displayedMonalityBoard?.remainingCounts.black ?? 0}`} aria-label={`Bomb ${displayedMonalityBoard?.remainingCounts.black ?? 0}`} style="background: linear-gradient(90deg, rgba(24,24,27,0.85), rgba(0,0,0,0.55))"><SvgMaskIcon src={customSvg.assassinCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">Bomb</span><span>{displayedMonalityBoard?.remainingCounts.black ?? 0}</span></span>
+                  <span class={`${unityCounterSegmentClasses('first')} flex-[1.35_1_0]`} title={gameTermCountLabel(gameTerms.card.target, displayedMonalityBoard?.remainingCounts.unity ?? 0)} aria-label={gameTermCountLabel(gameTerms.card.target, displayedMonalityBoard?.remainingCounts.unity ?? 0)} style={teamCounterSegmentStyle({ color: teamColor('monality', settings), alpha: '40', surface: boardSurfaceHex })}><SvgMaskIcon src={customSvg.unityCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">{gameTerms.card.target.many}</span><span>{displayedMonalityBoard?.remainingCounts.unity ?? 0}</span></span>
+                  <span class={`${unityCounterSegmentClasses('middle')} flex-1 border-l border-slate-600/70 text-amber-100`} title={gameTermCountLabel(gameTerms.card.civilian, displayedMonalityBoard?.remainingCounts.civilian ?? 0)} aria-label={gameTermCountLabel(gameTerms.card.civilian, displayedMonalityBoard?.remainingCounts.civilian ?? 0)} style="background: linear-gradient(90deg, rgba(251,191,36,0.18), transparent)"><SvgMaskIcon src={customSvg.civilianCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">{gameTerms.card.civilian.one}</span><span>{displayedMonalityBoard?.remainingCounts.civilian ?? 0}</span></span>
+                  <span class={`${unityCounterSegmentClasses('last')} flex-1 border-l border-slate-600/70 text-zinc-100`} title={gameTermCountLabel(gameTerms.card.assassin, displayedMonalityBoard?.remainingCounts.black ?? 0)} aria-label={gameTermCountLabel(gameTerms.card.assassin, displayedMonalityBoard?.remainingCounts.black ?? 0)} style="background: linear-gradient(90deg, rgba(24,24,27,0.85), rgba(0,0,0,0.55))"><SvgMaskIcon src={customSvg.assassinCard} classes="h-3.5 w-3.5" /><span class="hidden min-[520px]:inline">{gameTerms.card.assassin.one}</span><span>{displayedMonalityBoard?.remainingCounts.black ?? 0}</span></span>
                   {:else}
                   <span class="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 px-2 py-1.5 sm:px-3" title={`${displayTeamName('blue', settings)} ${remainingCounts.blue}`} aria-label={`${displayTeamName('blue', settings)} ${remainingCounts.blue}`} style={teamCounterSegmentStyle({ color: teamColor('blue', settings), alpha: currentTeam === 'blue' ? '40' : '24', surface: boardSurfaceHex, active: currentTeam === 'blue' })}><SvgMaskIcon src={customSvg.blueCard} classes="h-3.5 w-3.5" /><span class="hidden min-w-0 truncate sm:inline">{displayTeamName('blue', settings)}</span><span>{remainingCounts.blue}</span></span>
                   <span class="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 border-l border-slate-600/70 px-2 py-1.5 sm:px-3" title={`${displayTeamName('red', settings)} ${remainingCounts.red}`} aria-label={`${displayTeamName('red', settings)} ${remainingCounts.red}`} style={teamCounterSegmentStyle({ color: teamColor('red', settings), alpha: currentTeam === 'red' ? '40' : '24', surface: boardSurfaceHex, active: currentTeam === 'red' })}><SvgMaskIcon src={customSvg.redCard} classes="h-3.5 w-3.5" /><span class="hidden min-w-0 truncate sm:inline">{displayTeamName('red', settings)}</span><span>{remainingCounts.red}</span></span>
-                  <span class="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 border-l border-slate-600/70 px-2 py-1.5 text-amber-100 sm:px-3" title={`Civilian ${remainingCounts.civilian}`} aria-label={`Civilian ${remainingCounts.civilian}`} style="background: linear-gradient(90deg, rgba(251,191,36,0.18), transparent)"><SvgMaskIcon src={customSvg.civilianCard} classes="h-3.5 w-3.5" /><span class="hidden min-w-0 truncate sm:inline">Civilian</span><span>{remainingCounts.civilian}</span></span>
-                  <span class="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 border-l border-slate-600/70 px-2 py-1.5 text-zinc-100 sm:px-3" title={`Assassin ${remainingCounts.black}`} aria-label={`Assassin ${remainingCounts.black}`} style="background: linear-gradient(90deg, rgba(24,24,27,0.85), rgba(0,0,0,0.55))"><SvgMaskIcon src={customSvg.assassinCard} classes="h-3.5 w-3.5" /><span class="hidden min-w-0 truncate sm:inline">Assassin</span><span>{remainingCounts.black}</span></span>
+                  <span class="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 border-l border-slate-600/70 px-2 py-1.5 text-amber-100 sm:px-3" title={gameTermCountLabel(gameTerms.card.civilian, remainingCounts.civilian)} aria-label={gameTermCountLabel(gameTerms.card.civilian, remainingCounts.civilian)} style="background: linear-gradient(90deg, rgba(251,191,36,0.18), transparent)"><SvgMaskIcon src={customSvg.civilianCard} classes="h-3.5 w-3.5" /><span class="hidden min-w-0 truncate sm:inline">{gameTerms.card.civilian.one}</span><span>{remainingCounts.civilian}</span></span>
+                  <span class="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 border-l border-slate-600/70 px-2 py-1.5 text-zinc-100 sm:px-3" title={gameTermCountLabel(gameTerms.card.assassin, remainingCounts.black)} aria-label={gameTermCountLabel(gameTerms.card.assassin, remainingCounts.black)} style="background: linear-gradient(90deg, rgba(24,24,27,0.85), rgba(0,0,0,0.55))"><SvgMaskIcon src={customSvg.assassinCard} classes="h-3.5 w-3.5" /><span class="hidden min-w-0 truncate sm:inline">{gameTerms.card.assassin.one}</span><span>{remainingCounts.black}</span></span>
                   {/if}
                 </div>
               </div>
@@ -1401,12 +1402,12 @@
                 class={pressableButtonClasses(['flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-black uppercase tracking-[0.16em]', unityTransitionLocked ? 'border-slate-700 bg-slate-800 text-slate-500' : 'border-teal-300/50 bg-teal-300/10 text-teal-100 hover:bg-teal-300/20'].join(' '))}
                 type="button"
                 disabled={unityTransitionLocked}
-                aria-label="Switch Unity spy"
-                title={unityTransitionLocked ? `Next board unlocks in ${unityTransitionSecondsRemaining}s` : 'Switch Unity spy'}
+                aria-label={`Switch Unity ${lowerGameTerm(gameTerms.role.spy.one)}`}
+                title={unityTransitionLocked ? `Next board unlocks in ${unityTransitionSecondsRemaining}s` : `Switch Unity ${lowerGameTerm(gameTerms.role.spy.one)}`}
                 onclick={switchUnitySpymaster}
               >
                 <RefreshCw class="h-4 w-4" />
-                <span>{unityTransitionLocked ? `Next board in ${unityTransitionSecondsRemaining}s` : 'Switch Unity spy'}</span>
+                <span>{unityTransitionLocked ? `Next board in ${unityTransitionSecondsRemaining}s` : `Switch Unity ${lowerGameTerm(gameTerms.role.spy.one)}`}</span>
               </button>
             {/if}
           </div>
@@ -1610,7 +1611,7 @@
                   {/if}
                 </div>
                 <label class="mt-3 block rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
-                  <span class="text-sm text-slate-200 font-bold">Spymaster view style</span>
+                  <span class="text-sm text-slate-200 font-bold">{gameTerms.role.spymaster.one} view style</span>
                   <select class="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" bind:value={preferences.spymasterRevealedStyle} onchange={(event) => updatePreferences({ spymasterRevealedStyle: event.currentTarget.value as any })}>
                     <option value="greyed">Greyed</option>
                     <option value="invisible">Invisible</option>
