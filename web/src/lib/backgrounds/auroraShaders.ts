@@ -619,10 +619,20 @@ ${commonFragmentPrelude}
 export const christmasSnowBoardFragmentShader = /* glsl */ `
 ${commonFragmentPrelude}
 
-  float iceVeil(vec2 uv, float time) {
-    float flow = fbm(vec2(uv.x * 3.8 + time * 0.04, uv.y * 5.2 - time * 0.06));
-    float roll = 1.0 - smoothstep(0.0, 0.34, abs(uv.y - (0.5 + sin(time * 0.12 + uv.x * 2.0) * 0.1)));
-    return roll * smoothstep(0.34, 0.92, flow);
+  float softDrift(vec2 uv, float time) {
+    float flow = fbm(vec2(uv.x * 1.45 + time * 0.018, uv.y * 1.9 - time * 0.025));
+    float band = 1.0 - smoothstep(0.0, 0.42, abs(uv.y - (0.58 + flow * 0.18)));
+    return band * smoothstep(-0.08, 0.34, uv.y) * smoothstep(1.08, 0.42, uv.y);
+  }
+
+  float sparseCrystal(vec2 uv, float time) {
+    vec2 grid = vec2(uv.x * 9.0, uv.y * 6.0);
+    vec2 cell = floor(grid);
+    vec2 local = fract(grid) - 0.5;
+    float seed = hash(cell);
+    float twinkle = 0.58 + 0.42 * sin(time * 0.55 + seed * 6.2831);
+    float crystal = 1.0 - smoothstep(0.0, 0.07, length(local));
+    return crystal * step(0.93, seed) * twinkle;
   }
 
   void main() {
@@ -630,14 +640,15 @@ ${commonFragmentPrelude}
     vec2 pixel = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
     float time = uTime * uSpeed;
     float vignette = vignetteFor(pixel);
-    float veil = iceVeil(uv, time);
-    float fine = fbm(vec2(uv.x * 18.0 + time * 0.05, uv.y * 10.0 - time * 0.07));
+    float drift = softDrift(uv, time);
+    float crystal = sparseCrystal(uv, time);
+    float shade = fbm(vec2(uv.x * 2.4 - time * 0.01, uv.y * 2.1 + time * 0.012));
 
-    vec3 color = mix(uSkyLow * 0.92, uSkyMid * 0.98, smoothstep(0.0, 1.0, uv.y));
-    color += uRibbonC * veil * 0.12 * uIntensity;
-    color += uRibbonA * pow(smoothstep(0.76, 1.0, fine), 3.0) * 0.05 * uIntensity;
-    color += uRibbonB * pow(smoothstep(0.84, 1.0, fine), 4.0) * 0.035 * uIntensity;
-    color *= 0.94 + vignette * 0.08;
+    vec3 color = mix(vec3(0.93, 0.965, 1.0), vec3(0.80, 0.88, 0.96), smoothstep(0.0, 1.0, uv.y));
+    color = mix(color, uRibbonC, drift * 0.075 * uIntensity);
+    color = mix(color, uRibbonA, pow(smoothstep(0.72, 1.0, shade), 3.0) * 0.028 * uIntensity);
+    color += vec3(1.0) * crystal * 0.04;
+    color *= 0.97 + vignette * 0.035;
 
     gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
   }
@@ -646,11 +657,11 @@ ${commonFragmentPrelude}
 export const christmasSnowCardFragmentShader = /* glsl */ `
 ${commonFragmentPrelude}
 
-  float frostSheen(vec2 uv, float time) {
-    float stripe = uv.x * 0.9 + uv.y * 1.15 + sin(uv.x * 6.0 + time * 0.28) * 0.035;
-    float sweep = 1.0 - smoothstep(0.0, 0.12, abs(fract(stripe - time * 0.05) - 0.5));
-    float crystal = pow(smoothstep(0.72, 1.0, fbm(vec2(uv.x * 16.0, uv.y * 16.0 - time * 0.08))), 3.0);
-    return sweep * 0.45 + crystal * 0.18;
+  float settledFrost(vec2 uv, float time) {
+    float diagonal = uv.x * 0.72 + uv.y * 0.92 + sin(uv.x * 3.0 + time * 0.12) * 0.018;
+    float sweep = 1.0 - smoothstep(0.0, 0.16, abs(fract(diagonal - time * 0.018) - 0.5));
+    float crystal = pow(smoothstep(0.78, 1.0, fbm(vec2(uv.x * 5.0, uv.y * 5.0 - time * 0.025))), 3.0);
+    return sweep * 0.16 + crystal * 0.08;
   }
 
   void main() {
@@ -658,14 +669,14 @@ ${commonFragmentPrelude}
     vec2 pixel = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
     float time = uTime * uSpeed;
     float vignette = vignetteFor(pixel);
-    float sheen = frostSheen(uv, time);
-    float edge = 1.0 - smoothstep(0.2, 0.88, length(pixel * vec2(0.82, 1.08)));
+    float frost = settledFrost(uv, time);
+    float edge = 1.0 - smoothstep(0.25, 0.92, length(pixel * vec2(0.82, 1.08)));
 
     vec3 color = vec3(0.0);
-    color += uRibbonC * sheen * 0.22 * uIntensity;
-    color += uRibbonA * edge * 0.06;
-    color += vec3(1.0) * sheen * 0.05;
-    color *= 0.86 + vignette * 0.18;
+    color += uRibbonC * frost * 0.08 * uIntensity;
+    color += vec3(0.62, 0.74, 0.88) * edge * 0.025;
+    color += vec3(1.0) * frost * 0.025;
+    color *= 0.9 + vignette * 0.12;
 
     gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
   }

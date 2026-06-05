@@ -164,6 +164,13 @@ describe('aurora shader variants', () => {
     }
   });
 
+  it('keeps Christmas Snow board/card shaders intentionally calm', async () => {
+    const { auroraFragmentShaders } = await import('./backgrounds/auroraShaders');
+    expect(auroraFragmentShaders['christmas-snow-board']).toContain('sparseCrystal');
+    expect(auroraFragmentShaders['christmas-snow-board']).not.toContain('uv.x * 18.0');
+    expect(auroraFragmentShaders['christmas-snow-card']).toContain('settledFrost');
+  });
+
   it('uses campfire for Light, clean fire for Solarized Light, and aurora for base dark themes', () => {
     expect(auroraPalettes.light.shader).toBe('campfire');
     expect(auroraPalettes['solarized-light'].shader).toBe('clean-fire');

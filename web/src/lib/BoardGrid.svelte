@@ -8,6 +8,7 @@
     cardChromeClasses,
     cardChromePaddingStyle,
     cardChromeStyle,
+    boardSurfaceHexForTheme,
     cardContentLabel,
     cardDisabledStateClasses,
     cardImageUrl,
@@ -92,7 +93,7 @@
       {@const disabledReason = guessDisabledReason(card)}
       <button
         class={pressableButtonClasses(['group relative', boardCardSpanClasses(captureMode), 'rounded-xl border text-left duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0', surfaceShadersActive ? 'surface-shader-board-card' : '', cardAspectRatioClasses(card, preferences.strictCardAspectRatios), cardChromeClasses(card, view.isLastSelected), view.classes, cardDisabledStateClasses({ disabled: !role.activeGuesser || card.revealed || phase !== 'active', revealed: card.revealed, revealedStyle })].join(' '))}
-        style={`${imageCardGridStyle(card, activeColumns, preferences.imageCardScale, mobileColumns)} ${cardChromePaddingStyle(card)} ${cardChromeStyle(card, view.visibleColor, customColor, view.isLastSelected)}`}
+        style={`${imageCardGridStyle(card, activeColumns, preferences.imageCardScale, mobileColumns)} ${cardChromePaddingStyle(card)} ${cardChromeStyle(card, view.visibleColor, customColor, view.isLastSelected, boardSurfaceHexForTheme(theme))}`}
         disabled={Boolean(disabledReason)}
         title={disabledReason || `Reveal ${cardContentLabel(card)}`}
         onclick={() => onGuess?.(card.originalIndex, card)}
@@ -208,19 +209,43 @@
       0 14px 28px oklch(5% 0.025 154 / 0.34);
   }
 
-  :global([data-theme='christmas-snow']) .surface-board-shader,
+  :global([data-theme='christmas-snow']) .surface-board-shader {
+    opacity: 0.42;
+    filter: saturate(0.86) contrast(0.94);
+  }
+
+  :global([data-theme='christmas-snow']) .surface-card-shader {
+    opacity: 0.06;
+    mix-blend-mode: multiply;
+  }
+
+  :global([data-theme='christmas-snow']) .surface-shader-board-card {
+    background-color: oklch(96.5% 0.018 230 / 0.9);
+    border-color: oklch(42% 0.052 238 / 0.26);
+    box-shadow:
+      inset 0 0 0 1px oklch(100% 0 0 / 0.82),
+      inset 0 -18px 42px oklch(78% 0.065 230 / 0.1),
+      0 12px 22px oklch(30% 0.045 236 / 0.12);
+  }
+
+  :global([data-theme='christmas-snow']) .surface-shader-board-card:hover:not(:disabled) {
+    border-color: oklch(38% 0.06 238 / 0.34);
+    box-shadow:
+      inset 0 0 0 1px oklch(100% 0 0 / 0.9),
+      inset 0 -18px 42px oklch(78% 0.065 230 / 0.14),
+      0 14px 26px oklch(30% 0.045 236 / 0.16);
+  }
+
   :global([data-theme='christmas-candy']) .surface-board-shader {
     opacity: 0.58;
     filter: saturate(1.02);
   }
 
-  :global([data-theme='christmas-snow']) .surface-card-shader,
   :global([data-theme='christmas-candy']) .surface-card-shader {
     opacity: 0.18;
     mix-blend-mode: multiply;
   }
 
-  :global([data-theme='christmas-snow']) .surface-shader-board-card,
   :global([data-theme='christmas-candy']) .surface-shader-board-card {
     background-color: oklch(98% 0.01 230 / 0.72);
     border-color: oklch(44% 0.05 236 / 0.16);

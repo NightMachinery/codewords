@@ -35,12 +35,7 @@ just a matter of overriding those variables — no component edits are required.
 - **Christmas Candy** — peppermint cream and mint surfaces with candy-cane red controls and green
   secondary accents; `color-scheme: light`.
 
-Team colors (`blue` = Libertarians, `red` = Monarchists) and warning `amber` are intentionally left
-at their Tailwind defaults so they stay recognizable in every theme. The exception: card/accent
-**text** must not be a fixed near-white, because labels sit on low-alpha team tints over the themed
-surface. Such labels use the theme-aware `text-slate-50` token (light on dark themes, dark on light),
-and the light themes darken the low `amber` text shades so warm labels stay readable; image cards
-keep white since their fill is mostly opaque.
+Team colors (`blue` = Libertarians, `red` = Monarchists, plus Unity/Monality custom accents) and warning `amber` are intentionally left semantically stable so players can recognize card allegiance in every theme. Card, counter, and clue-badge foregrounds are contrast-aware rather than fixed near-white: helpers in `gameplay.ts` blend the team tint over the active board surface and choose a dark or light OKLCH foreground. This keeps low-alpha purple Monality surfaces readable on light themes while preserving light text on dark saturated cards. The light themes still darken the low `amber` text shades so warm labels stay readable.
 
 The active theme is selected by setting `data-theme` on `<html>` via `applyTheme()` in
 `web/src/lib/theme.ts`. It is applied in `web/src/main.ts` before the app mounts so the correct
@@ -91,6 +86,7 @@ bindable `effectiveThemeId` / `sessionOverride` / `themePreferences` props.
   `glitch-home`, `glitch-board`, and `glitch-card` for CRT scanlines, RGB tearing, broken slices,
   and intermittent block noise. The Christmas themes each use their own `home`, `board`, and `card`
   shader variants for cozy string lights and snow, snowy frost veils, or peppermint stripe motion.
+  Christmas Snow intentionally keeps its board/card shader calmer than the hero shader: sparse crystals, slow frost drift, and reduced card overlay opacity protect word/card readability on the pale board.
   The shader's sky/ribbon colors and variant are fed from a
   per-theme `AuroraPalette` in `theme.ts` (`AuroraBackground` takes `theme` and `surface` props,
   updates uniforms reactively, and swaps complete fragment shader sources when the selected
@@ -100,8 +96,7 @@ bindable `effectiveThemeId` / `sessionOverride` / `themePreferences` props.
   `surfaceShaders.card` render one shared board shader behind the grid and one distinct card-sheen
   shader overlay above the grid, both decorative and pointer-events-free. Dracula, Glitch, and the
   Christmas themes use this path. Dracula gives revealed civilian cards a stronger amber surface
-  after its generic card backing so they remain distinct from unrevealed cards. Capture mode omits
-  live shader layers so memory exports stay stable.
+  after its generic card backing so they remain distinct from unrevealed cards. Christmas Snow uses a lower-opacity board shader, nearly transparent card sheen, and stronger frosted card backings so pale surfaces do not wash out text. Capture mode omits live shader layers so memory exports stay stable.
 
 ## Moderator push (session only)
 

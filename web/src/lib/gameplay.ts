@@ -541,6 +541,84 @@ export function lobbyStartPanelClasses(): string {
   return 'fixed bottom-0 left-0 right-0 z-30 border-t border-slate-700/60 bg-slate-900/92 p-3 shadow-[0_-10px_30px_rgba(0,0,0,0.45)] backdrop-blur-md';
 }
 
+
+export const contrastLightForeground = 'oklch(98% 0.014 105)';
+export const contrastDarkForeground = 'oklch(14% 0.04 244)';
+
+interface RgbColor { r: number; g: number; b: number }
+
+export function parseHexColor(hex: string | undefined): RgbColor | null {
+  const value = (hex ?? '').trim();
+  const match = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(value);
+  if (!match) return null;
+  const raw = match[1];
+  const full = raw.length === 3 ? raw.split('').map((char) => char + char).join('') : raw;
+  return {
+    r: Number.parseInt(full.slice(0, 2), 16),
+    g: Number.parseInt(full.slice(2, 4), 16),
+    b: Number.parseInt(full.slice(4, 6), 16),
+  };
+}
+
+function channelToLinear(channel: number): number {
+  const value = channel / 255;
+  return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+}
+
+function relativeLuminance(color: RgbColor): number {
+  return 0.2126 * channelToLinear(color.r) + 0.7152 * channelToLinear(color.g) + 0.0722 * channelToLinear(color.b);
+}
+
+function contrastRatio(left: RgbColor, right: RgbColor): number {
+  const a = relativeLuminance(left);
+  const b = relativeLuminance(right);
+  const lighter = Math.max(a, b);
+  const darker = Math.min(a, b);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function blendRgb(foreground: RgbColor, background: RgbColor, alpha: number): RgbColor {
+  const safeAlpha = Math.min(1, Math.max(0, alpha));
+  return {
+    r: Math.round(foreground.r * safeAlpha + background.r * (1 - safeAlpha)),
+    g: Math.round(foreground.g * safeAlpha + background.g * (1 - safeAlpha)),
+    b: Math.round(foreground.b * safeAlpha + background.b * (1 - safeAlpha)),
+  };
+}
+
+export function alphaHexToNumber(alphaHex: string): number {
+  const parsed = Number.parseInt(alphaHex, 16);
+  return Number.isFinite(parsed) ? Math.min(255, Math.max(0, parsed)) / 255 : 1;
+}
+
+export function contrastAwareForeground(background: string | undefined, surface = '#0f172a', alpha = 1): string {
+  const bg = parseHexColor(background) ?? parseHexColor('#0f172a')!;
+  const base = parseHexColor(surface) ?? parseHexColor('#0f172a')!;
+  const effective = alpha < 1 ? blendRgb(bg, base, alpha) : bg;
+  const light = parseHexColor('#f8fafc')!;
+  const dark = parseHexColor('#152034')!;
+  return contrastRatio(effective, dark) >= contrastRatio(effective, light) ? contrastDarkForeground : contrastLightForeground;
+}
+
+export function boardSurfaceHexForTheme(theme?: string): string {
+  switch (theme) {
+    case 'light':
+    case 'solarized-light':
+    case 'christmas-snow':
+    case 'christmas-candy':
+      return '#f8fbff';
+    default:
+      return '#0f172a';
+  }
+}
+
+export function teamCounterSegmentStyle(input: { color: string; alpha?: string; surface?: string; active?: boolean }): string {
+  const alpha = input.alpha ?? (input.active ? '55' : '40');
+  const foreground = contrastAwareForeground(input.color, input.surface, alphaHexToNumber(alpha));
+  const ring = input.active ? ` box-shadow: inset 0 0 0 1px ${hexWithAlpha(input.color, '88')};` : '';
+  return `color: ${foreground}; background: linear-gradient(90deg, ${hexWithAlpha(input.color, alpha)}, transparent);${ring}`;
+}
+
 export function pressableButtonClasses(classes = ''): string {
   return [
     classes,
@@ -612,14 +690,13 @@ export function cardChromePaddingStyle(card: Pick<DisplayCard, 'contentType'>): 
   return `padding: ${imageCardColorBorderWidthPx}px;`;
 }
 
-export function cardChromeStyle(card: Pick<DisplayCard, 'contentType'>, visibleColor: VisibleCardColor, customColor: string, isLastSelected: boolean): string {
+export function cardChromeStyle(card: Pick<DisplayCard, 'contentType'>, visibleColor: VisibleCardColor, customColor: string, isLastSelected: boolean, surface = '#0f172a'): string {
   if (visibleColor === 'hidden' || !customColor) return '';
-  // Image cards are a mostly-opaque team color, so white stays legible. Word cards
-  // are a low-alpha tint over the themed surface, so their label follows the theme
-  // (var(--color-slate-50) is light on dark themes, dark on light themes).
-  if (card.contentType === 'image') return `background-color: ${hexWithAlpha(customColor, 'B3')}; color: white`;
+  const fillAlpha = card.contentType === 'image' ? 'B3' : '40';
+  const foreground = contrastAwareForeground(customColor, surface, alphaHexToNumber(fillAlpha));
+  if (card.contentType === 'image') return `background-color: ${hexWithAlpha(customColor, fillAlpha)}; color: ${foreground}`;
   const borderColor = isLastSelected ? 'transparent' : hexWithAlpha(customColor, 'B3');
-  return `border-color: ${borderColor}; background-color: ${hexWithAlpha(customColor, '40')}; color: var(--color-slate-50)`;
+  return `border-color: ${borderColor}; background-color: ${hexWithAlpha(customColor, fillAlpha)}; color: ${foreground}`;
 }
 
 export function cardDisabledStateClasses(input: { disabled: boolean; revealed?: boolean; revealedStyle: 'normal' | 'greyed' | 'invisible' | 'omitted' }): string {

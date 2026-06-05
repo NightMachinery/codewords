@@ -30,6 +30,8 @@ import {
   cardChromeClasses,
   cardChromePaddingStyle,
   cardChromeStyle,
+  contrastAwareForeground,
+  teamCounterSegmentStyle,
   cardDisabledStateClasses,
   chatScrollIsNearBottom,
   chatScrollShouldAutoScroll,
@@ -574,6 +576,14 @@ describe('active-room boot behavior', () => {
 
 
 describe('regression helpers', () => {
+  it('chooses readable foreground colors for dynamic team backgrounds', () => {
+    expect(contrastAwareForeground('#a855f7', '#f8fbff')).toBe('oklch(14% 0.04 244)');
+    expect(contrastAwareForeground('#1f1140', '#0f172a')).toBe('oklch(98% 0.014 105)');
+    expect(cardChromeStyle({ contentType: 'word' }, 'unity', '#a855f7', false, '#f8fbff')).toContain('color: oklch(14% 0.04 244)');
+    expect(cardChromeStyle({ contentType: 'image' }, 'unity', '#f4d8ff', false, '#f8fbff')).toContain('color: oklch(14% 0.04 244)');
+    expect(teamCounterSegmentStyle({ color: '#a855f7', alpha: '40', surface: '#f8fbff' })).toContain('color: oklch(14% 0.04 244)');
+  });
+
   it('formats configurable team names and validates custom colors', () => {
     expect(defaultTeamNames).toEqual({ blue: 'Libertarians', red: 'Monarchists', unity: 'Unity', monality: 'Monality' });
     expect(displayTeamName('blue', { ...settings, teamNameBlue: 'River Guild' })).toBe('River Guild');
