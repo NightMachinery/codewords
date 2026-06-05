@@ -86,7 +86,7 @@ bindable `effectiveThemeId` / `sessionOverride` / `themePreferences` props.
   `glitch-home`, `glitch-board`, and `glitch-card` for CRT scanlines, RGB tearing, broken slices,
   and intermittent block noise. The Christmas themes each use their own `home`, `board`, and `card`
   shader variants for cozy string lights and snow, snowy frost veils, or peppermint stripe motion.
-  Christmas Snow intentionally keeps its board/card shader calmer than the hero shader: sparse crystals, slow frost drift, and reduced card overlay opacity protect word/card readability on the pale board.
+  Christmas Snow keeps its board/card shader readable but visibly festive: icy-blue drift bands, sparse moving flakes/crystals, and light holly accents avoid the old gray wash. Christmas Candy uses stronger peppermint bands and mint/pink sugar highlights, with light-theme blend modes chosen to keep those colors bright instead of multiplying into gray.
   The shader's sky/ribbon colors and variant are fed from a
   per-theme `AuroraPalette` in `theme.ts` (`AuroraBackground` takes `theme` and `surface` props,
   updates uniforms reactively, and swaps complete fragment shader sources when the selected

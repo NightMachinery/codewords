@@ -210,17 +210,17 @@
   }
 
   :global([data-theme='christmas-snow']) .surface-board-shader {
-    opacity: 0.42;
-    filter: saturate(0.86) contrast(0.94);
+    opacity: 0.7;
+    filter: saturate(1.2) contrast(1.03);
   }
 
   :global([data-theme='christmas-snow']) .surface-card-shader {
-    opacity: 0.06;
-    mix-blend-mode: multiply;
+    opacity: 0.14;
+    mix-blend-mode: screen;
   }
 
   :global([data-theme='christmas-snow']) .surface-shader-board-card {
-    background-color: oklch(96.5% 0.018 230 / 0.9);
+    background-color: oklch(96.5% 0.018 230 / 0.78);
     border-color: oklch(42% 0.052 238 / 0.26);
     box-shadow:
       inset 0 0 0 1px oklch(100% 0 0 / 0.82),
@@ -237,17 +237,17 @@
   }
 
   :global([data-theme='christmas-candy']) .surface-board-shader {
-    opacity: 0.58;
-    filter: saturate(1.02);
+    opacity: 0.84;
+    filter: saturate(1.32) contrast(1.04);
   }
 
   :global([data-theme='christmas-candy']) .surface-card-shader {
-    opacity: 0.18;
-    mix-blend-mode: multiply;
+    opacity: 0.28;
+    mix-blend-mode: screen;
   }
 
   :global([data-theme='christmas-candy']) .surface-shader-board-card {
-    background-color: oklch(98% 0.01 230 / 0.72);
+    background-color: oklch(98% 0.012 150 / 0.62);
     border-color: oklch(44% 0.05 236 / 0.16);
     box-shadow:
       inset 0 0 0 1px oklch(100% 0 0 / 0.7),

@@ -366,9 +366,11 @@
 
   :global([data-theme='christmas-snow']) .aurora-background[data-surface='board'] .aurora-fallback {
     background:
-      radial-gradient(ellipse at 24% 42%, oklch(76% 0.11 225 / 0.2), transparent 44%),
-      radial-gradient(ellipse at 72% 58%, oklch(54% 0.15 150 / 0.08), transparent 44%),
-      linear-gradient(180deg, oklch(97% 0.012 230), oklch(91% 0.032 226));
+      radial-gradient(ellipse at 24% 42%, oklch(72% 0.14 225 / 0.34), transparent 44%),
+      radial-gradient(ellipse at 72% 58%, oklch(54% 0.16 150 / 0.16), transparent 44%),
+      radial-gradient(ellipse at 82% 22%, oklch(58% 0.2 28 / 0.1), transparent 34%),
+      repeating-linear-gradient(164deg, oklch(100% 0 0 / 0.24) 0 2px, transparent 2px 42px),
+      linear-gradient(180deg, oklch(98% 0.012 230), oklch(89% 0.04 226));
   }
 
   :global([data-theme='christmas-snow']) .aurora-background[data-surface='card'] .aurora-fallback {
@@ -399,9 +401,11 @@
 
   :global([data-theme='christmas-candy']) .aurora-background[data-surface='board'] .aurora-fallback {
     background:
-      repeating-linear-gradient(128deg, oklch(60% 0.22 24 / 0.08) 0 14px, transparent 14px 48px),
-      radial-gradient(ellipse at 72% 58%, oklch(56% 0.16 150 / 0.12), transparent 44%),
-      linear-gradient(180deg, oklch(98% 0.01 130), oklch(93% 0.026 154));
+      repeating-linear-gradient(128deg, oklch(60% 0.22 24 / 0.2) 0 16px, transparent 16px 48px),
+      repeating-linear-gradient(128deg, transparent 0 30px, oklch(56% 0.16 150 / 0.16) 30px 38px, transparent 38px 58px),
+      radial-gradient(ellipse at 72% 58%, oklch(56% 0.16 150 / 0.2), transparent 44%),
+      radial-gradient(ellipse at 24% 34%, oklch(68% 0.18 350 / 0.18), transparent 38%),
+      linear-gradient(180deg, oklch(99% 0.012 130), oklch(91% 0.04 154));
   }
 
   :global([data-theme='christmas-candy']) .aurora-background[data-surface='card'] .aurora-fallback {

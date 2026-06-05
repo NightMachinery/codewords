@@ -164,11 +164,23 @@ describe('aurora shader variants', () => {
     }
   });
 
-  it('keeps Christmas Snow board/card shaders intentionally calm', async () => {
+  it('keeps Christmas Snow board/card shaders festive without becoming a blizzard', async () => {
     const { auroraFragmentShaders } = await import('./backgrounds/auroraShaders');
-    expect(auroraFragmentShaders['christmas-snow-board']).toContain('sparseCrystal');
-    expect(auroraFragmentShaders['christmas-snow-board']).not.toContain('uv.x * 18.0');
+    const board = auroraFragmentShaders['christmas-snow-board'];
+    expect(board).toContain('driftingFlake');
+    expect(board).toContain('auroraBlue');
+    expect(board).toContain('hollyAccent');
+    expect(board).not.toContain('uv.x * 18.0');
     expect(auroraFragmentShaders['christmas-snow-card']).toContain('settledFrost');
+  });
+
+  it('makes Christmas Candy board shaders read as peppermint instead of gray static', async () => {
+    const { auroraFragmentShaders } = await import('./backgrounds/auroraShaders');
+    const board = auroraFragmentShaders['christmas-candy-board'];
+    expect(board).toContain('peppermintWide');
+    expect(board).toContain('mintRibbon');
+    expect(board).toContain('sugarPink');
+    expect(board).not.toContain('color = mix(uSkyLow * 0.94');
   });
 
   it('uses campfire for Light, clean fire for Solarized Light, and aurora for base dark themes', () => {

@@ -620,19 +620,31 @@ export const christmasSnowBoardFragmentShader = /* glsl */ `
 ${commonFragmentPrelude}
 
   float softDrift(vec2 uv, float time) {
-    float flow = fbm(vec2(uv.x * 1.45 + time * 0.018, uv.y * 1.9 - time * 0.025));
-    float band = 1.0 - smoothstep(0.0, 0.42, abs(uv.y - (0.58 + flow * 0.18)));
-    return band * smoothstep(-0.08, 0.34, uv.y) * smoothstep(1.08, 0.42, uv.y);
+    float flow = fbm(vec2(uv.x * 1.65 + time * 0.038, uv.y * 2.05 - time * 0.052));
+    float lowerBand = 1.0 - smoothstep(0.0, 0.34, abs(uv.y - (0.38 + flow * 0.18)));
+    float upperBand = 1.0 - smoothstep(0.0, 0.42, abs(uv.y - (0.68 - flow * 0.16)));
+    float mask = smoothstep(-0.08, 0.28, uv.y) * smoothstep(1.08, 0.36, uv.y);
+    return (lowerBand * 0.74 + upperBand * 0.56) * mask;
   }
 
-  float sparseCrystal(vec2 uv, float time) {
-    vec2 grid = vec2(uv.x * 9.0, uv.y * 6.0);
+  float driftingFlake(vec2 uv, float time, float scale, float speed) {
+    vec2 grid = vec2(uv.x * scale + sin(uv.y * 4.2 + time * 0.7) * 0.22, uv.y * scale * 0.72 + time * speed);
     vec2 cell = floor(grid);
     vec2 local = fract(grid) - 0.5;
     float seed = hash(cell);
-    float twinkle = 0.58 + 0.42 * sin(time * 0.55 + seed * 6.2831);
-    float crystal = 1.0 - smoothstep(0.0, 0.07, length(local));
-    return crystal * step(0.93, seed) * twinkle;
+    float flake = 1.0 - smoothstep(0.0, 0.055 + seed * 0.03, length(local));
+    float sparkle = 0.68 + 0.32 * sin(time * 1.35 + seed * 6.2831);
+    return flake * step(0.86, seed) * sparkle;
+  }
+
+  float sparseCrystal(vec2 uv, float time) {
+    vec2 grid = vec2(uv.x * 10.0, uv.y * 6.5);
+    vec2 cell = floor(grid);
+    vec2 local = fract(grid) - 0.5;
+    float seed = hash(cell);
+    float twinkle = 0.56 + 0.44 * sin(time * 0.78 + seed * 6.2831);
+    float diamond = 1.0 - smoothstep(0.0, 0.06, abs(local.x) + abs(local.y));
+    return diamond * step(0.91, seed) * twinkle;
   }
 
   void main() {
@@ -641,14 +653,19 @@ ${commonFragmentPrelude}
     float time = uTime * uSpeed;
     float vignette = vignetteFor(pixel);
     float drift = softDrift(uv, time);
+    float snow = driftingFlake(uv, time, 21.0, -0.24) + driftingFlake(uv + vec2(0.11, 0.04), time, 34.0, -0.38) * 0.52;
     float crystal = sparseCrystal(uv, time);
-    float shade = fbm(vec2(uv.x * 2.4 - time * 0.01, uv.y * 2.1 + time * 0.012));
+    float shade = fbm(vec2(uv.x * 3.2 - time * 0.028, uv.y * 2.7 + time * 0.024));
 
-    vec3 color = mix(vec3(0.93, 0.965, 1.0), vec3(0.80, 0.88, 0.96), smoothstep(0.0, 1.0, uv.y));
-    color = mix(color, uRibbonC, drift * 0.075 * uIntensity);
-    color = mix(color, uRibbonA, pow(smoothstep(0.72, 1.0, shade), 3.0) * 0.028 * uIntensity);
-    color += vec3(1.0) * crystal * 0.04;
-    color *= 0.97 + vignette * 0.035;
+    vec3 frostBase = mix(vec3(0.965, 0.988, 1.0), vec3(0.78, 0.89, 1.0), smoothstep(0.0, 1.0, uv.y));
+    vec3 auroraBlue = mix(vec3(0.42, 0.78, 1.0), uRibbonC, 0.48);
+    vec3 hollyAccent = mix(uRibbonA, uRibbonB, smoothstep(0.52, 0.95, shade));
+    vec3 color = frostBase;
+    color = mix(color, auroraBlue, drift * 0.22 * uIntensity);
+    color += auroraBlue * snow * 0.14 * uIntensity;
+    color += hollyAccent * pow(smoothstep(0.7, 1.0, shade), 3.0) * 0.07 * uIntensity;
+    color += vec3(1.0) * crystal * 0.16;
+    color *= 0.94 + vignette * 0.08;
 
     gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
   }
@@ -721,11 +738,26 @@ ${commonFragmentPrelude}
 export const christmasCandyBoardFragmentShader = /* glsl */ `
 ${commonFragmentPrelude}
 
-  float candyBand(vec2 uv, float time) {
-    float diagonal = uv.x * 1.2 + uv.y * 0.82 - time * 0.05;
-    float stripe = 1.0 - smoothstep(0.0, 0.09, abs(fract(diagonal * 4.0) - 0.5));
-    float mask = smoothstep(0.08, 0.92, uv.y) * smoothstep(1.02, 0.18, uv.y);
-    return stripe * mask;
+  float peppermintWide(vec2 uv, float time) {
+    float diagonal = uv.x * 1.42 + uv.y * 0.94 - time * 0.11;
+    float wide = 1.0 - smoothstep(0.0, 0.13, abs(fract(diagonal * 3.25) - 0.5));
+    float narrow = 1.0 - smoothstep(0.0, 0.055, abs(fract((diagonal + 0.17) * 3.25) - 0.5));
+    float mask = smoothstep(0.02, 0.88, uv.y) * smoothstep(1.08, 0.16, uv.y);
+    return (wide * 0.82 + narrow * 0.42) * mask;
+  }
+
+  float mintRibbon(vec2 uv, float time) {
+    float flow = fbm(vec2(uv.x * 3.8 - time * 0.08, uv.y * 3.2 + time * 0.06));
+    float ribbon = 1.0 - smoothstep(0.0, 0.28, abs(uv.y - (0.42 + flow * 0.24)));
+    return ribbon * smoothstep(-0.08, 0.3, uv.y) * smoothstep(1.08, 0.38, uv.y);
+  }
+
+  float sugarSparkleBoard(vec2 uv, float time) {
+    vec2 grid = vec2(uv.x * 42.0, uv.y * 26.0);
+    vec2 cell = floor(grid);
+    float seed = hash(cell);
+    float pulse = 0.54 + 0.46 * sin(time * 2.7 + seed * 6.2831);
+    return step(0.965, seed) * pulse;
   }
 
   void main() {
@@ -733,14 +765,21 @@ ${commonFragmentPrelude}
     vec2 pixel = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
     float time = uTime * uSpeed;
     float vignette = vignetteFor(pixel);
-    float band = candyBand(uv, time);
-    float mint = fbm(vec2(uv.x * 7.0 + time * 0.04, uv.y * 5.0 - time * 0.06));
+    float stripe = peppermintWide(uv, time);
+    float mint = mintRibbon(uv, time);
+    float sparkle = sugarSparkleBoard(uv, time);
+    float sugar = fbm(vec2(uv.x * 7.0 + time * 0.055, uv.y * 5.0 - time * 0.07));
 
-    vec3 color = mix(uSkyLow * 0.94, uSkyMid * 0.98, smoothstep(0.0, 1.0, uv.y));
-    color += uRibbonA * band * 0.07 * uIntensity;
-    color += uRibbonB * pow(smoothstep(0.72, 1.0, mint), 3.0) * 0.08 * uIntensity;
-    color += uRibbonC * pow(smoothstep(0.82, 1.0, mint), 4.0) * 0.05 * uIntensity;
-    color *= 0.92 + vignette * 0.1;
+    vec3 creamBase = mix(vec3(1.0, 0.985, 0.965), vec3(0.88, 1.0, 0.94), smoothstep(0.0, 1.0, uv.y));
+    vec3 candyRed = mix(uRibbonA, vec3(1.0, 0.16, 0.18), 0.42);
+    vec3 candyGreen = mix(uRibbonB, vec3(0.18, 0.82, 0.44), 0.38);
+    vec3 sugarPink = mix(uRibbonC, vec3(1.0, 0.54, 0.66), 0.46);
+    vec3 color = creamBase;
+    color = mix(color, sugarPink, pow(smoothstep(0.68, 1.0, sugar), 2.4) * 0.16 * uIntensity);
+    color = mix(color, candyGreen, mint * 0.2 * uIntensity);
+    color = mix(color, candyRed, stripe * 0.3 * uIntensity);
+    color += vec3(1.0) * sparkle * 0.12;
+    color *= 0.93 + vignette * 0.09;
 
     gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
   }
