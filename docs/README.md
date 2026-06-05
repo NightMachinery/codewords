@@ -7,6 +7,7 @@
 - `frontend-lobby-and-identity.md` documents the Milestone 5/6 browser lobby, identity, and gameplay flow.
 - `frontend-aurora-background.md` documents the reusable WebGL landing hero aurora background.
 - `frontend-theming.md` documents the app themes, including Dracula, Glitch, Blood, and Christmas homepage/board/card shaders, auto dark-mode switching, and moderator theme push.
+- Frontend user-facing game terminology is centralized in `web/src/lib/constants.ts`; the default black-card display term is "Assassin" across modes.
 - `roast-packs.md` documents end-game memory roast-pack format and placeholders.
 - `room/GC.md` documents current room retention and garbage-collection behavior.
 
