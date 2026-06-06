@@ -1365,7 +1365,7 @@ func snapshotDTO(state game.State, viewerID string) map[string]any {
 		}
 		cards[i] = card
 	}
-	for _, c := range s.Cards {
+	for _, c := range state.Cards {
 		if !c.Revealed && c.Color != "" {
 			remaining[string(c.Color)]++
 		}

@@ -153,6 +153,55 @@ func TestGameOverSnapshotIncludesFinishedAt(t *testing.T) {
 	}
 }
 
+func TestPolarityGuesserSnapshotKeepsRemainingCountsWithoutLeakingHiddenColors(t *testing.T) {
+	h := newTestHandler(t)
+	postJSON(t, h, "/api/identity/bootstrap", map[string]any{"authToken": "host-counts", "displayName": "Host"}, http.StatusOK)
+	roomResp := postJSON(t, h, "/api/rooms", map[string]any{"authToken": "host-counts", "settings": map[string]any{"wordpackId": "english", "seed": 21, "totalCards": 9, "blackCards": 1}}, http.StatusCreated)
+	roomID := roomResp["room"].(map[string]any)["id"].(string)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "red-spy-counts", "displayName": "Red Spy"}, http.StatusOK)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "blue-guess-counts", "displayName": "Blue Guess"}, http.StatusOK)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "red-guess-counts", "displayName": "Red Guess"}, http.StatusOK)
+	makeRoomStartable(t, h, roomID, map[string]string{"host-counts": "blueSpy", "red-spy-counts": "redSpy", "blue-guess-counts": "blueGuess", "red-guess-counts": "redGuess"})
+	postJSON(t, h, "/api/rooms/"+roomID+"/start", map[string]any{"authToken": "host-counts"}, http.StatusOK)
+
+	handler := h.(*Handler)
+	rt, err := handler.app.loadRuntime(context.Background(), roomID)
+	if err != nil {
+		t.Fatalf("load runtime: %v", err)
+	}
+	rt.mu.Lock()
+	guesserID, err := handler.app.authUser(context.Background(), "blue-guess-counts")
+	if err != nil {
+		rt.mu.Unlock()
+		t.Fatalf("auth guesser: %v", err)
+	}
+	spyID, err := handler.app.authUser(context.Background(), "host-counts")
+	if err != nil {
+		rt.mu.Unlock()
+		t.Fatalf("auth spy: %v", err)
+	}
+	guesserSnapshot := snapshotDTO(rt.state, guesserID.ID)
+	spySnapshot := snapshotDTO(rt.state, spyID.ID)
+	rt.mu.Unlock()
+
+	guesserCards := guesserSnapshot["cards"].([]map[string]any)
+	if _, leaked := guesserCards[0]["color"]; leaked {
+		t.Fatalf("guesser snapshot leaked hidden card color: %#v", guesserCards[0])
+	}
+	remaining := guesserSnapshot["remainingCounts"].(map[string]int)
+	if remaining["blue"] == 0 || remaining["red"] == 0 || remaining["civilian"] == 0 || remaining["black"] == 0 {
+		t.Fatalf("guesser snapshot should include aggregate remaining counts, got %#v", remaining)
+	}
+	if total := remaining["blue"] + remaining["red"] + remaining["civilian"] + remaining["black"]; total != 9 {
+		t.Fatalf("expected all 9 hidden cards counted at match start, got %d from %#v", total, remaining)
+	}
+
+	spyCards := spySnapshot["cards"].([]map[string]any)
+	if _, ok := spyCards[0]["color"]; !ok {
+		t.Fatalf("spymaster snapshot should include hidden card color: %#v", spyCards[0])
+	}
+}
+
 func TestRoomStartPersistsSnapshotAndRestoresOverWebSocket(t *testing.T) {
 	h := newTestHandler(t)
 	postJSON(t, h, "/api/identity/bootstrap", map[string]any{"authToken": "host", "displayName": "Host"}, http.StatusOK)

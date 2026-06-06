@@ -32,7 +32,7 @@ When `EnforceClueGuessLimit` is enabled, guessing is rejected until a clue with 
 
 ## Snapshots
 
-`State.SnapshotFor` hides unrevealed card colors from non-spymasters and observers during active play. Spymasters see all colors. Finished matches reveal the full board to every viewer. Clue log entries are visible to all viewers.
+`State.SnapshotFor` hides unrevealed card colors from non-spymasters and observers during active play. Spymasters see all colors. Finished matches reveal the full board to every viewer. Server snapshots still expose aggregate remaining color counts to every viewer so counters work without leaking per-card hidden colors. Clue log entries are visible to all viewers.
 
 Unity snapshots expose the active board to everyone, but hidden colors are present only for revealed cards unless the viewer owns that board or the match is over. Unity players also receive an `ownBoard` snapshot with their own hidden colors for clue composition. Each Unity board carries a separate clue log and last-selected card marker, so board changes do not carry a selection highlight onto unrelated boards.
 
