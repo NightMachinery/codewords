@@ -112,6 +112,7 @@ const settings: Settings = {
   redCards: 8,
   neutralCards: 8,
   wordpackId: 'english',
+  wordpackIds: ['english'],
   enforceClueGuessLimit: false,
   allowInfinityClue: false,
   imageCardCount: 0,

@@ -324,7 +324,7 @@
       roomStatus = room.room.status;
       roomHostId = room.room.hostUserId;
       viewer = room.viewer;
-      settings = { ...defaultSettings, ...room.settings };
+      settings = normalizeLobbySettingsForSave({ ...defaultSettings, ...room.settings });
       rememberCreatorSettings();
       chatMessages = room.chatMessages ?? [];
       if (shouldAutoJoinRoom(room.room, credential.mode, displayName)) {
@@ -365,7 +365,7 @@
         roomHostId = room.room.hostUserId;
         viewer = room.viewer;
         players = room.players;
-        settings = { ...defaultSettings, ...room.settings };
+        settings = normalizeLobbySettingsForSave({ ...defaultSettings, ...room.settings });
         rememberCreatorSettings();
         chatMessages = room.chatMessages ?? [];
       }
@@ -433,7 +433,7 @@
       previousUnityBoardsForCue = nextUnityBoards;
       lastClueSignature = nextClueSignature;
       players = message.snapshot.players;
-      settings = { ...defaultSettings, ...message.snapshot.settings };
+      settings = normalizeLobbySettingsForSave({ ...defaultSettings, ...message.snapshot.settings });
       rememberCreatorSettings();
       viewer = message.snapshot.viewer;
       phase = message.snapshot.phase;

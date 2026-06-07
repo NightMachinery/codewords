@@ -16,6 +16,7 @@ export interface Settings {
   neutralCards: number;
   startingTeamHandicap: number;
   wordpackId: string;
+  wordpackIds: string[];
   enforceClueGuessLimit: boolean;
   allowInfinityClue: boolean;
   imageCardCount: number;
@@ -183,6 +184,7 @@ export const defaultSettings: Settings = {
   neutralCards: 8,
   startingTeamHandicap: 1,
   wordpackId: 'english',
+  wordpackIds: ['english'],
   enforceClueGuessLimit: false,
   allowInfinityClue: false,
   imageCardCount: 0,

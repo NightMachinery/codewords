@@ -23,7 +23,7 @@ class MemoryStorage {
   }
 }
 
-const current: Settings = { ...defaultSettings, wordpackId: 'english', imageCardCount: 0, blackCards: 1, totalCards: 25 };
+const current: Settings = { ...defaultSettings, wordpackId: 'english', wordpackIds: ['english'], imageCardCount: 0, blackCards: 1, totalCards: 25 };
 
 describe('settings profiles', () => {
   it('keeps the bundled vanilla profile at 24 word cards by removing one neutral card', () => {
@@ -41,6 +41,7 @@ describe('settings profiles', () => {
       imageCardCount: 0,
     });
     expect(profile.settings.wordpackId).toBeUndefined();
+    expect(profile.settings.wordpackIds).toBeUndefined();
     expect(profile.settings.teamNameBlue).toBeUndefined();
     expect(profile.settings.teamNameRed).toBeUndefined();
     expect(profile.settings.customColorBlue).toBeUndefined();
@@ -61,6 +62,7 @@ describe('settings profiles', () => {
 
     expect(next).toMatchObject({ imageCardCount: 2, mixedImageOrderFirst: true, memoryRoastsDisabled: true, blackCards: 2, totalCards: 26 });
     expect(next.wordpackId).toBe('english');
+    expect(next.wordpackIds).toEqual(['english']);
     expect((next as unknown as Record<string, unknown>).unknownField).toBeUndefined();
   });
 
@@ -76,6 +78,29 @@ describe('settings profiles', () => {
     expect(profile.name).toBe('Imported');
     expect(profile.settings).toMatchObject({ imageCardCount: 2, mixedImageOrderFirst: true });
     expect(exportSettingsProfileJson5(profile)).toContain("name: 'Imported'");
+  });
+
+  it('applies legacy single-wordpack profile data', () => {
+    const next = applySettingsProfile(current, { settings: { wordpackId: 'german' } });
+
+    expect(next.wordpackId).toBe('german');
+    expect(next.wordpackIds).toEqual(['german']);
+  });
+
+  it('preserves multi-wordpack selections in imported profiles', () => {
+    const profile = parseSettingsProfileJson5(`{
+      name: 'Mix',
+      settings: {
+        wordpackIds: ['english', 'german'],
+      },
+    }`);
+
+    const next = applySettingsProfile(current, profile);
+
+    expect(profile.settings.wordpackIds).toEqual(['english', 'german']);
+    expect(next.wordpackIds).toEqual(['english', 'german']);
+    expect(next.wordpackId).toBe('english');
+    expect(exportSettingsProfileJson5(profile)).toContain('wordpackIds');
   });
 
   it('persists local profiles safely', () => {

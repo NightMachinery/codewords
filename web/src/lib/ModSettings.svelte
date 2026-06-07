@@ -55,7 +55,15 @@
   }: Props = $props();
 
   let cardMode = $derived(cardModeFromImageCount(settings.imageCardCount ?? 0, settings.totalCards ?? 25));
+  let selectedWordpackIds = $derived(normalizedWordpackIds(settings));
+  let selectedWordpacks = $derived(selectedWordpackIds.map((id) => {
+    const pack = wordpacks.find((candidate) => candidate.id === id);
+    return pack ?? { id, label: `${id} (missing)`, wordCount: 0 };
+  }));
+  let availableWordpacks = $derived(wordpacks.filter((pack) => !selectedWordpackIds.includes(pack.id)));
+  let selectedWordpackTotal = $derived(selectedWordpacks.reduce((total, pack) => total + pack.wordCount, 0));
   let openColorPicker = $state<'blue' | 'red' | 'unity' | null>(null);
+  let wordpackToAdd = $state('');
   let selectedProfileId = $state('');
   let profileNameDraft = $state('');
   let profileFileInput = $state<HTMLInputElement | null>(null);
@@ -83,6 +91,42 @@
   function saveNormalizedSettings() {
     settings = normalizeLobbySettingsForSave(settings);
     onSave();
+  }
+
+  function normalizedWordpackIds(value: Settings): string[] {
+    const primary = String(value.wordpackId ?? '').trim();
+    const rawIds = Array.isArray(value.wordpackIds) && value.wordpackIds.length > 0 ? value.wordpackIds : [primary];
+    const seen = new Set<string>();
+    const ids: string[] = [];
+    let primaryIncluded = primary === '';
+    for (const rawId of rawIds) {
+      const id = String(rawId ?? '').trim();
+      if (!id || seen.has(id)) continue;
+      if (id === primary) primaryIncluded = true;
+      seen.add(id);
+      ids.push(id);
+    }
+    if (primary && !primaryIncluded) return [primary];
+    return ids.length > 0 ? ids : ['english'];
+  }
+
+  function saveWordpackIds(ids: string[]) {
+    const normalized = normalizedWordpackIds({ ...settings, wordpackIds: ids, wordpackId: ids[0] ?? settings.wordpackId });
+    settings.wordpackIds = normalized;
+    settings.wordpackId = normalized[0];
+    saveNormalizedSettings();
+  }
+
+  function addWordpack() {
+    const id = wordpackToAdd || availableWordpacks[0]?.id || '';
+    if (!id || selectedWordpackIds.includes(id)) return;
+    saveWordpackIds([...selectedWordpackIds, id]);
+    wordpackToAdd = '';
+  }
+
+  function removeWordpack(id: string) {
+    if (selectedWordpackIds.length <= 1) return;
+    saveWordpackIds(selectedWordpackIds.filter((wordpackId) => wordpackId !== id));
   }
 
   function setMode(mode: 'polarity' | 'unity' | 'monality') {
@@ -237,14 +281,42 @@
     {#if phase === 'lobby'}
     <!-- Game Rules -->
     <div class={colorSettingsGridClasses()}>
-      <label class="block">
-        <span class="text-sm font-bold text-slate-300">Wordpack</span>
-        <select class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" bind:value={settings.wordpackId} onchange={saveNormalizedSettings}>
-          {#each wordpacks as pack (pack.id)}
-            <option value={pack.id}>{pack.label} ({pack.wordCount})</option>
+      <div class="block rounded-2xl border border-slate-700 bg-slate-950/70 p-4">
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+          <span class="text-sm font-bold text-slate-300">Wordpacks</span>
+          <span class="text-xs font-bold text-slate-500">{selectedWordpackIds.length} selected · up to {selectedWordpackTotal} words</span>
+        </div>
+        <div class="mt-3 space-y-2">
+          {#each selectedWordpacks as pack (pack.id)}
+            <div class="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2">
+              <div class="min-w-0">
+                <p class="truncate text-sm font-black text-slate-100">{pack.label}</p>
+                <p class="text-xs font-bold text-slate-500">{pack.wordCount > 0 ? `${pack.wordCount} words` : 'Unavailable on server'}</p>
+              </div>
+              <button
+                class="shrink-0 rounded-lg border border-slate-600 px-2.5 py-1 text-xs font-black text-slate-300 hover:border-rose-300/60 hover:text-rose-100 disabled:cursor-not-allowed disabled:opacity-40"
+                type="button"
+                disabled={selectedWordpackIds.length <= 1}
+                onclick={() => removeWordpack(pack.id)}
+              >
+                Remove
+              </button>
+            </div>
+          {:else}
+            <p class="rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-sm font-bold text-amber-100">English will be used if no wordpack is selected.</p>
           {/each}
-        </select>
-      </label>
+        </div>
+        <div class="mt-3 flex gap-2">
+          <select class="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-50" bind:value={wordpackToAdd} disabled={availableWordpacks.length === 0}>
+            <option value="">{availableWordpacks.length === 0 ? 'All wordpacks added' : 'Add another wordpack'}</option>
+            {#each availableWordpacks as pack (pack.id)}
+              <option value={pack.id}>{pack.label} ({pack.wordCount})</option>
+            {/each}
+          </select>
+          <button class="rounded-xl border border-emerald-300/40 bg-emerald-300/10 px-3 py-2 text-sm font-black text-emerald-100 hover:bg-emerald-300/20 disabled:cursor-not-allowed disabled:opacity-40" type="button" disabled={availableWordpacks.length === 0 || !wordpackToAdd} onclick={addWordpack}>Add</button>
+        </div>
+        <p class="mt-2 text-xs leading-5 text-slate-500">Boards draw from the union of selected packs; duplicate words are ignored.</p>
+      </div>
       <label class="block">
         <span class="text-sm font-bold text-slate-300">Total cards</span>
         <input class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-50" type="number" min="9" max="100" bind:value={settings.totalCards} onchange={saveNormalizedSettings} />

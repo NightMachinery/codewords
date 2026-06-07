@@ -5,6 +5,7 @@
   import ThemeMenu from '../lib/ThemeMenu.svelte';
   import { api, defaultSettings } from '../lib/api';
   import { getOrCreateAuthToken } from '../lib/identity';
+  import { normalizeLobbySettingsForSave } from '../lib/gameplay';
   import { roomPath } from '../lib/routes';
   import type { ThemeId } from '../lib/theme';
 
@@ -57,7 +58,7 @@
         if (!(await saveName())) return;
       }
       const savedSettings = readCreatorSettings();
-      const created = await api.createRoom(authToken, { ...defaultSettings, ...savedSettings, seed: Date.now() });
+      const created = await api.createRoom(authToken, normalizeLobbySettingsForSave({ ...defaultSettings, ...savedSettings, seed: Date.now() }));
       window.location.href = roomPath(created.room.id);
     } catch (err) {
       error = err instanceof Error ? err.message : 'Could not create the room.';

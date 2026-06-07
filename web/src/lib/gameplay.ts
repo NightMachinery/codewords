@@ -859,7 +859,26 @@ export function autoNeutralCards(totalCards: number, startingTeamHandicap = 1): 
   return neutral;
 }
 
+function normalizeWordpackIds(settings: Settings): string[] {
+  const primary = String(settings.wordpackId ?? '').trim();
+  const rawIds = Array.isArray(settings.wordpackIds) && settings.wordpackIds.length > 0 ? settings.wordpackIds : [primary];
+  const seen = new Set<string>();
+  const ids: string[] = [];
+  let primaryIncluded = primary === '';
+  for (const rawId of rawIds) {
+    const id = String(rawId ?? '').trim();
+    if (!id || seen.has(id)) continue;
+    if (id === primary) primaryIncluded = true;
+    seen.add(id);
+    ids.push(id);
+  }
+  if (primary && !primaryIncluded) return [primary];
+  return ids.length > 0 ? ids : ['english'];
+}
+
 export function normalizeLobbySettingsForSave(settings: Settings): Settings {
+  const wordpackIds = normalizeWordpackIds(settings);
+  const wordpackId = wordpackIds[0];
   const totalCards = clampTotalCards(settings.totalCards ?? defaultTotalCards);
   const imageCardCount = Math.min(totalCards, Math.max(0, Math.round(settings.imageCardCount ?? 0)));
   if (settings.mode === 'unity' || settings.mode === 'monality') {
@@ -868,6 +887,8 @@ export function normalizeLobbySettingsForSave(settings: Settings): Settings {
     return {
       ...settings,
       mode: settings.mode === 'monality' ? 'monality' : 'unity',
+      wordpackId,
+      wordpackIds,
       totalCards,
       autoColorCounts: true,
       blueCards: 0,
@@ -890,6 +911,8 @@ export function normalizeLobbySettingsForSave(settings: Settings): Settings {
     const neutralCards = autoNeutralCards(totalCards, startingTeamHandicap);
     return {
       ...settings,
+      wordpackId,
+      wordpackIds,
       totalCards,
       autoColorCounts: true,
       blueCards: 0,
@@ -913,6 +936,8 @@ export function normalizeLobbySettingsForSave(settings: Settings): Settings {
   const neutralCards = Math.max(0, nonHandicapCards - blueCards - redCards);
   return {
     ...settings,
+    wordpackId,
+    wordpackIds,
     totalCards,
     autoColorCounts: false,
     blueCards,
