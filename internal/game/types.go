@@ -127,35 +127,36 @@ type Card struct {
 
 // Settings are match/lobby options owned by the engine.
 type Settings struct {
-	Mode                     Mode   `json:"mode,omitempty"`
-	Seed                     int64  `json:"seed"`
-	BlackCards               int    `json:"blackCards"`
-	TotalCards               int    `json:"totalCards"`
-	AutoColorCounts          bool   `json:"autoColorCounts"`
-	BlueCards                int    `json:"blueCards"`
-	RedCards                 int    `json:"redCards"`
-	NeutralCards             int    `json:"neutralCards"`
-	StartingTeamHandicap     int    `json:"startingTeamHandicap"`
-	StartingTeamHandicapSet  bool   `json:"-"`
-	WordpackID               string `json:"wordpackId"`
-	EnforceClueGuessLimit    bool   `json:"enforceClueGuessLimit"`
-	AllowInfinityClue        bool   `json:"allowInfinityClue"`
-	ImageCardCount           int    `json:"imageCardCount"`
-	RandomizeTeams           bool   `json:"randomizeTeams"`
-	CustomColorBlue          string `json:"customColorBlue,omitempty"`
-	CustomColorRed           string `json:"customColorRed,omitempty"`
-	ObserverChatEnabled      bool   `json:"observerChatEnabled"`
-	MixedImageOrderFirst     bool   `json:"mixedImageOrderFirst"`
-	MemoryRoastsDisabled     bool   `json:"memoryRoastsDisabled,omitempty"`
-	TeamNameBlue             string `json:"teamNameBlue,omitempty"`
-	TeamNameRed              string `json:"teamNameRed,omitempty"`
-	TeamNameUnity            string `json:"teamNameUnity,omitempty"`
-	CustomColorUnity         string `json:"customColorUnity,omitempty"`
-	UnityTurnLimit           int    `json:"unityTurnLimit,omitempty"`
-	UnityUnlimitedTurns      bool   `json:"unityUnlimitedTurns,omitempty"`
-	UnityStrictPerBoardTurns bool   `json:"unityStrictPerBoardTurns,omitempty"`
-	MonalitySpymasterRounds  int    `json:"monalitySpymasterRounds,omitempty"`
-	MonalityRoundSeconds     int    `json:"monalityRoundSeconds,omitempty"`
+	Mode                     Mode     `json:"mode,omitempty"`
+	Seed                     int64    `json:"seed"`
+	BlackCards               int      `json:"blackCards"`
+	TotalCards               int      `json:"totalCards"`
+	AutoColorCounts          bool     `json:"autoColorCounts"`
+	BlueCards                int      `json:"blueCards"`
+	RedCards                 int      `json:"redCards"`
+	NeutralCards             int      `json:"neutralCards"`
+	StartingTeamHandicap     int      `json:"startingTeamHandicap"`
+	StartingTeamHandicapSet  bool     `json:"-"`
+	WordpackID               string   `json:"wordpackId"`
+	WordpackIDs              []string `json:"wordpackIds"`
+	EnforceClueGuessLimit    bool     `json:"enforceClueGuessLimit"`
+	AllowInfinityClue        bool     `json:"allowInfinityClue"`
+	ImageCardCount           int      `json:"imageCardCount"`
+	RandomizeTeams           bool     `json:"randomizeTeams"`
+	CustomColorBlue          string   `json:"customColorBlue,omitempty"`
+	CustomColorRed           string   `json:"customColorRed,omitempty"`
+	ObserverChatEnabled      bool     `json:"observerChatEnabled"`
+	MixedImageOrderFirst     bool     `json:"mixedImageOrderFirst"`
+	MemoryRoastsDisabled     bool     `json:"memoryRoastsDisabled,omitempty"`
+	TeamNameBlue             string   `json:"teamNameBlue,omitempty"`
+	TeamNameRed              string   `json:"teamNameRed,omitempty"`
+	TeamNameUnity            string   `json:"teamNameUnity,omitempty"`
+	CustomColorUnity         string   `json:"customColorUnity,omitempty"`
+	UnityTurnLimit           int      `json:"unityTurnLimit,omitempty"`
+	UnityUnlimitedTurns      bool     `json:"unityUnlimitedTurns,omitempty"`
+	UnityStrictPerBoardTurns bool     `json:"unityStrictPerBoardTurns,omitempty"`
+	MonalitySpymasterRounds  int      `json:"monalitySpymasterRounds,omitempty"`
+	MonalityRoundSeconds     int      `json:"monalityRoundSeconds,omitempty"`
 }
 
 // UnmarshalJSON gives API/DB payloads the product default for randomized team

@@ -694,13 +694,16 @@ func (a *app) startMatchLocked(ctx context.Context, room storage.Room, rt *roomR
 		u, _ := a.store.UserByID(ctx, p.UserID)
 		_, _ = game.Apply(&rt.state, game.AddPlayerCommand{PlayerID: p.UserID, DisplayName: u.DisplayName}, p.UserID)
 	}
-	pack := a.packs[rt.state.Settings.WordpackID]
+	words, err := a.wordsForStart(rt.state.Settings)
+	if err != nil {
+		return storage.Match{}, err
+	}
 	imageIDs, err := a.pictureIDsForStart(ctx, rt.state)
 	if err != nil {
 		return storage.Match{}, err
 	}
 	matchID := uuid.NewString()
-	event, err := game.Apply(&rt.state, game.StartCommand{GameID: matchID, Words: pack.Words, ImageIDs: imageIDs}, actorID)
+	event, err := game.Apply(&rt.state, game.StartCommand{GameID: matchID, Words: words, ImageIDs: imageIDs}, actorID)
 	if err != nil {
 		return storage.Match{}, err
 	}
@@ -715,6 +718,19 @@ func (a *app) startMatchLocked(ctx context.Context, room storage.Room, rt *roomR
 		return storage.Match{}, err
 	}
 	return match, nil
+}
+
+func (a *app) wordsForStart(settings game.Settings) ([]string, error) {
+	ids := normalizedWordpackIDs(settings)
+	words := []string{}
+	for _, id := range ids {
+		pack, ok := a.packs[id]
+		if !ok {
+			return nil, fmt.Errorf("unknown wordpack %q", id)
+		}
+		words = append(words, pack.Words...)
+	}
+	return words, nil
 }
 
 func (a *app) addChatMessage(ctx context.Context, roomID, viewerID, body string) (storage.ChatMessage, error) {
@@ -1047,9 +1063,8 @@ func (a *app) readyOrError(w http.ResponseWriter) bool {
 
 func normalizeSettings(s game.Settings) (game.Settings, error) {
 	s = game.SettingsWithDefaults(s)
-	if s.WordpackID == "" {
-		s.WordpackID = "english"
-	}
+	s.WordpackIDs = normalizedWordpackIDs(s)
+	s.WordpackID = s.WordpackIDs[0]
 	s.CustomColorBlue = normalizeHexColor(s.CustomColorBlue)
 	s.CustomColorRed = normalizeHexColor(s.CustomColorRed)
 	s.CustomColorUnity = normalizeHexColor(s.CustomColorUnity)
@@ -1064,6 +1079,35 @@ func normalizeSettings(s game.Settings) (game.Settings, error) {
 		return game.Settings{}, err
 	}
 	return s, nil
+}
+
+func normalizedWordpackIDs(s game.Settings) []string {
+	primary := strings.TrimSpace(s.WordpackID)
+	ids := s.WordpackIDs
+	if len(ids) == 0 {
+		ids = []string{primary}
+	}
+	seen := map[string]bool{}
+	normalized := make([]string, 0, len(ids))
+	primaryIncluded := primary == ""
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" || seen[id] {
+			continue
+		}
+		if id == primary {
+			primaryIncluded = true
+		}
+		seen[id] = true
+		normalized = append(normalized, id)
+	}
+	if primary != "" && !primaryIncluded {
+		return []string{primary}
+	}
+	if len(normalized) == 0 {
+		normalized = []string{"english"}
+	}
+	return normalized
 }
 
 func normalizeTeamName(name string, fallback string) string {

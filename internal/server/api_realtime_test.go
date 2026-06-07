@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -807,6 +808,51 @@ func TestUnitySwitchSpymasterWebSocketBroadcastsPreviousBoardTransition(t *testi
 	}
 }
 
+func TestStartGameUsesUnionOfSelectedWordpacks(t *testing.T) {
+	h := newTestHandler(t)
+	postJSON(t, h, "/api/identity/bootstrap", map[string]any{"authToken": "host-wordpack-union", "displayName": "Host"}, http.StatusOK)
+	roomResp := postJSON(t, h, "/api/rooms", map[string]any{"authToken": "host-wordpack-union", "settings": map[string]any{"wordpackIds": []string{"english", "german"}, "seed": 12, "totalCards": 9, "blackCards": 1}}, http.StatusCreated)
+	roomID := roomResp["room"].(map[string]any)["id"].(string)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "red-spy-wordpack-union", "displayName": "Red Spy"}, http.StatusOK)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "blue-guess-wordpack-union", "displayName": "Blue Guess"}, http.StatusOK)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "red-guess-wordpack-union", "displayName": "Red Guess"}, http.StatusOK)
+	makeRoomStartable(t, h, roomID, map[string]string{"host-wordpack-union": "blueSpy", "red-spy-wordpack-union": "redSpy", "blue-guess-wordpack-union": "blueGuess", "red-guess-wordpack-union": "redGuess"})
+
+	started := postJSON(t, h, "/api/rooms/"+roomID+"/start", map[string]any{"authToken": "host-wordpack-union"}, http.StatusOK)
+	cards := started["snapshot"].(map[string]any)["cards"].([]any)
+	englishPack := h.(*Handler).app.packs["english"]
+	germanPack := h.(*Handler).app.packs["german"]
+	englishOnly := map[string]bool{}
+	for _, word := range englishPack.Words {
+		englishOnly[strings.TrimSpace(word)] = true
+	}
+	germanOnlyCard := false
+	for _, raw := range cards {
+		text, _ := raw.(map[string]any)["word"].(string)
+		for _, word := range germanPack.Words {
+			if text == strings.TrimSpace(word) && !englishOnly[text] {
+				germanOnlyCard = true
+			}
+		}
+	}
+	if !germanOnlyCard {
+		t.Fatalf("expected at least one German-only card from selected wordpack union, got %#v", cards)
+	}
+}
+
+func TestStartGameRejectsUnknownSelectedWordpack(t *testing.T) {
+	h := newTestHandler(t)
+	postJSON(t, h, "/api/identity/bootstrap", map[string]any{"authToken": "host-bad-wordpack", "displayName": "Host"}, http.StatusOK)
+	roomResp := postJSON(t, h, "/api/rooms", map[string]any{"authToken": "host-bad-wordpack", "settings": map[string]any{"wordpackIds": []string{"english", "missing-pack"}, "seed": 12, "totalCards": 9, "blackCards": 1}}, http.StatusCreated)
+	roomID := roomResp["room"].(map[string]any)["id"].(string)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "red-spy-bad-wordpack", "displayName": "Red Spy"}, http.StatusOK)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "blue-guess-bad-wordpack", "displayName": "Blue Guess"}, http.StatusOK)
+	postJSON(t, h, "/api/rooms/"+roomID+"/join", map[string]any{"authToken": "red-guess-bad-wordpack", "displayName": "Red Guess"}, http.StatusOK)
+	makeRoomStartable(t, h, roomID, map[string]string{"host-bad-wordpack": "blueSpy", "red-spy-bad-wordpack": "redSpy", "blue-guess-bad-wordpack": "blueGuess", "red-guess-bad-wordpack": "redGuess"})
+
+	postJSON(t, h, "/api/rooms/"+roomID+"/start", map[string]any{"authToken": "host-bad-wordpack"}, http.StatusBadRequest)
+}
+
 func TestNormalizeSettingsDefaultsTeamNamesAndRejectsInvalidColors(t *testing.T) {
 	settings, err := normalizeSettings(game.Settings{
 		WordpackID:      "english",
@@ -844,6 +890,36 @@ func TestNormalizeSettingsDefaultsTeamNamesAndRejectsInvalidColors(t *testing.T)
 	}
 	if !roastsOff.MemoryRoastsDisabled {
 		t.Fatalf("expected memory roast opt-out to persist")
+	}
+}
+
+func TestNormalizeSettingsSupportsMultipleWordpacks(t *testing.T) {
+	settings, err := normalizeSettings(game.Settings{WordpackID: "english", WordpackIDs: []string{"english", "german", "english", ""}})
+	if err != nil {
+		t.Fatalf("normalize settings: %v", err)
+	}
+	if settings.WordpackID != "english" {
+		t.Fatalf("expected primary wordpack to remain english, got %q", settings.WordpackID)
+	}
+	expected := []string{"english", "german"}
+	if !reflect.DeepEqual(settings.WordpackIDs, expected) {
+		t.Fatalf("expected deduplicated wordpack ids %#v, got %#v", expected, settings.WordpackIDs)
+	}
+
+	legacy, err := normalizeSettings(game.Settings{WordpackID: "german"})
+	if err != nil {
+		t.Fatalf("normalize legacy settings: %v", err)
+	}
+	if legacy.WordpackID != "german" || !reflect.DeepEqual(legacy.WordpackIDs, []string{"german"}) {
+		t.Fatalf("expected legacy wordpack id to populate wordpackIds, got %#v", legacy)
+	}
+
+	empty, err := normalizeSettings(game.Settings{})
+	if err != nil {
+		t.Fatalf("normalize empty settings: %v", err)
+	}
+	if empty.WordpackID != "english" || !reflect.DeepEqual(empty.WordpackIDs, []string{"english"}) {
+		t.Fatalf("expected empty settings to default to english, got %#v", empty)
 	}
 }
 
