@@ -78,6 +78,7 @@ import {
   writePanelPreferences,
   writeGameplayPreferences,
   normalizeLobbySettingsForSave,
+  normalizeNewRoomSettingsForCreate,
   unityCounterSegmentClasses,
   type ClueEntry,
   type GameplayCard,
@@ -597,6 +598,38 @@ describe('lobby card count helpers', () => {
 
     expect(next.startingTeamHandicap).toBe(2);
     expect(next.neutralCards).toBe(10);
+  });
+
+  it('forces newly-created polarity rooms to start with a one-card handicap', () => {
+    const next = normalizeNewRoomSettingsForCreate({
+      ...settings,
+      mode: 'polarity',
+      totalCards: 25,
+      autoColorCounts: true,
+      startingTeamHandicap: 0,
+    });
+
+    expect(next.mode).toBe('polarity');
+    expect(next.startingTeamHandicap).toBe(1);
+    expect(next.neutralCards).toBe(8);
+  });
+
+  it('keeps single-team new rooms at zero starting-team handicap', () => {
+    const unity = normalizeNewRoomSettingsForCreate({
+      ...settings,
+      mode: 'unity',
+      startingTeamHandicap: 1,
+      blackCards: 0,
+    });
+    const monality = normalizeNewRoomSettingsForCreate({
+      ...settings,
+      mode: 'monality',
+      startingTeamHandicap: 1,
+      blackCards: 0,
+    });
+
+    expect(unity.startingTeamHandicap).toBe(0);
+    expect(monality.startingTeamHandicap).toBe(0);
   });
 
   it('keeps manual frontend counts within the total before saving', () => {

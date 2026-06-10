@@ -949,6 +949,13 @@ export function normalizeLobbySettingsForSave(settings: Settings): Settings {
   };
 }
 
+export function normalizeNewRoomSettingsForCreate(settings: Settings): Settings {
+  if (settings.mode === 'unity' || settings.mode === 'monality') {
+    return normalizeLobbySettingsForSave(settings);
+  }
+  return normalizeLobbySettingsForSave({ ...settings, mode: settings.mode ?? 'polarity', startingTeamHandicap: 1 });
+}
+
 export function cardModeFromImageCount(imageCardCount: number, totalCards = defaultTotalCards): CardMode {
   if (imageCardCount <= 0) return 'words';
   if (imageCardCount >= clampTotalCards(totalCards)) return 'images';
