@@ -1,14 +1,16 @@
 <script lang="ts">
   import { onDestroy, onMount, tick } from 'svelte';
-  import { conservativeFitCardWordSize, fitCardWordBoxClasses, fitCardWordLabelStyle } from './gameplay';
+  import { centeredLabelAvoidsTopLeftBadge, conservativeFitCardWordSize, fitCardWordBoxClasses, fitCardWordLabelStyle } from './gameplay';
 
   interface Props {
     segments: string[];
     classes: string;
     shrinkPx?: number;
+    avoidTopLeftWidthPx?: number;
+    avoidTopLeftHeightPx?: number;
   }
 
-  let { segments, classes, shrinkPx = 0 }: Props = $props();
+  let { segments, classes, shrinkPx = 0, avoidTopLeftWidthPx = 0, avoidTopLeftHeightPx = 0 }: Props = $props();
 
   let box: HTMLDivElement;
   let label: HTMLSpanElement;
@@ -43,7 +45,15 @@
       label.style.fontSize = `${candidate}px`;
       const fitsWidth = label.scrollWidth <= width + 1;
       const fitsHeight = label.scrollHeight <= height + 1;
-      if (fitsWidth && fitsHeight) {
+      const avoidsBadge = centeredLabelAvoidsTopLeftBadge({
+        boxWidth: width,
+        boxHeight: height,
+        labelWidth: label.scrollWidth,
+        labelHeight: label.scrollHeight,
+        badgeWidth: avoidTopLeftWidthPx,
+        badgeHeight: avoidTopLeftHeightPx,
+      });
+      if (fitsWidth && fitsHeight && avoidsBadge) {
         low = candidate;
       } else {
         high = candidate;
@@ -71,6 +81,8 @@
     segments;
     classes;
     shrinkPx;
+    avoidTopLeftWidthPx;
+    avoidTopLeftHeightPx;
     scheduleFit();
   });
 </script>

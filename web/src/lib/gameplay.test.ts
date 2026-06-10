@@ -21,6 +21,7 @@ import {
   fitCardWordShrinkPx,
   fitCardWordBoxClasses,
   fitCardWordLabelStyle,
+  centeredLabelAvoidsTopLeftBadge,
   cardAspectRatioClasses,
   boardGridContainerClasses,
   boardGridClasses,
@@ -442,6 +443,33 @@ describe('board card state', () => {
     expect(fitCardWordLabelStyle(24)).not.toContain('transform');
     expect(fitCardWordLabelStyle(24)).not.toContain('max-height');
     expect(fitCardWordLabelStyle(24)).not.toContain('overflow: hidden');
+  });
+
+  it('detects whether a centered fitted label intersects the top-left number badge', () => {
+    expect(centeredLabelAvoidsTopLeftBadge({
+      boxWidth: 120,
+      boxHeight: 80,
+      labelWidth: 80,
+      labelHeight: 52,
+      badgeWidth: 32,
+      badgeHeight: 20,
+    })).toBe(false);
+    expect(centeredLabelAvoidsTopLeftBadge({
+      boxWidth: 120,
+      boxHeight: 80,
+      labelWidth: 60,
+      labelHeight: 20,
+      badgeWidth: 32,
+      badgeHeight: 20,
+    })).toBe(true);
+    expect(centeredLabelAvoidsTopLeftBadge({
+      boxWidth: 120,
+      boxHeight: 80,
+      labelWidth: 110,
+      labelHeight: 18,
+      badgeWidth: 0,
+      badgeHeight: 20,
+    })).toBe(true);
   });
 
   it('only applies the conservative fitted word size reduction in capture mode', () => {

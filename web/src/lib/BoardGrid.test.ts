@@ -49,4 +49,15 @@ describe('BoardGrid surface shader contract', () => {
     expect(componentSource).toContain('background-color: oklch(31% 0.075 76 / 0.9)');
     expect(componentSource).toContain('border-color: oklch(83% 0.13 82 / 0.72)');
   });
+
+  it('passes number-badge avoidance only into fitted word labels', () => {
+    expect(componentSource).toContain('avoidTopLeftWidthPx={preferences.showNumberBadges ? 34 : 0}');
+    expect(componentSource).toContain('avoidTopLeftHeightPx={preferences.showNumberBadges ? 22 : 0}');
+    expect(componentSource).toContain('<FitCardWord');
+
+    const imageBranchStart = componentSource.indexOf("{#if card.contentType === 'image'}");
+    const wordBranchStart = componentSource.indexOf('<FitCardWord');
+    expect(imageBranchStart).toBeGreaterThan(-1);
+    expect(wordBranchStart).toBeGreaterThan(imageBranchStart);
+  });
 });
