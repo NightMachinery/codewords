@@ -28,4 +28,9 @@ describe('RoomPage confirmation contract', () => {
     expect(source).not.toContain('Bomb');
   });
 
+  it('keeps local theme settings controls within narrow mobile panels', () => {
+    expect(source).toContain('min-w-0');
+    expect(source).toContain('max-w-full');
+    expect(source).toContain('whitespace-normal break-words leading-4');
+  });
 });

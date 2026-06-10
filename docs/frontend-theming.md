@@ -72,9 +72,12 @@ off). It owns the theme state, persistence, OS-preference watching, and `applyTh
 bindable `effectiveThemeId` / `sessionOverride` / `themePreferences` props.
 
 - **Room** (`web/src/pages/RoomPage.svelte`): `<ThemeMenu>` sits in the top status row and renders
-  its popover as a fixed, frontmost overlay so the nav row cannot clip it. The Local Settings panel
-  mirrors the same theme preferences as dropdown controls; changing either surface persists the
-  local preference and clears any session-only moderator override. Moderators also see the "push
+  its popover as a fixed, frontmost overlay so the nav row cannot clip it. The popover is
+  viewport-constrained and scrollable on narrow phones, with truncated theme labels so long theme
+  names cannot force horizontal overflow. The Local Settings panel mirrors the same theme
+  preferences as dropdown controls; changing either surface persists the local preference and clears
+  any session-only moderator override. Those dropdowns and the moderator push button use
+  minimum-width-safe controls so they wrap inside small mobile panels. Moderators also see the "push
   theme to everyone" button there. Destructive icon-only controls such as the active-match restart
   button use local theme-aware styling for their red foregrounds, because global red token remapping
   would interfere with team/error semantics.

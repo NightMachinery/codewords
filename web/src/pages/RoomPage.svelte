@@ -1519,33 +1519,33 @@
                 </span>
               </button>
               {#if panelPreferences.localOptionsOpen}
-                <div class="mt-4 grid gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
+                <div class="mt-4 grid min-w-0 gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
                   <span class="text-sm font-bold text-slate-200">Theme</span>
-                  <label class="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs text-slate-300 cursor-pointer">
+                  <label class="flex min-w-0 items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs text-slate-300 cursor-pointer">
                     <input type="checkbox" checked={themePreferences.auto} onchange={(event) => updateThemePreferences({ auto: event.currentTarget.checked })} />
-                    Match system dark mode
+                    <span class="min-w-0 truncate">Match system dark mode</span>
                   </label>
                   {#if themePreferences.auto}
-                    <label class="block text-xs text-slate-400">
+                    <label class="block min-w-0 text-xs text-slate-400">
                       Dark mode theme
-                      <select class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" value={themePreferences.darkTheme} onchange={(event) => updateThemePreferences({ darkTheme: event.currentTarget.value as ThemeId })}>
+                      <select class="mt-1 w-full max-w-full min-w-0 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" value={themePreferences.darkTheme} onchange={(event) => updateThemePreferences({ darkTheme: event.currentTarget.value as ThemeId })}>
                         {#each darkModeThemes as theme (theme.id)}
                           <option value={theme.id}>{theme.label}</option>
                         {/each}
                       </select>
                     </label>
-                    <label class="block text-xs text-slate-400">
+                    <label class="block min-w-0 text-xs text-slate-400">
                       Light mode theme
-                      <select class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" value={themePreferences.lightTheme} onchange={(event) => updateThemePreferences({ lightTheme: event.currentTarget.value as ThemeId })}>
+                      <select class="mt-1 w-full max-w-full min-w-0 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" value={themePreferences.lightTheme} onchange={(event) => updateThemePreferences({ lightTheme: event.currentTarget.value as ThemeId })}>
                         {#each lightModeThemes as theme (theme.id)}
                           <option value={theme.id}>{theme.label}</option>
                         {/each}
                       </select>
                     </label>
                   {:else}
-                    <label class="block text-xs text-slate-400">
+                    <label class="block min-w-0 text-xs text-slate-400">
                       Theme
-                      <select class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" value={themePreferences.manual} onchange={(event) => updateThemePreferences({ manual: event.currentTarget.value as ThemeId })}>
+                      <select class="mt-1 w-full max-w-full min-w-0 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" value={themePreferences.manual} onchange={(event) => updateThemePreferences({ manual: event.currentTarget.value as ThemeId })}>
                         {#each THEMES as theme (theme.id)}
                           <option value={theme.id}>{theme.label}</option>
                         {/each}
@@ -1554,7 +1554,7 @@
                   {/if}
                   {#if hostControls}
                     <button
-                      class={['rounded-xl border px-3 py-2 text-left text-xs font-black uppercase tracking-[0.16em] transition active:translate-y-px disabled:cursor-wait', forceThemePending ? 'border-emerald-200 bg-emerald-300 text-slate-950' : 'border-emerald-300/40 bg-emerald-300/10 text-emerald-100 hover:border-emerald-200 hover:bg-emerald-300/20'].join(' ')}
+                      class={['rounded-xl border px-3 py-2 text-left text-xs font-black uppercase tracking-[0.16em] whitespace-normal break-words leading-4 transition active:translate-y-px disabled:cursor-wait', forceThemePending ? 'border-emerald-200 bg-emerald-300 text-slate-950' : 'border-emerald-300/40 bg-emerald-300/10 text-emerald-100 hover:border-emerald-200 hover:bg-emerald-300/20'].join(' ')}
                       type="button"
                       disabled={forceThemePending}
                       aria-busy={forceThemePending}
