@@ -51,8 +51,8 @@ describe('BoardGrid surface shader contract', () => {
   });
 
   it('passes number-badge avoidance only into fitted word labels', () => {
-    expect(componentSource).toContain('avoidTopLeftWidthPx={preferences.showNumberBadges ? 34 : 0}');
-    expect(componentSource).toContain('avoidTopLeftHeightPx={preferences.showNumberBadges ? 22 : 0}');
+    expect(componentSource).toContain('cardWordAvoidsTopLeftBadge');
+    expect(componentSource).toContain('avoidTopLeftBadge={preferences.showNumberBadges && cardWordAvoidsTopLeftBadge(card.word)}');
     expect(componentSource).toContain('<FitCardWord');
 
     const imageBranchStart = componentSource.indexOf("{#if card.contentType === 'image'}");

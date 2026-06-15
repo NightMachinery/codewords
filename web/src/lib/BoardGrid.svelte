@@ -14,6 +14,7 @@
     cardDisabledStateClasses,
     cardImageUrl,
     cardViewState,
+    cardWordAvoidsTopLeftBadge,
     cardWordTextClasses,
     cardWordTextSegments,
     fitCardWordShrinkPx,
@@ -113,7 +114,7 @@
           {/if}
         {:else}
           {@const wordSegments = cardWordTextSegments(toTitleCase(card.word) || 'Card')}
-          <FitCardWord segments={wordSegments} classes={cardWordTextClasses(card.word)} shrinkPx={fitCardWordShrinkPx(captureMode)} avoidTopLeftWidthPx={preferences.showNumberBadges ? 34 : 0} avoidTopLeftHeightPx={preferences.showNumberBadges ? 22 : 0} />
+          <FitCardWord segments={wordSegments} classes={cardWordTextClasses(card.word)} shrinkPx={fitCardWordShrinkPx(captureMode)} avoidTopLeftBadge={preferences.showNumberBadges && cardWordAvoidsTopLeftBadge(card.word)} />
           {#if view.isLastSelected}
             <span class="pointer-events-none absolute inset-0 z-30 rounded-xl border-4 border-emerald-200"></span>
           {/if}

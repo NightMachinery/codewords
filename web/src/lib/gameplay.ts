@@ -840,20 +840,11 @@ export function fitCardWordLabelStyle(fontSize: number): string {
   return `font-size: ${fontSize}px; overflow: visible;`;
 }
 
-export function centeredLabelAvoidsTopLeftBadge(input: {
-  boxWidth: number;
-  boxHeight: number;
-  labelWidth: number;
-  labelHeight: number;
-  badgeWidth: number;
-  badgeHeight: number;
-}): boolean {
-  if (input.badgeWidth <= 0 || input.badgeHeight <= 0) return true;
-  const labelLeft = (input.boxWidth - input.labelWidth) / 2;
-  const labelTop = (input.boxHeight - input.labelHeight) / 2;
-  const labelRight = labelLeft + input.labelWidth;
-  const labelBottom = labelTop + input.labelHeight;
-  return labelRight <= 0 || labelBottom <= 0 || labelLeft >= input.badgeWidth || labelTop >= input.badgeHeight;
+export function cardWordAvoidsTopLeftBadge(word: string | undefined): boolean {
+  const value = word?.trim() ?? '';
+  if (!value) return false;
+  if (/[\p{Script=Arabic}\p{Script=Hebrew}]/u.test(value)) return false;
+  return /\p{Script=Latin}/u.test(value);
 }
 
 export function clampTotalCards(value: unknown): number {

@@ -21,7 +21,7 @@ import {
   fitCardWordShrinkPx,
   fitCardWordBoxClasses,
   fitCardWordLabelStyle,
-  centeredLabelAvoidsTopLeftBadge,
+  cardWordAvoidsTopLeftBadge,
   cardAspectRatioClasses,
   boardGridContainerClasses,
   boardGridClasses,
@@ -445,31 +445,13 @@ describe('board card state', () => {
     expect(fitCardWordLabelStyle(24)).not.toContain('overflow: hidden');
   });
 
-  it('detects whether a centered fitted label intersects the top-left number badge', () => {
-    expect(centeredLabelAvoidsTopLeftBadge({
-      boxWidth: 120,
-      boxHeight: 80,
-      labelWidth: 80,
-      labelHeight: 52,
-      badgeWidth: 32,
-      badgeHeight: 20,
-    })).toBe(false);
-    expect(centeredLabelAvoidsTopLeftBadge({
-      boxWidth: 120,
-      boxHeight: 80,
-      labelWidth: 60,
-      labelHeight: 20,
-      badgeWidth: 32,
-      badgeHeight: 20,
-    })).toBe(true);
-    expect(centeredLabelAvoidsTopLeftBadge({
-      boxWidth: 120,
-      boxHeight: 80,
-      labelWidth: 110,
-      labelHeight: 18,
-      badgeWidth: 0,
-      badgeHeight: 20,
-    })).toBe(true);
+  it('avoids top-left badges only for Latin-script word labels', () => {
+    expect(cardWordAvoidsTopLeftBadge('Captain America')).toBe(true);
+    expect(cardWordAvoidsTopLeftBadge('Puss In Boots')).toBe(true);
+    expect(cardWordAvoidsTopLeftBadge('Ben10')).toBe(true);
+    expect(cardWordAvoidsTopLeftBadge('مقعد')).toBe(false);
+    expect(cardWordAvoidsTopLeftBadge('سلام دنیا')).toBe(false);
+    expect(cardWordAvoidsTopLeftBadge('Captain آمریکا')).toBe(false);
   });
 
   it('only applies the conservative fitted word size reduction in capture mode', () => {
