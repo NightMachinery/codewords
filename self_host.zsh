@@ -166,10 +166,6 @@ http://$host. {
   redir $primary_url{uri} permanent
 }
 
-https://$host. {
-  redir $primary_url{uri} permanent
-}
-
 $primary_url {
   header Alt-Svc "clear"
   encode zstd gzip

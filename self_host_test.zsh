@@ -1,6 +1,8 @@
 #!/usr/bin/env zsh
 set -euo pipefail
 
+real_caddy="$(command -v caddy || true)"
+
 ROOT_DIR="${0:A:h}"
 cd "$ROOT_DIR"
 
@@ -45,6 +47,15 @@ if grep -q 'reverse_proxy 127.0.0.1:5173' "$CODEWORDS_CADDYFILE"; then
   echo "prod Caddy block should remove Vite proxy" >&2
   cat "$CODEWORDS_CADDYFILE" >&2
   exit 1
+fi
+
+if command grep -Fq 'https://example.test.' "$CODEWORDS_CADDYFILE"; then
+  echo "HTTPS site addresses must not request a certificate for a trailing-dot hostname" >&2
+  exit 1
+fi
+
+if [[ -n "$real_caddy" ]]; then
+  "$real_caddy" adapt --config "$CODEWORDS_CADDYFILE" --adapter caddyfile >/dev/null
 fi
 
 echo "self_host Caddy mode tests passed"

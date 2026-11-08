@@ -67,6 +67,13 @@ Back up the database while the app is stopped, or use SQLite-safe backup command
 
 The managed block contains both the requested public URL and its opposite-scheme redirect. For example, `https://example.test` creates an `http://example.test` redirect block to `https://example.test{uri}`; `http://example.test` creates an `https://example.test` redirect block to `http://example.test{uri}`.
 
+HTTP requests using a trailing-dot hostname redirect to the canonical public URL.
+Do not generate an explicit HTTPS site address with a trailing dot: Caddy rejects
+that name as a certificate subject, preventing configuration reload and startup.
+`zsh -f ./self_host_test.zsh` checks this and, when Caddy is installed, parses the
+generated configuration with the real binary as well as testing the lifecycle
+with a stub.
+
 ## Proxy environment
 
 The script does not hardcode proxy hosts or ports. Existing proxy environment variables such as `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY` remain available to dependency installation and build commands through the shell environment.
