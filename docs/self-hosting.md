@@ -13,7 +13,12 @@ Codewords is designed to run on one self-hosted machine without Docker, hosted r
 
 ## Commands
 
-Run commands from the repository root:
+Run deployment commands from the repository root on the designated production
+host, never on a development laptop. Consult `.local/AGENTS.md` for the local
+deployment target before starting. Commit and push changes, inspect and pull
+the production checkout, then run the redeploy in its `codewords-setup` tmux
+session. Wait 120 seconds before reading deployment logs, then verify health
+and the public site's hashed assets.
 
 ```zsh
 ./self_host.zsh setup [url]

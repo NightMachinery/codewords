@@ -1,4 +1,5 @@
-- After finishing and committing, if you haven't already, run `zsh ./self_host.zsh redeploy` in tmux session `codewords-setup`. Wait 120s before checking the logs in the session after sending the command.
+- Deploy only on the production host specified in `.local/AGENTS.md`. Read that local file before deploying. Never run deployment commands on a development laptop.
+- After finishing, committing and pushing, pull the production checkout and run `zsh ./self_host.zsh redeploy` there in tmux session `codewords-setup`. Wait 120s before checking that session's logs.
 
 ## Vite + Lucide Build Performance
 
