@@ -220,7 +220,7 @@
 {:else}
 <footer id="bottom-sticky-panel" class="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-700/60 bg-slate-900/90 p-2 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] backdrop-blur-md">
   <button
-    class={pressableButtonClasses('absolute right-0 top-0 grid h-9 w-9 place-items-center rounded-bl-2xl border-b border-l border-slate-700/80 bg-slate-950/95 text-slate-300 shadow-xl hover:border-emerald-300/60 hover:text-emerald-100')}
+    class={pressableButtonClasses('absolute right-0 top-0 z-10 grid h-9 w-9 place-items-center rounded-bl-2xl border-b border-l border-slate-700/80 bg-slate-950/95 text-slate-300 shadow-xl hover:border-emerald-300/60 hover:text-emerald-100')}
     onclick={() => setControlsExpanded(false)}
     aria-label="Collapse bottom controls"
   >
@@ -278,9 +278,9 @@
     {#if showClueInput || showPass}
     <div class={['flex min-w-0 items-center gap-3', showClueInput ? 'flex-[1_1_18rem] justify-center md:max-w-2xl' : 'flex-[0_0_auto] justify-end'].join(' ')}>
       {#if showClueInput}
-        <div class="flex w-full flex-wrap gap-2">
+        <div class="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] gap-2">
           <input
-            class="min-w-0 flex-[1_1_10rem] rounded-xl border border-slate-700 bg-slate-950 px-3 py-1.5 text-sm font-semibold text-slate-50 outline-none ring-emerald-300 transition focus:ring-2 disabled:opacity-50"
+            class="w-full min-w-0 rounded-xl border border-slate-700 bg-slate-950 px-3 py-1.5 text-sm font-semibold text-slate-50 outline-none ring-emerald-300 transition focus:ring-2 disabled:opacity-50"
             bind:value={clueText}
             maxlength="40"
             placeholder="One-word clue"
@@ -322,8 +322,8 @@
     {/if}
 
     <!-- Actions -->
-    <div class="flex min-w-0 flex-[0_1_auto] items-center justify-end gap-2">
-      <div class="flex items-center gap-1 rounded-2xl border border-slate-700 bg-slate-950/50 p-1">
+    <div class="flex min-w-0 flex-[0_1_auto] flex-wrap items-center justify-end gap-2">
+      <div class="flex shrink-0 items-center gap-1 rounded-2xl border border-slate-700 bg-slate-950/50 p-1">
         {#each shortcutItems as shortcut (shortcut.target)}
           <button class={pressableButtonClasses('grid h-8 w-8 place-items-center rounded-xl text-slate-300 hover:bg-slate-800 hover:text-emerald-200')} title={shortcut.label} aria-label={shortcut.label} onclick={() => onNavigate(shortcut.target)}>
             {@render MiniIcon(shortcut.kind)}
@@ -331,7 +331,7 @@
         {/each}
       </div>
       {#if showUnityBoardSwitch}
-        <div class="grid grid-flow-col auto-cols-fr gap-1 rounded-2xl border border-teal-300/30 bg-slate-950/70 p-1" aria-label="Unity board view">
+        <div class="grid shrink-0 grid-flow-col auto-cols-fr gap-1 rounded-2xl border border-teal-300/30 bg-slate-950/70 p-1" aria-label="Unity board view">
           {#if hasPreviousBoard}
             <button
               class={pressableButtonClasses(['grid h-8 w-8 place-items-center rounded-xl', boardView === 'previous' ? 'bg-teal-300 text-slate-950' : 'text-teal-100 hover:bg-teal-300/10'].join(' '))}
@@ -383,7 +383,7 @@
       {/if}
       {#if mode === 'unity' && hostControls && phase === 'active' && !compactSwitchUnitySpymaster}
         <button
-          class={pressableButtonClasses(['grid h-10 w-10 place-items-center rounded-xl border', transitionLocked ? 'border-slate-700 bg-slate-800 text-slate-500' : 'border-teal-300/50 bg-teal-300/10 text-teal-100 hover:bg-teal-300/20'].join(' '))}
+          class={pressableButtonClasses(['grid h-10 w-10 shrink-0 place-items-center rounded-xl border', transitionLocked ? 'border-slate-700 bg-slate-800 text-slate-500' : 'border-teal-300/50 bg-teal-300/10 text-teal-100 hover:bg-teal-300/20'].join(' '))}
           type="button"
           disabled={transitionLocked}
           aria-label={`Switch Unity ${lowerGameTerm(gameTerms.role.spy.one)}`}
@@ -395,7 +395,7 @@
       {/if}
       {#if role.kind === 'spymaster' && mode !== 'unity'}
         <button
-          class={pressableButtonClasses(['inline-flex h-10 w-10 items-center justify-center gap-1 rounded-xl border', spymasterViewActive ? 'border-emerald-300/60 bg-emerald-300/15 text-emerald-100' : 'border-slate-600 bg-slate-800 text-slate-300 hover:border-emerald-300/50'].join(' '))}
+          class={pressableButtonClasses(['inline-flex h-10 w-10 shrink-0 items-center justify-center gap-1 rounded-xl border', spymasterViewActive ? 'border-emerald-300/60 bg-emerald-300/15 text-emerald-100' : 'border-slate-600 bg-slate-800 text-slate-300 hover:border-emerald-300/50'].join(' '))}
           onclick={onToggleView}
           aria-label={spymasterViewActive ? `Turn ${lowerGameTerm(gameTerms.role.spy.one)} view off` : `Turn ${lowerGameTerm(gameTerms.role.spy.one)} view on`}
           aria-pressed={spymasterViewActive}

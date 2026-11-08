@@ -523,7 +523,7 @@ export function modSettingsShellClasses(): string {
 }
 
 export function colorSettingsGridClasses(): string {
-  return 'grid min-w-0 gap-4 md:grid-cols-2';
+  return 'grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2';
 }
 
 export function teamColorControlClasses(): string {

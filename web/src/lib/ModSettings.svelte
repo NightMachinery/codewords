@@ -236,7 +236,7 @@
   </div>
 
   {#if open}
-  <fieldset class="space-y-6 disabled:opacity-60" disabled={!hostControls}>
+  <fieldset class="min-w-0 space-y-6 disabled:opacity-60" disabled={!hostControls}>
     {#if phase === 'lobby'}
       <div class="grid grid-cols-3 gap-2 rounded-2xl border border-slate-700 bg-slate-950/60 p-1">
         <button type="button" class={['rounded-xl px-4 py-2 text-sm font-black transition', settings.mode !== 'unity' && settings.mode !== 'monality' ? 'bg-blue-400/20 text-blue-100' : 'text-slate-400 hover:text-slate-100'].join(' ')} onclick={() => setMode('polarity')}>Polarity</button>
@@ -262,7 +262,7 @@
           <span class="text-xs font-black uppercase tracking-widest text-slate-300">Setting profiles</span>
           {#if profileNotice}<span class="text-xs font-bold text-emerald-200">{profileNotice}</span>{/if}
         </div>
-        <select class="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" bind:value={selectedProfileId}>
+        <select class="w-full min-w-0 max-w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50" bind:value={selectedProfileId}>
           {#each profiles as profile (profile.id)}
             <option value={profile.id}>{profile.name}{profile.source === 'bundled' ? ' · default' : ' · saved'}</option>
           {/each}
@@ -281,7 +281,7 @@
     {#if phase === 'lobby'}
     <!-- Game Rules -->
     <div class={colorSettingsGridClasses()}>
-      <div class="block rounded-2xl border border-slate-700 bg-slate-950/70 p-4">
+      <div class="block min-w-0 rounded-2xl border border-slate-700 bg-slate-950/70 p-4">
         <div class="flex flex-wrap items-baseline justify-between gap-2">
           <span class="text-sm font-bold text-slate-300">Wordpacks</span>
           <span class="text-xs font-bold text-slate-500">{selectedWordpackIds.length} selected · up to {selectedWordpackTotal} words</span>

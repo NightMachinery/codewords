@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest",
+    "test:responsive": "playwright test --project=chromium --project=firefox",
     "lint": "svelte-check --tsconfig ./tsconfig.json"
   },
   "dependencies": {
@@ -24,6 +25,7 @@
     "vite": "8.0.10"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@tsconfig/svelte": "5.0.5",
     "@types/three": "^0.184.0",
     "@webgpu/glslang": "0.0.15",

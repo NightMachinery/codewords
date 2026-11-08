@@ -697,7 +697,7 @@ describe('regression helpers', () => {
   it('uses mobile-safe mod settings and team color layout classes', () => {
     expect(modSettingsShellClasses()).toContain('max-w-full');
     expect(modSettingsShellClasses()).toContain('overflow-hidden');
-    expect(colorSettingsGridClasses()).toBe('grid min-w-0 gap-4 md:grid-cols-2');
+    expect(colorSettingsGridClasses()).toBe('grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2');
     expect(teamColorControlClasses()).toContain('grid-cols-1');
     expect(teamColorControlClasses()).not.toContain('sm:flex-row');
     expect(teamColorControlClasses()).toContain('min-w-0');
