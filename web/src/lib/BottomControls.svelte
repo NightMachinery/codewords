@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import type { Settings } from './api';
   import { gameTerms, lowerGameTerm } from './constants';
   import { bottomStripRoleBadgeKinds, filteredBottomShortcutItems, displayTeamName, formatClueNumber, hexWithAlpha, isUnityTemporaryRepresentative, pressableButtonClasses, sortedTurnPlayers, teamColor, type ClueEntry, type GameplayPhase, type PlayerRoleBadgeKind, type UnityBoardView } from './gameplay';
@@ -83,7 +82,6 @@
   let controlsExpanded = $state(true);
   let controlsBody: HTMLDivElement | null = $state(null);
   let playerStrip: HTMLDivElement | null = $state(null);
-  let playersNeedOwnRow = $state(false);
   let playersOverflow = $state(false);
 
   function setControlsExpanded(expanded: boolean) {
@@ -92,16 +90,19 @@
   }
 
   function measurePlayerStrip() {
-    if (controlsBody) playersNeedOwnRow = controlsBody.clientWidth < 720;
     if (playerStrip) playersOverflow = playerStrip.scrollWidth > playerStrip.clientWidth + 1;
   }
 
-  onMount(() => {
-    const observer = new ResizeObserver(() => measurePlayerStrip());
-    if (controlsBody) observer.observe(controlsBody);
-    if (playerStrip) observer.observe(playerStrip);
-    window.requestAnimationFrame(measurePlayerStrip);
-    return () => observer.disconnect();
+  $effect(() => {
+    if (!controlsBody || !playerStrip) return;
+    const observer = new ResizeObserver(measurePlayerStrip);
+    observer.observe(controlsBody);
+    observer.observe(playerStrip);
+    const frame = window.requestAnimationFrame(measurePlayerStrip);
+    return () => {
+      observer.disconnect();
+      window.cancelAnimationFrame(frame);
+    };
   });
 
   let isYourTeam = $derived(role.team === currentTeam);
@@ -123,7 +124,6 @@
   let turnGlowStyle = $derived(currentTeam === 'blue' || currentTeam === 'red'
     ? `background-color: ${turnColor}; box-shadow: 0 0 0 1px ${hexWithAlpha(turnColor, '88')}, 0 0 ${canActNow ? '34px' : '18px'} ${hexWithAlpha(turnColor, canActNow ? 'AA' : '66')};`
     : '');
-  let canShowTurnPanel = $derived(!playersNeedOwnRow || Boolean(currentClue));
 
   $effect(() => {
     currentTeamPlayers;
@@ -218,51 +218,23 @@
     Controls
   </button>
 {:else}
-<footer id="bottom-sticky-panel" class="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-700/60 bg-slate-900/90 p-2 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] backdrop-blur-md">
-  <button
-    class={pressableButtonClasses('absolute right-0 top-0 z-10 grid h-9 w-9 place-items-center rounded-bl-2xl border-b border-l border-slate-700/80 bg-slate-950/95 text-slate-300 shadow-xl hover:border-emerald-300/60 hover:text-emerald-100')}
-    onclick={() => setControlsExpanded(false)}
-    aria-label="Collapse bottom controls"
-  >
-    <ChevronDown class="h-5 w-5" />
-  </button>
-
-  {#if playersNeedOwnRow && currentTeamPlayers.length}
-    <div class="mx-auto mb-1 max-w-7xl pr-10">
-      <div class="relative isolate overflow-hidden rounded-xl border border-slate-700/70 bg-slate-950/55 px-2.5 py-1.5">
-        {#if currentTeam === 'blue' || currentTeam === 'red'}
-          <span class="pointer-events-none absolute -left-5 top-1/2 h-16 w-16 -translate-y-1/2 rounded-full opacity-30 blur-xl" style={`background-color: ${turnColor};`}></span>
-        {/if}
-        <div class="relative z-10 flex min-w-0 items-center gap-2" title={`${teamLabel} players`}>
-          <span class={['h-3 w-3 shrink-0 rounded-full', canActNow ? 'animate-pulse' : ''].join(' ')} style={turnGlowStyle}></span>
-          {@render PlayerStrip()}
-          {#if currentClue}
-            <p class="hidden shrink-0 truncate text-[10px] font-black text-slate-100 min-[560px]:block">
-              <span class="text-slate-500">Clue:</span> {currentClue.text} · {formatClueNumber(currentClue.number)}
-            </p>
-          {/if}
-        </div>
-      </div>
-    </div>
-  {/if}
-
-  <div bind:this={controlsBody} class="relative mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 pr-10">
+<footer id="bottom-sticky-panel" class="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-700/60 bg-slate-900/90 p-1.5 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] backdrop-blur-md">
+  <div bind:this={controlsBody} class="controls-layout mx-auto max-w-7xl">
     <!-- Turn/team row -->
-    {#if canShowTurnPanel}
-    <div class={['relative min-w-0 flex-[1_1_12rem]', playersNeedOwnRow ? 'max-w-none' : 'md:max-w-xs'].join(' ')}>
-      <div class="relative isolate overflow-hidden rounded-2xl border border-slate-700/70 bg-slate-950/55 px-2.5 py-1.5" title={`${teamLabel} turn`}>
+    <div class="footer-turn min-w-0">
+      <div class="relative isolate overflow-hidden rounded-xl border border-slate-700/70 bg-slate-950/55 px-2 py-1" title={`${teamLabel} turn`}>
         {#if currentTeam === 'blue' || currentTeam === 'red'}
           <span class="pointer-events-none absolute -left-5 top-1/2 h-20 w-20 -translate-y-1/2 rounded-full opacity-35 blur-xl" style={`background-color: ${turnColor};`}></span>
         {/if}
         <div class="relative z-10 flex min-w-0 items-center gap-2" aria-label={`${teamLabel} turn${canActNow ? ', you can act now' : ''}`}>
-          <span
-            class={['hidden h-3 w-3 shrink-0 rounded-full min-[520px]:block', canActNow ? 'animate-pulse' : ''].join(' ')}
-            style={turnGlowStyle}
-          ></span>
+          {#if currentTeam === 'blue' || currentTeam === 'red'}
+            <span
+              class={['h-2 w-2 shrink-0 rounded-full', canActNow ? 'animate-pulse' : ''].join(' ')}
+              style={turnGlowStyle}
+            ></span>
+          {/if}
           <div class="min-w-0 flex-1">
-            {#if !playersNeedOwnRow}
-              {@render PlayerStrip()}
-            {/if}
+            {@render PlayerStrip()}
             {#if currentClue}
               <p class="mt-0.5 truncate text-[10px] font-black text-slate-100">
                 <span class="text-slate-500">Clue:</span> {currentClue.text} · {formatClueNumber(currentClue.number)}
@@ -272,12 +244,54 @@
         </div>
       </div>
     </div>
-    {/if}
-
+    <div class="primary-actions flex shrink-0 items-center gap-1">
+      {#if showPass}
+        <button
+          class={pressableButtonClasses('inline-flex h-8 w-8 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-slate-500 py-1.5 text-sm font-black text-slate-100 hover:border-emerald-300 hover:text-emerald-200 disabled:opacity-50 md:w-auto md:px-4')}
+          disabled={Boolean(passProblem)}
+          onclick={onPassTurn}
+          title="Pass"
+          aria-label="Pass turn"
+        >
+          <SkipForward class="h-4 w-4" />
+          <span class="hidden md:inline">Pass</span>
+        </button>
+      {/if}
+      {#if mode === 'unity' && hostControls && phase === 'active' && !compactSwitchUnitySpymaster}
+        <button
+          class={pressableButtonClasses(['grid h-8 w-8 shrink-0 place-items-center rounded-xl border', transitionLocked ? 'border-slate-700 bg-slate-800 text-slate-500' : 'border-teal-300/50 bg-teal-300/10 text-teal-100 hover:bg-teal-300/20'].join(' '))}
+          type="button"
+          disabled={transitionLocked}
+          aria-label={`Switch Unity ${lowerGameTerm(gameTerms.role.spy.one)}`}
+          title={transitionLocked ? `Next board unlocks in ${transitionSecondsRemaining}s` : `Switch Unity ${lowerGameTerm(gameTerms.role.spy.one)}`}
+          onclick={onSwitchUnitySpymaster}
+        >
+          {@render BoardViewIcon('switch-spy')}
+        </button>
+      {/if}
+      {#if role.kind === 'spymaster' && mode !== 'unity'}
+        <button
+          class={pressableButtonClasses(['inline-flex h-8 w-8 shrink-0 items-center justify-center gap-1 rounded-xl border', spymasterViewActive ? 'border-emerald-300/60 bg-emerald-300/15 text-emerald-100' : 'border-slate-600 bg-slate-800 text-slate-300 hover:border-emerald-300/50'].join(' '))}
+          onclick={onToggleView}
+          aria-label={spymasterViewActive ? `Turn ${lowerGameTerm(gameTerms.role.spy.one)} view off` : `Turn ${lowerGameTerm(gameTerms.role.spy.one)} view on`}
+          aria-pressed={spymasterViewActive}
+          title={spymasterViewActive ? `${gameTerms.role.spy.one} view on` : `${gameTerms.role.spy.one} view off`}
+        >
+          <SvgMaskIcon src={customSvg.spy} classes="h-4 w-4" />
+          {#if spymasterViewActive}<span class="h-2 w-2 shrink-0 rounded-full bg-current"></span>{/if}
+        </button>
+      {/if}
+      <button
+        class={pressableButtonClasses('grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-slate-700/80 bg-slate-950/95 text-slate-300 shadow-xl hover:border-emerald-300/60 hover:text-emerald-100')}
+        onclick={() => setControlsExpanded(false)}
+        aria-label="Collapse bottom controls"
+      >
+        <ChevronDown class="h-5 w-5" />
+      </button>
+    </div>
     <!-- Controls -->
-    {#if showClueInput || showPass}
-    <div class={['flex min-w-0 items-center gap-3', showClueInput ? 'flex-[1_1_18rem] justify-center md:max-w-2xl' : 'flex-[0_0_auto] justify-end'].join(' ')}>
-      {#if showClueInput}
+    {#if showClueInput}
+    <div class="clue-controls min-w-0">
         <div class="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] gap-2">
           <input
             class="w-full min-w-0 rounded-xl border border-slate-700 bg-slate-950 px-3 py-1.5 text-sm font-semibold text-slate-50 outline-none ring-emerald-300 transition focus:ring-2 disabled:opacity-50"
@@ -306,32 +320,20 @@
             <span class="hidden min-[520px]:inline">Submit</span>
           </button>
         </div>
-      {:else}
-        <button
-          class={pressableButtonClasses('inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-500 px-2.5 py-1.5 text-sm font-black text-slate-100 hover:border-emerald-300 hover:text-emerald-200 disabled:opacity-50 min-[440px]:px-4')}
-          disabled={Boolean(passProblem)}
-          onclick={onPassTurn}
-          title="Pass"
-          aria-label="Pass turn"
-        >
-          <SkipForward class="h-4 w-4" />
-          <span class="hidden min-[440px]:inline">Pass</span>
-        </button>
-      {/if}
     </div>
     {/if}
 
     <!-- Actions -->
-    <div class="flex min-w-0 flex-[0_1_auto] flex-wrap items-center justify-end gap-2">
-      <div class="flex shrink-0 items-center gap-1 rounded-2xl border border-slate-700 bg-slate-950/50 p-1">
+    <div class="footer-actions flex min-w-0 items-center gap-1">
+      <div class="footer-nav flex items-center rounded-xl border border-slate-700 bg-slate-950/50 p-0.5">
         {#each shortcutItems as shortcut (shortcut.target)}
-          <button class={pressableButtonClasses('grid h-8 w-8 place-items-center rounded-xl text-slate-300 hover:bg-slate-800 hover:text-emerald-200')} title={shortcut.label} aria-label={shortcut.label} onclick={() => onNavigate(shortcut.target)}>
+          <button class={pressableButtonClasses('grid h-8 min-w-8 flex-1 place-items-center rounded-lg text-slate-300 hover:bg-slate-800 hover:text-emerald-200')} title={shortcut.label} aria-label={shortcut.label} onclick={() => onNavigate(shortcut.target)}>
             {@render MiniIcon(shortcut.kind)}
           </button>
         {/each}
       </div>
       {#if showUnityBoardSwitch}
-        <div class="grid shrink-0 grid-flow-col auto-cols-fr gap-1 rounded-2xl border border-teal-300/30 bg-slate-950/70 p-1" aria-label="Unity board view">
+        <div class="grid shrink-0 grid-flow-col auto-cols-fr gap-0.5 rounded-xl border border-teal-300/30 bg-slate-950/70 p-0.5" aria-label="Unity board view">
           {#if hasPreviousBoard}
             <button
               class={pressableButtonClasses(['grid h-8 w-8 place-items-center rounded-xl', boardView === 'previous' ? 'bg-teal-300 text-slate-950' : 'text-teal-100 hover:bg-teal-300/10'].join(' '))}
@@ -381,31 +383,60 @@
           {/if}
         </div>
       {/if}
-      {#if mode === 'unity' && hostControls && phase === 'active' && !compactSwitchUnitySpymaster}
-        <button
-          class={pressableButtonClasses(['grid h-10 w-10 shrink-0 place-items-center rounded-xl border', transitionLocked ? 'border-slate-700 bg-slate-800 text-slate-500' : 'border-teal-300/50 bg-teal-300/10 text-teal-100 hover:bg-teal-300/20'].join(' '))}
-          type="button"
-          disabled={transitionLocked}
-          aria-label={`Switch Unity ${lowerGameTerm(gameTerms.role.spy.one)}`}
-          title={transitionLocked ? `Next board unlocks in ${transitionSecondsRemaining}s` : `Switch Unity ${lowerGameTerm(gameTerms.role.spy.one)}`}
-          onclick={onSwitchUnitySpymaster}
-        >
-          {@render BoardViewIcon('switch-spy')}
-        </button>
-      {/if}
-      {#if role.kind === 'spymaster' && mode !== 'unity'}
-        <button
-          class={pressableButtonClasses(['inline-flex h-10 w-10 shrink-0 items-center justify-center gap-1 rounded-xl border', spymasterViewActive ? 'border-emerald-300/60 bg-emerald-300/15 text-emerald-100' : 'border-slate-600 bg-slate-800 text-slate-300 hover:border-emerald-300/50'].join(' '))}
-          onclick={onToggleView}
-          aria-label={spymasterViewActive ? `Turn ${lowerGameTerm(gameTerms.role.spy.one)} view off` : `Turn ${lowerGameTerm(gameTerms.role.spy.one)} view on`}
-          aria-pressed={spymasterViewActive}
-          title={spymasterViewActive ? `${gameTerms.role.spy.one} view on` : `${gameTerms.role.spy.one} view off`}
-        >
-          <SvgMaskIcon src={customSvg.spy} classes="h-4 w-4" />
-          {#if spymasterViewActive}<span class="h-2 w-2 shrink-0 rounded-full bg-current"></span>{/if}
-        </button>
-      {/if}
     </div>
   </div>
 </footer>
 {/if}
+
+<style>
+  footer {
+    container-type: inline-size;
+  }
+
+  .controls-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .clue-controls,
+  .footer-actions {
+    grid-column: 1 / -1;
+  }
+
+  .footer-nav {
+    flex: 1 0 auto;
+  }
+
+  .clue-controls :is(input, select, button) {
+    min-height: 36px;
+  }
+
+  @container (min-width: 720px) {
+    .controls-layout {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .footer-turn {
+      flex: 1 1 12rem;
+      max-width: 20rem;
+    }
+
+    .clue-controls {
+      flex: 1 1 18rem;
+      max-width: 42rem;
+    }
+
+    .footer-actions {
+      flex: 0 0 auto;
+    }
+
+    .primary-actions {
+      order: 1;
+      margin-left: auto;
+    }
+  }
+</style>

@@ -1,16 +1,20 @@
 # Mobile layout repair
 
 The room footer must keep navigation, board-view controls and turn actions
-inside the viewport without overlapping. Groups may wrap onto another row;
-the clue text, count and submit action should share a row on phones.
+inside the viewport without overlapping or creating mostly empty rows.
+On phones, player status, Pass and collapse share the first row. Navigation
+and Unity board views share the second row. For players who can submit a clue,
+the composer sits between those rows, making three rows in total.
 
 Moderator settings must fit their container, including long profile names and
 wordpack labels. A fieldset's default minimum content width must not stretch
 the settings grid. Controls should shrink and labels wrap inside the panel.
 
-The footer uses a three-column grid for clue text, count and submit. Navigation
-and board-view groups retain their width and wrap as groups when space runs out.
-The collapse button sits above the content so the reserved space remains clickable.
+The footer uses a compact two-column grid for status and primary actions, with
+full-width rows for the clue form and navigation. Navigation buttons share the
+available width alongside board-view controls. A container query switches to
+the desktop flex layout at 720px of available footer width. Player names truncate
+before controls shrink. The overflow observer reconnects after collapse/expand.
 Moderator settings explicitly reset the fieldset minimum width, constrain the
 profile dropdown, and allow the wordpack grid item to shrink.
 
@@ -20,9 +24,13 @@ Install browser binaries with `pnpm --dir web exec playwright install chromium f
 then run `pnpm --dir web test:responsive`. The suite starts its own Vite server
 on port 5174 and mounts the production components with deterministic fixture data.
 It checks clipping (including inner clipping containers), overlapping controls,
-button hit targets, clue submission, pass, board view, collapse/expand and
+button hit targets, clue submission, pass, board view, collapse/expand, resizing and
 wordpack add/remove. Widths cover 320, 360, 393, 430, 768, 1024 and 1440 CSS pixels;
 the 768px case uses a short landscape viewport. All three game modes are covered.
+At phone widths, a guesser footer without a current clue must stay at or below
+96 CSS pixels, and a clue composer footer at or below 136. Navigation and Unity
+board views must occupy the same row, including at 320px. A successful browser
+test also captures the compact Unity layout for visual review.
 
 Fixture types can be checked with
 `pnpm --dir web exec svelte-check --tsconfig ./e2e/tsconfig.json`.

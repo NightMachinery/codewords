@@ -49,7 +49,7 @@
         role={{ kind: isSpy ? 'spymaster' : 'guesser', activeGuesser: !isSpy, team, player: players[isSpy ? 0 : 1] }}
         cluePermission={{ allowed: isSpy, reason: '' }} bind:clueText bind:clueNumber
         clueProblem={clueText && clueNumber ? '' : 'Enter clue and count'} passProblem="" {settings} {players}
-        hostControls={true} spymasterViewActive={spyView} onToggleView={() => spyView = !spyView}
+        hostControls={true} compactSwitchUnitySpymaster={params.has('compact')} spymasterViewActive={spyView} onToggleView={() => spyView = !spyView}
         onSetSpyView={(value) => spyView = value} onSetBoardView={(value) => boardView = value}
         onSwitchUnitySpymaster={() => notice = 'Switched spy'} onNavigate={(value) => notice = value}
         onSubmitClue={() => notice = 'Clue submitted'} onPassTurn={() => notice = 'Turn passed'} />

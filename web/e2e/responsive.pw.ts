@@ -44,6 +44,13 @@ for (const width of [320, 360, 393, 430, 768, 1024, 1440]) {
       await page.goto(`/e2e/responsive.html?role=${role}`);
       await expect(page.getByRole('button', { name: 'Collapse bottom controls' })).toBeVisible();
       await expectControlsFit(page, '#bottom-sticky-panel');
+      if (width <= 430) {
+        const footer = await page.locator('#bottom-sticky-panel').boundingBox();
+        expect(footer!.height, 'Mobile footer must stay compact').toBeLessThanOrEqual(role === 'spy' ? 136 : 96);
+        const board = await page.getByRole('button', { name: 'Board', exact: true }).boundingBox();
+        const views = await page.getByRole('button', { name: 'Show previous board' }).boundingBox();
+        expect(Math.abs(board!.y - views!.y), 'Navigation and board views share a row').toBeLessThan(3);
+      }
       if (role === 'spy') {
         const input = page.getByPlaceholder('One-word clue');
         await input.fill('Test');
@@ -52,6 +59,12 @@ for (const width of [320, 360, 393, 430, 768, 1024, 1440]) {
         const inputBox = await input.boundingBox();
         const submitBox = await submit.boundingBox();
         expect(Math.abs(inputBox!.y - submitBox!.y)).toBeLessThan(3);
+        if (width <= 430) {
+          const navigation = await page.getByRole('button', { name: 'Board', exact: true }).boundingBox();
+          const collapse = await page.getByRole('button', { name: 'Collapse bottom controls' }).boundingBox();
+          expect(inputBox!.y).toBeGreaterThan(collapse!.y);
+          expect(inputBox!.y).toBeLessThan(navigation!.y);
+        }
         await submit.click();
         await expect(page.getByRole('status')).toHaveText('Clue submitted');
       } else {
@@ -63,6 +76,14 @@ for (const width of [320, 360, 393, 430, 768, 1024, 1440]) {
       await page.getByRole('button', { name: 'Collapse bottom controls' }).click();
       await page.getByRole('button', { name: 'Expand bottom controls' }).click();
       await expectControlsFit(page, '#bottom-sticky-panel');
+      if (width <= 430) {
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await expectControlsFit(page, '#bottom-sticky-panel');
+        await page.setViewportSize({ width, height: 900 });
+        await expectControlsFit(page, '#bottom-sticky-panel');
+        const footer = await page.locator('#bottom-sticky-panel').boundingBox();
+        expect(footer!.height).toBeLessThanOrEqual(role === 'spy' ? 136 : 96);
+      }
     });
   }
 
@@ -79,6 +100,21 @@ for (const width of [320, 360, 393, 430, 768, 1024, 1440]) {
     await expect(page.getByText('1 selected', { exact: false })).toBeVisible();
   });
 }
+
+test('live Unity guesser layout stays in two compact rows', async ({ page }) => {
+  await page.setViewportSize({ width: 393, height: 780 });
+  await page.goto('/e2e/responsive.html?role=guesser&compact=1');
+  await expect(page.getByRole('button', { name: 'Collapse bottom controls' })).toBeVisible();
+  await expectControlsFit(page, '#bottom-sticky-panel');
+  const footer = await page.locator('#bottom-sticky-panel').boundingBox();
+  const pass = await page.getByRole('button', { name: 'Pass turn' }).boundingBox();
+  const collapse = await page.getByRole('button', { name: 'Collapse bottom controls' }).boundingBox();
+  expect(footer!.height).toBeLessThanOrEqual(96);
+  expect(Math.abs(pass!.y - collapse!.y)).toBeLessThan(2);
+  const screenshot = test.info().outputPath('compact-mobile-footer.png');
+  await page.locator('#bottom-sticky-panel').screenshot({ path: screenshot });
+  await test.info().attach('compact-mobile-footer', { path: screenshot, contentType: 'image/png' });
+});
 
 for (const mode of ['polarity', 'monality']) {
   for (const role of ['spy', 'guesser']) {
